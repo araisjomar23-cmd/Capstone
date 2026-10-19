@@ -292,7 +292,7 @@ function AdminAttendance() {
             <div className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
               <QRCodeCanvas
                 id={`visible-qr-canvas-${selectedQrActivity.id}`}
-                value={`${window.location.origin}/?activity=${selectedQrActivity.id}`}
+                value={`${window.location.origin}/evaluate/${selectedQrActivity.id}`}
                 size={320}
                 fgColor="#1a5c3a"
                 bgColor="#ffffff"

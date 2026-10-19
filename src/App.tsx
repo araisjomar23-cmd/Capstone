@@ -31,6 +31,7 @@ function App() {
       <Route path="/signup" element={<ParticipantSignup />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/feedback" element={<SubmitEvaluation />} />
+      <Route path="/evaluate/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/admin/login"><SubmitEvaluation /></ProtectedRoute>} />
 
       <Route
         path="/participant/complete-profile"

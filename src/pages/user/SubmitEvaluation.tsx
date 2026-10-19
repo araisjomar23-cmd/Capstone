@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { submitEvaluation } from '../../features/evaluations/evaluationService'
 import { useSearchParams } from 'react-router-dom'
+import { fetchMyRegistrations } from '../../features/public/registrationService'
 import { HeartHandshake } from 'lucide-react'
 import { Star } from 'lucide-react'
 
@@ -83,12 +84,31 @@ function LikertRow({ label, value, onChange }: { label: string; value: string; o
 function SubmitEvaluation() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const refCode = searchParams.get('ref') || ''
+  const { activityId } = useParams()
+  const [refCode, setRefCode] = useState(searchParams.get('ref') || '')
+  const [entryState, setEntryState] = useState<'checking' | 'not-registered' | 'not-attended' | 'ready' | 'evaluated' | 'error'>(activityId ? 'checking' : 'ready')
+  const [entryMessage, setEntryMessage] = useState('')
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+
+  useEffect(() => {
+    if (!activityId) return
+    let active = true
+    fetchMyRegistrations().then((result) => {
+      if (!active) return
+      if (!result.ok) { setEntryState('error'); setEntryMessage('We could not check your registration. Please try again.'); return }
+      const registration = result.data.find((item) => item.activityId === activityId)
+      if (!registration) { setEntryState('not-registered'); return }
+      setRefCode(registration.refCode)
+      if (registration.hasEvaluation || ['Evaluated', 'evaluated', 'completed'].includes(registration.status)) { setEntryState('evaluated'); return }
+      if (!['Attended', 'attended', 'completed'].includes(registration.status)) { setEntryState('not-attended'); return }
+      setEntryState('ready')
+    })
+    return () => { active = false }
+  }, [activityId])
 
   const filledCount = REQUIRED_KEYS.filter((k) => answers[k]).length
   const progressPct = Math.round((filledCount / REQUIRED_KEYS.length) * 100)
@@ -118,7 +138,7 @@ function SubmitEvaluation() {
     setSubmitting(false)
 
     if (!result.ok) {
-      setError(result.error || 'Failed to submit feedback.')
+      setError(result.error?.toLowerCase().includes('duplicate') || result.error?.toLowerCase().includes('unique') ? 'An evaluation has already been submitted for this registration. Thank you for your feedback.' : result.error || 'Failed to submit feedback.')
       return
     }
     setDone(true)
@@ -137,6 +157,15 @@ function SubmitEvaluation() {
         </div>
       </div>
     )
+  }
+
+  if (activityId && entryState !== 'ready') {
+    const message = entryState === 'checking' ? 'Checking your activity registration…'
+      : entryState === 'not-registered' ? "You're not registered for this activity. Please register before submitting an evaluation."
+      : entryState === 'not-attended' ? 'Evaluation opens after your attendance is recorded.'
+      : entryState === 'evaluated' ? 'Thank you! Your evaluation has already been submitted.'
+      : entryMessage
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4"><div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center"><HeartHandshake size={48} className="mx-auto mb-3 text-primary" /><h1 className="text-xl font-bold text-gray-900 mb-2">{entryState === 'evaluated' ? 'Thank You!' : 'Activity Evaluation'}</h1><p className="text-sm text-gray-600">{message}</p></div></div>
   }
 
   return (

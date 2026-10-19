@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { loginAdmin, getAdminRole } from '../../features/auth/authService'
 import { Mail, Lock, Eye, EyeOff, CalendarCheck2, Users, Wallet, Check } from 'lucide-react'
 import logo from '../../assets/CYDO LOGO.jpg'
@@ -16,6 +16,9 @@ const FEATURES = [
 function AdminLogin() {
   usePageTitle('Login')
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedReturnTo = searchParams.get('returnTo')
+  const isSafeReturnTo = (value: string | null) => !!value && value.startsWith('/') && !value.startsWith('//')
   const { loading: authLoading, role } = useAuth()
   
   // FIX 1: Read the remembered email on initial component load
@@ -39,7 +42,7 @@ function AdminLogin() {
     } else if (role === 'facilitator') {
       navigate('/admin/facilitator-portal', { replace: true })
     } else if (role === 'participant') {
-      const pendingRedirect = sessionStorage.getItem('postLoginRedirect')
+      const pendingRedirect = isSafeReturnTo(requestedReturnTo) ? requestedReturnTo : sessionStorage.getItem('postLoginRedirect')
       sessionStorage.removeItem('postLoginRedirect')
       navigate(pendingRedirect || '/participant', { replace: true })
     }
@@ -100,7 +103,7 @@ function AdminLogin() {
       .eq('user_uuid', userId)
       .maybeSingle()
 
-    const pendingRedirect = sessionStorage.getItem('postLoginRedirect')
+    const pendingRedirect = isSafeReturnTo(requestedReturnTo) ? requestedReturnTo : sessionStorage.getItem('postLoginRedirect')
     sessionStorage.removeItem('postLoginRedirect')
 
     setLoading(false)

@@ -16,8 +16,9 @@ function ProtectedRoute({ children, allowedRoles, loginPath = '/admin/login' }: 
 
   if (!userId) {
 
-    sessionStorage.setItem('postLoginRedirect', location.pathname)
-    return <Navigate to={loginPath} replace />
+    const returnTo = `${location.pathname}${location.search}${location.hash}`
+    sessionStorage.setItem('postLoginRedirect', returnTo)
+    return <Navigate to={`${loginPath}?returnTo=${encodeURIComponent(returnTo)}`} replace />
   }
 
   if (allowedRoles && (!role || !allowedRoles.includes(role))) {
