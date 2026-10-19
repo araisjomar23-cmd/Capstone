@@ -85,9 +85,10 @@ function SubmitEvaluation() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { activityId } = useParams()
-  const [refCode, setRefCode] = useState(searchParams.get('ref') || '')
-  const [entryState, setEntryState] = useState<'checking' | 'not-registered' | 'not-attended' | 'event-not-finished' | 'ready' | 'evaluated' | 'error'>(activityId ? 'checking' : 'ready')
-  const [entryMessage, setEntryMessage] = useState('')
+  const requestedRefCode = searchParams.get('ref')?.trim() || ''
+  const [refCode, setRefCode] = useState(requestedRefCode)
+  const [entryState, setEntryState] = useState<'checking' | 'not-registered' | 'not-attended' | 'event-not-finished' | 'ready' | 'evaluated' | 'error'>(activityId || requestedRefCode ? 'checking' : 'error')
+  const [entryMessage, setEntryMessage] = useState(activityId || requestedRefCode ? '' : 'Open an eligible activity from My Evaluations to submit its evaluation.')
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
@@ -95,12 +96,14 @@ function SubmitEvaluation() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    if (!activityId) return
+    if (!activityId && !requestedRefCode) return
     let active = true
     fetchMyRegistrations().then((result) => {
       if (!active) return
       if (!result.ok) { setEntryState('error'); setEntryMessage('We could not check your registration. Please try again.'); return }
-      const registration = result.data.find((item) => item.activityId === activityId)
+      const registration = result.data.find((item) => activityId
+        ? item.activityId === activityId
+        : item.refCode.toUpperCase() === requestedRefCode.toUpperCase())
       if (!registration) { setEntryState('not-registered'); return }
       setRefCode(registration.refCode)
       if (registration.hasEvaluation) { setEntryState('evaluated'); return }
@@ -109,7 +112,7 @@ function SubmitEvaluation() {
       setEntryState('ready')
     })
     return () => { active = false }
-  }, [activityId])
+  }, [activityId, requestedRefCode])
 
   const filledCount = REQUIRED_KEYS.filter((k) => answers[k]).length
   const progressPct = Math.round((filledCount / REQUIRED_KEYS.length) * 100)

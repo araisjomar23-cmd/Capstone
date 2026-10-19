@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   CalendarDays,
+  ClipboardList,
   User,
   LogOut,
   X,
@@ -61,6 +62,11 @@ export default function ParticipantSidebar({ open, onClose }: Props) {
           <NavLink to="/participant/my-activities" className={navClass} onClick={onClose}>
             <CalendarDays size={20} />
             My Activities
+          </NavLink>
+
+          <NavLink to="/participant/evaluations" className={navClass} onClick={onClose}>
+            <ClipboardList size={20} />
+            My Evaluations
           </NavLink>
 
           <NavLink to="/participant/profile" className={navClass} onClick={onClose}>
