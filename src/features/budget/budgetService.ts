@@ -22,15 +22,27 @@ export interface BudgetOverview {
   entriesByActivity: Record<string, BudgetEntry[]>
 }
 
+interface BudgetEntryRecord {
+  id: string
+  activity_id: string
+  category: string | null
+  description: string | null
+  amount: number | string
+  entry_type: 'allocation' | 'expense'
+  recorded_at: string
+  recorded_by: string | null
+}
+
 export async function fetchBudgetOverview(): Promise<BudgetOverview> {
   const acts = await fetchActivities()
 
-  const { data: entries } = await supabase
+  const { data: entries, error } = await supabase
     .from('budget_entries')
     .select('id, activity_id, category, description, amount, entry_type, recorded_at, recorded_by')
     .order('recorded_at', { ascending: false })
+  if (error) throw new Error(`Unable to load budget entries: ${error.message}`)
 
-  const allEntries: BudgetEntry[] = (entries || []).map((e: any) => ({
+  const allEntries: BudgetEntry[] = ((entries || []) as BudgetEntryRecord[]).map((e) => ({
     id: e.id,
     activityId: e.activity_id,
     category: e.category || '',
@@ -65,7 +77,7 @@ export async function saveBudgetEntry(
   description: string,
   recordedBy = 'Admin'
 ): Promise<{ ok: boolean; error?: string }> {
-  if (amount <= 0) {
+  if (!Number.isFinite(amount) || amount <= 0) {
     return { ok: false, error: 'Enter a valid amount.' }
   }
 
@@ -84,4 +96,17 @@ export async function saveBudgetEntry(
   }
 
   return { ok: true }
+}
+
+export async function updateExpenseEntry(id: string, amount: number, category: string, description: string): Promise<{ ok: boolean; error?: string }> {
+  if (!Number.isFinite(amount) || amount <= 0 || !category.trim()) return { ok: false, error: 'Enter a valid positive amount and category.' }
+  const { error } = await supabase.from('budget_entries')
+    .update({ amount, category: category.trim(), description: description.trim() })
+    .eq('id', id).eq('entry_type', 'expense')
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
+export async function deleteExpenseEntry(id: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.from('budget_entries').delete().eq('id', id).eq('entry_type', 'expense')
+  return error ? { ok: false, error: error.message } : { ok: true }
 }

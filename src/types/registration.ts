@@ -17,4 +17,10 @@ export interface Registration {
   activityVenue: string
   program: string
   sectoralGroup: string
+  attendanceHistory: ParticipantAttendance[]
+}
+
+export interface ParticipantAttendance {
+  dayNumber: number
+  checkedInAt: string
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { fetchEvaluations } from '../../features/evaluations/evaluationService'
 import type { EvaluationRow, EvaluationStats } from '../../features/evaluations/evaluationService'
 import { ThumbsUp, ThumbsDown } from 'lucide-react'
@@ -47,6 +48,18 @@ function AdminEvaluations() {
     setLoading(false)
   }
 
+  const activityStats = useMemo(() => {
+    const grouped = new Map<string, { count: number; ratingTotal: number }>()
+    for (const row of rows) {
+      const current = grouped.get(row.activityTitle) || { count: 0, ratingTotal: 0 }
+      current.count += 1
+      current.ratingTotal += row.rating
+      grouped.set(row.activityTitle, current)
+    }
+    return [...grouped.entries()].map(([title, result]) => ({ title, responses: result.count, average: result.ratingTotal / result.count }))
+      .sort((a, b) => b.responses - a.responses)
+  }, [rows])
+
   return (
     <div className="p-4 md:p-8">
       <h1 className="text-2xl font-bold text-primary mb-6">Evaluations & Feedback</h1>
@@ -67,6 +80,16 @@ function AdminEvaluations() {
           <div className="text-sm text-gray-500">Would Recommend</div>
           <div className="text-2xl font-bold text-gray-900 mt-1">{loading ? '—' : `${stats.recommendRate}%`}</div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow border border-gray-100 overflow-x-auto mb-6">
+        <div className="p-4 border-b border-gray-100 font-bold text-gray-900">Satisfaction by Activity</div>
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-xs text-gray-500"><th className="p-3">Activity</th><th className="p-3">Responses</th><th className="p-3">Average / 5</th></tr></thead>
+          <tbody>{activityStats.map((item) => <tr key={item.title} className="border-t border-gray-100"><td className="p-3">{item.title}</td><td className="p-3">{item.responses}</td><td className="p-3 font-semibold">{item.average.toFixed(1)}</td></tr>)}
+            {!activityStats.length && <tr><td colSpan={3} className="p-4 text-center text-gray-400">No evaluation results yet.</td></tr>}
+          </tbody>
+        </table>
       </div>
 
       <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">

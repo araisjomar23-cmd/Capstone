@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Users, CheckCircle2, Pin, BarChart3, Star } from 'lucide-react'
+import { Users, CheckCircle2, Pin, BarChart3, Star, Wallet, Coins, CircleDollarSign } from 'lucide-react'
 import {
   PieChart,
   Pie,
@@ -139,6 +139,13 @@ function AdminDashboard() {
         />
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard icon={<Wallet size={34} />} barColor="var(--color-info)" label="Budget Allocated" value={`₱${data.totalBudgetAllocated.toLocaleString()}`} />
+        <StatCard icon={<Coins size={34} />} barColor="var(--color-danger)" label="Budget Spent" value={`₱${data.totalBudgetSpent.toLocaleString()}`} />
+        <StatCard icon={<CircleDollarSign size={34} />} barColor="var(--color-teal)" label="Budget Remaining" value={`₱${(data.totalBudgetAllocated - data.totalBudgetSpent).toLocaleString()}`} />
+        <StatCard icon={<Star size={34} />} barColor="var(--color-accent)" label="Average Satisfaction" value={`${data.evaluationStats.averageRating.toFixed(1)} / 5`} sub={`${data.evaluationStats.totalResponses} responses`} />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <RegistrationStatusChart data={data.statusBreakdown} />
         <ActivityRegistrationsChart
@@ -170,6 +177,7 @@ function AdminDashboard() {
 
       <div className="grid grid-cols-1 gap-4">
         <RecentEvaluationsFeed stats={data.evaluationStats} rows={data.recentEvaluations} />
+        <ActivitySatisfactionTable data={data.activitySatisfaction} />
       </div>
     </div>
   )
@@ -385,6 +393,20 @@ function RecentEvaluationsFeed({
   )
 }
 
+function ActivitySatisfactionTable({ data }: { data: { name: string; responses: number; averageRating: number }[] }) {
+  return (
+    <div className="stat-card p-4 overflow-x-auto">
+      <h2 className="text-sm font-semibold text-gray-600 mb-3">Average Satisfaction by Activity</h2>
+      {!data.length ? <p className="py-6 text-center text-sm text-gray-400">No evaluation data yet.</p> : (
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-xs text-gray-400"><th className="py-2">Activity</th><th className="py-2">Responses</th><th className="py-2">Average / 5</th></tr></thead>
+          <tbody>{data.map((item) => <tr key={item.name} className="border-t border-gray-100"><td className="py-2">{item.name}</td><td className="py-2">{item.responses}</td><td className="py-2 font-semibold">{item.averageRating.toFixed(1)}</td></tr>)}</tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
 function StatCard({
   icon,
   barColor,
@@ -397,7 +419,7 @@ function StatCard({
   barColor: string
   label: string
   value: string | number
-  sub: string
+  sub?: string
   trend?: string
 }) {
   return (

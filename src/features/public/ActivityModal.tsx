@@ -4,6 +4,7 @@ import { X, MapPin, Calendar, Clock, CheckCircle2 } from 'lucide-react'
 import { fetchActivityById, registerParticipant } from './registrationService'
 import type { PublicActivity } from './publicActivityService'
 import { supabase } from '../../lib/supabase'
+import { QRCodeCanvas } from 'qrcode.react'
 
 interface Props {
   activityId: string
@@ -90,6 +91,9 @@ function ActivityModal({ activityId, onClose }: Props) {
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
               <div className="text-xs text-gray-500 mb-1">Your Reference Code</div>
               <div className="text-2xl font-bold text-primary tracking-wider">{refCode}</div>
+            </div>
+            <div className="inline-flex p-3 bg-white border rounded-xl mb-4" aria-label="Attendance QR code">
+              <QRCodeCanvas value={refCode} size={176} level="M" />
             </div>
             <p className="text-xs text-gray-400 mb-6">
               Save this code — you'll need it to check in / mark attendance on the activity day.

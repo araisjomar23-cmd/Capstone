@@ -8,6 +8,7 @@ import type { MarkAttendanceResult } from '../../features/attendance/attendanceS
 import { ClipboardList, Download, ArrowLeft,QrCode, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { SkeletonCard } from '../../components/Skeleton'
 import { supabase } from '../../lib/supabase'
+import QrCameraScanner from '../../components/QrCameraScanner'
 
 const PILL_STYLES: Record<string, string> = {
   open: 'bg-green-100 text-green-700',
@@ -23,6 +24,7 @@ function AdminAttendance() {
   const [selectedActivity, setSelectedActivity] = useState('')
   const [refInput, setRefInput] = useState('')
   const [dayNumber, setDayNumber] = useState(1)
+  const [attendanceMethod, setAttendanceMethod] = useState<'manual' | 'qr'>('manual')
   const [scanResult, setScanResult] = useState<MarkAttendanceResult | null>(null)
   const [checking, setChecking] = useState(false)
   const [selectedQrActivityId, setSelectedQrActivityId] = useState<string | null>(null)
@@ -57,12 +59,25 @@ function AdminAttendance() {
   async function handleMark() {
      if (checking || !selectedActivity || !refInput.trim()) return // Blocks empty clicks
       setChecking(true)
-      const result = await markAttendance(selectedActivity, refInput, dayNumber)
+      const result = await markAttendance(selectedActivity, refInput, dayNumber, attendanceMethod)
       setScanResult(result)
       setChecking(false)
       if (result.status === 'success') {
         setRefInput('')
+        setAttendanceMethod('manual')
     }
+  }
+
+  async function handleQrScan(value: string) {
+    if (checking || !selectedActivity) return
+    setRefInput(value)
+    setAttendanceMethod('qr')
+    setChecking(true)
+    const result = await markAttendance(selectedActivity, value, dayNumber, 'qr')
+    setScanResult(result)
+    setChecking(false)
+    if (result.status === 'success') setRefInput('')
+    setAttendanceMethod('manual')
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -129,7 +144,7 @@ function AdminAttendance() {
                 <input
                   type="text"
                   value={refInput}
-                  onChange={(e) => setRefInput(e.target.value)}
+                  onChange={(e) => { setRefInput(e.target.value); setAttendanceMethod('manual') }}
                   onKeyDown={handleKeyDown}
                   placeholder="Scan or paste code"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base mt-1 font-medium"
@@ -157,6 +172,8 @@ function AdminAttendance() {
               {checking ? 'Checking…' : 'Mark Attendance'}
             </button>
           </div>
+
+          <QrCameraScanner disabled={checking || !selectedActivity} onScan={(value) => { void handleQrScan(value) }} />
 
           {scanResult && (
             <div

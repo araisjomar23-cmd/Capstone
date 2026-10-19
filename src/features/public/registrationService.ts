@@ -112,6 +112,26 @@ export interface MyRegistration {
   registeredAt: string
   cancelDeadline: string | null
   canCancel: boolean
+  refCode: string
+  hasEvaluation: boolean
+}
+
+interface MyRegistrationRecord {
+  id: string
+  activity_id: string
+  title: string | null
+  color_bg: string | null
+  status: string
+  registered_at: string
+  cancel_deadline: string | null
+  can_cancel: boolean
+}
+
+interface MyEvaluationStatusRecord {
+  registration_id: string
+  ref_code: string
+  activity_title: string
+  evaluated: boolean
 }
 
 export interface MyRegistrationsResult {
@@ -125,13 +145,19 @@ export interface MyRegistrationsResult {
  * is computed server-side so the client never re-implements the rules.
  */
 export async function fetchMyRegistrations(): Promise<MyRegistrationsResult> {
-  const { data, error } = await supabase.rpc('get_my_registrations')
+  const [{ data, error }, { data: evaluationStatuses, error: evaluationError }] = await Promise.all([
+    supabase.rpc('get_my_registrations'),
+    supabase.rpc('get_my_evaluation_status'),
+  ])
 
-  if (error) {
-    return { ok: false, data: [], error: error.message }
+  if (error || evaluationError) {
+    return { ok: false, data: [], error: (error || evaluationError)?.message }
   }
 
-  const rows: MyRegistration[] = (data ?? []).map((r: any) => ({
+  const statusByRegistration = new Map<string, MyEvaluationStatusRecord>(
+    ((evaluationStatuses ?? []) as MyEvaluationStatusRecord[]).map((status) => [status.registration_id, status])
+  )
+  const rows: MyRegistration[] = ((data ?? []) as MyRegistrationRecord[]).map((r) => ({
     id: r.id,
     activityId: r.activity_id,
     title: r.title || 'Untitled Activity',
@@ -140,6 +166,8 @@ export async function fetchMyRegistrations(): Promise<MyRegistrationsResult> {
     registeredAt: r.registered_at,
     cancelDeadline: r.cancel_deadline,
     canCancel: Boolean(r.can_cancel),
+    refCode: statusByRegistration.get(r.id)?.ref_code || '',
+    hasEvaluation: statusByRegistration.get(r.id)?.evaluated || false,
   }))
 
   return { ok: true, data: rows }

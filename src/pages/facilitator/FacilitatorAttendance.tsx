@@ -8,6 +8,7 @@ import type { Activity } from '../../types/activity'
 import type { AttendanceLogRow, MarkAttendanceResult } from '../../features/attendance/attendanceService'
 import { EmptyState } from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
+import QrCameraScanner from '../../components/QrCameraScanner'
 
 const PILL_STYLES: Record<string, string> = {
   open: 'bg-green-100 text-green-700',
@@ -23,6 +24,7 @@ function FacilitatorAttendance() {
   const [selectedActivity, setSelectedActivity] = useState('')
   const [refInput, setRefInput] = useState('')
   const [dayNumber, setDayNumber] = useState(1)
+  const [attendanceMethod, setAttendanceMethod] = useState<'manual' | 'qr'>('manual')
   const [scanResult, setScanResult] = useState<MarkAttendanceResult | null>(null)
   const [checking, setChecking] = useState(false)
 
@@ -53,14 +55,30 @@ function FacilitatorAttendance() {
   async function handleMark() {
     if (checking) return
     setChecking(true)
-    const result = await markAttendance(selectedActivity, refInput, dayNumber)
+    const result = await markAttendance(selectedActivity, refInput, dayNumber, attendanceMethod)
     setScanResult(result)
     setChecking(false)
     if (result.status === 'success') {
       setRefInput('')
+      setAttendanceMethod('manual')
       const logData = await loadTodayLog()
       setLog(logData)
     }
+  }
+
+  async function handleQrScan(value: string) {
+    if (checking || !selectedActivity) return
+    setRefInput(value)
+    setAttendanceMethod('qr')
+    setChecking(true)
+    const result = await markAttendance(selectedActivity, value, dayNumber, 'qr')
+    setScanResult(result)
+    setChecking(false)
+    if (result.status === 'success') {
+      setRefInput('')
+      setLog(await loadTodayLog())
+    }
+    setAttendanceMethod('manual')
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -107,7 +125,7 @@ function FacilitatorAttendance() {
                   <input
                     type="text"
                     value={refInput}
-                    onChange={(e) => setRefInput(e.target.value)}
+                    onChange={(e) => { setRefInput(e.target.value); setAttendanceMethod('manual') }}
                     onKeyDown={handleKeyDown}
                     placeholder="Scan or paste code"
                     className="input"
@@ -125,6 +143,8 @@ function FacilitatorAttendance() {
               </button>
             </div>
           )}
+
+          <QrCameraScanner disabled={checking || !selectedActivity} onScan={(value) => { void handleQrScan(value) }} />
 
           {scanResult && (
             <div className={`rounded-lg p-3 text-sm ${scanResult.status === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>

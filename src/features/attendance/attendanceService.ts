@@ -11,6 +11,26 @@ export interface AttendanceLogRow {
   activityId: string
 }
 
+interface AttendanceLogRecord {
+  id: string
+  checked_in_at: string
+  day_number: number
+  method: string
+  activity_id: string
+  registration_id: string
+}
+
+interface RegistrationNameRecord {
+  id: string
+  ref_code: string
+  name: string
+}
+
+interface ActivityNameRecord {
+  id: string
+  title: string
+}
+
 export async function loadTodayLog(): Promise<AttendanceLogRow[]> {
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
@@ -26,29 +46,28 @@ export async function loadTodayLog(): Promise<AttendanceLogRow[]> {
     return []
   }
 
-  const regIds = [...new Set((logs || []).map((l: any) => l.registration_id))]
-  const activityIds = [...new Set((logs || []).map((l: any) => l.activity_id))]
-
-  const [{ data: regs }, { data: acts }] = await Promise.all([
-    regIds.length
-      ? supabase.from('registration_details').select('id, ref_code, name').in('id', regIds)
-      : Promise.resolve({ data: [] as any[] }),
+  const records = (logs || []) as AttendanceLogRecord[]
+  const registrationIds = [...new Set(records.map((row) => row.registration_id))]
+  const activityIds = [...new Set(records.map((row) => row.activity_id))]
+  const [{ data: registrations }, { data: activities }] = await Promise.all([
+    registrationIds.length
+      ? supabase.from('registration_details').select('id, ref_code, name').in('id', registrationIds)
+      : Promise.resolve({ data: [] as RegistrationNameRecord[] }),
     activityIds.length
       ? supabase.from('legacy_activities').select('id, title').in('id', activityIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as ActivityNameRecord[] }),
   ])
 
-  const regMap = Object.fromEntries((regs || []).map((r: any) => [r.id, r]))
-  const actMap = Object.fromEntries((acts || []).map((a: any) => [a.id, a.title]))
-
-  return (logs || []).map((row: any) => ({
+  const registrationMap = new Map(((registrations || []) as RegistrationNameRecord[]).map((row) => [row.id, row]))
+  const activityMap = new Map(((activities || []) as ActivityNameRecord[]).map((row) => [row.id, row.title]))
+  return records.map((row) => ({
     id: row.id,
     checkedInAt: row.checked_in_at,
     dayNumber: row.day_number,
     method: row.method,
-    name: regMap[row.registration_id]?.name || '—',
-    refCode: regMap[row.registration_id]?.ref_code || '—',
-    activityTitle: actMap[row.activity_id] || '—',
+    name: registrationMap.get(row.registration_id)?.name || '—',
+    refCode: registrationMap.get(row.registration_id)?.ref_code || '—',
+    activityTitle: activityMap.get(row.activity_id) || '—',
     activityId: row.activity_id,
   }))
 }
@@ -59,77 +78,62 @@ export interface MarkAttendanceResult {
   body: string
 }
 
+interface AttendanceRpcResponse {
+  success: boolean
+  message: string
+  participant_name: string | null
+}
+
 export async function markAttendance(
   activityId: string,
   rawRefCode: string,
-  dayNumber: number
+  dayNumber: number,
+  method: 'manual' | 'qr' = 'manual'
 ): Promise<MarkAttendanceResult> {
-  const refCode = rawRefCode.trim().toUpperCase()
-
-  if (!activityId) {
-    return { status: 'error', title: 'No Activity Selected', body: 'Please choose an activity first.' }
-  }
-  if (!refCode) {
-    return { status: 'error', title: 'No Code Entered', body: 'Paste or scan a participant reference code.' }
-  }
-
-  const { data: reg, error: regErr } = await supabase
-    .from('registration_details')
-    .select('id, ref_code, name, activity_id, status')
-    .eq('ref_code', refCode)
-    .single()
-
-  if (regErr || !reg) {
-    return { status: 'error', title: 'Not Found', body: `No participant found with code ${refCode}.` }
-  }
-
-  if (String(reg.activity_id) !== String(activityId)) {
-    return {
-      status: 'error',
-      title: 'Wrong Activity',
-      body: `${reg.name} is registered under a different activity.`,
+  let refCode = rawRefCode.trim()
+  try {
+    if (/^https?:\/\//i.test(refCode)) {
+      const parsed = new URL(refCode)
+      refCode = parsed.searchParams.get('ref') || parsed.searchParams.get('code') || parsed.pathname.split('/').filter(Boolean).at(-1) || refCode
     }
+  } catch {
+    // Treat malformed scanner output as a raw reference code.
+  }
+  refCode = refCode.trim().toUpperCase()
+
+  if (!activityId) return { status: 'error', title: 'No Activity Selected', body: 'Please choose an activity first.' }
+  if (!refCode) return { status: 'error', title: 'No Code Entered', body: 'Paste or scan a participant reference code.' }
+  if (!Number.isSafeInteger(dayNumber) || dayNumber < 1) {
+    return { status: 'error', title: 'Invalid Day', body: 'Enter a valid event day number (1 or greater).' }
   }
 
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-
-  const { data: existing } = await supabase
-    .from('attendance_log')
-    .select('id')
-    .eq('registration_id', reg.id)
-    .eq('day_number', dayNumber)
-    .gte('checked_in_at', todayStart.toISOString())
-    .maybeSingle()
-
-  if (existing) {
-    return {
-      status: 'error',
-      title: 'Already Scanned',
-      body: `${reg.name} was already marked present for Day ${dayNumber} today.`,
-    }
+  let data: AttendanceRpcResponse[] | null
+  try {
+    const response = await supabase.rpc('record_legacy_attendance', {
+      p_activity_id: activityId,
+      p_ref_code: refCode,
+      p_day_number: dayNumber,
+      p_method: method,
+    })
+    if (response.error) return { status: 'error', title: 'Check-In Failed', body: response.error.message }
+    data = (response.data || []) as AttendanceRpcResponse[]
+  } catch (cause) {
+    return { status: 'error', title: 'Check-In Failed', body: cause instanceof Error ? cause.message : 'Unable to reach the attendance service.' }
   }
-
-  const now = new Date().toISOString()
-  const { error: logErr } = await supabase.from('attendance_log').insert({
-    registration_id: reg.id,
-    activity_id: activityId,
-    checked_in_at: now,
-    day_number: dayNumber,
-    method: 'manual',
-  })
-
-  if (logErr) {
-    return { status: 'error', title: 'Log Failed', body: logErr.message }
-  }
-
-  if (reg.status === 'registered') {
-    await supabase.from('registrations').update({ status: 'attended', attended_at: now }).eq('id', reg.id)
+  const result = (data || [])[0]
+  if (!result) return { status: 'error', title: 'Check-In Failed', body: 'The attendance service returned no result.' }
+  if (!result.success) {
+    const title = result.message.includes('already checked in') ? 'Already Scanned'
+      : result.message.includes('different activity') ? 'Wrong Activity'
+      : result.message.includes('cancelled') ? 'Registration Cancelled'
+      : result.message.includes('not found') ? 'Not Found'
+      : 'Check-In Failed'
+    return { status: 'error', title, body: result.message }
   }
 
   return {
     status: 'success',
-    title: `${reg.name} — Checked In!`,
-    body: `Day ${dayNumber} · ${new Date(now).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}`,
+    title: `${result.participant_name || 'Participant'} — Checked In!`,
+    body: `Day ${dayNumber} · ${new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}`,
   }
 }

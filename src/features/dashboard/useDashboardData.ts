@@ -30,6 +30,12 @@ export interface AttendanceTrendDatum {
   attendance: number
 }
 
+export interface ActivitySatisfactionDatum {
+  name: string
+  responses: number
+  averageRating: number
+}
+
 export interface DashboardData {
   totalReg: number
   totalAtt: number
@@ -48,6 +54,9 @@ export interface DashboardData {
   budgetOverview: BudgetDatum[]
   attendanceTrend: AttendanceTrendDatum[]
   evaluationStats: EvaluationStats
+  activitySatisfaction: ActivitySatisfactionDatum[]
+  totalBudgetAllocated: number
+  totalBudgetSpent: number
   recentEvaluations: EvaluationRow[]
 }
 
@@ -96,8 +105,9 @@ export function useDashboardData() {
         fetchEvaluations(),
       ])
 
-      const totalReg = all.length
-      const totalAtt = all.filter((p) => p.status === 'attended' || p.status === 'completed').length
+      const activeRegistrations = all.filter((p) => p.status !== 'inactive')
+      const totalReg = activeRegistrations.length
+      const totalAtt = activeRegistrations.filter((p) => p.status === 'attended' || p.status === 'completed').length
       const totalSlots = acts.reduce((s, a) => s + a.slots, 0)
       const fillRate = totalSlots > 0 ? Math.round((totalReg / totalSlots) * 100) : 0
       const activeActs = acts.filter((a) => a.status === 'open' || a.status === 'full').length
@@ -105,7 +115,7 @@ export function useDashboardData() {
       const remaining = 100 - fillRate
       const attRate = totalReg > 0 ? ((totalAtt / totalReg) * 100).toFixed(1) : '0.0'
       const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
-      const thisWeek = all.filter((p) => p.registeredAt >= weekAgo).length
+      const thisWeek = activeRegistrations.filter((p) => p.registeredAt >= weekAgo).length
 
       const liveCount: Record<string, number> = {}
       all.forEach((r) => {
@@ -146,6 +156,13 @@ export function useDashboardData() {
         .slice(0, 8)
 
       const attendanceTrend = buildAttendanceTrend(all)
+      const satisfactionByTitle = new Map<string, { responses: number; ratingTotal: number }>()
+      for (const evaluation of evalResult.rows) {
+        const current = satisfactionByTitle.get(evaluation.activityTitle) || { responses: 0, ratingTotal: 0 }
+        current.responses += 1
+        current.ratingTotal += evaluation.rating
+        satisfactionByTitle.set(evaluation.activityTitle, current)
+      }
 
       setData({
         totalReg,
@@ -165,6 +182,13 @@ export function useDashboardData() {
         budgetOverview,
         attendanceTrend,
         evaluationStats: evalResult.stats,
+        activitySatisfaction: [...satisfactionByTitle.entries()].map(([name, item]) => ({
+          name,
+          responses: item.responses,
+          averageRating: item.ratingTotal / item.responses,
+        })).sort((a, b) => b.responses - a.responses),
+        totalBudgetAllocated: acts.reduce((sum, activity) => sum + activity.budgetAlloc, 0),
+        totalBudgetSpent: acts.reduce((sum, activity) => sum + activity.budgetSpent, 0),
         recentEvaluations: evalResult.rows.slice(0, 5),
       })
     } catch (err) {
@@ -182,6 +206,8 @@ export function useDashboardData() {
       .channel(`dashboard-live-updates-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_log' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_entries' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'evaluations' }, () => refresh())
       .subscribe()
 

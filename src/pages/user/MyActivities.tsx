@@ -4,6 +4,9 @@ import { SkeletonCard } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import CancelRegistrationModal from '../../components/CancelRegistrationModal'
 import { Calendar, ClipboardList } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
+import { QRCodeCanvas } from 'qrcode.react'
 import {
   fetchMyRegistrations,
   cancelRegistration,
@@ -34,6 +37,14 @@ export default function MyActivities() {
 
   useEffect(() => {
     loadRegistrations(true)
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return
+      channel = supabase.channel(`my-registrations-${data.user.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations', filter: `user_uuid=eq.${data.user.id}` }, () => { void loadRegistrations() })
+        .subscribe()
+    })
+    return () => { if (channel) void supabase.removeChannel(channel) }
   }, [])
 
   async function loadRegistrations(initial = false) {
@@ -128,9 +139,24 @@ export default function MyActivities() {
                           : 'Cancellation period has ended'}
                       </p>
                     )}
+                    {(reg.status === 'attended' || reg.status === 'completed') && (
+                      reg.hasEvaluation ? (
+                        <p className="text-xs text-green-700 mt-2">Evaluation submitted. Thank you for your feedback.</p>
+                      ) : reg.refCode ? (
+                        <Link to={`/feedback?ref=${encodeURIComponent(reg.refCode)}`} className="inline-flex mt-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white">
+                          Complete activity evaluation
+                        </Link>
+                      ) : <p className="text-xs text-amber-700 mt-2">Evaluation link unavailable. Contact the activity facilitator.</p>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {reg.refCode && reg.status !== 'inactive' && (
+                      <div className="text-center">
+                        <QRCodeCanvas value={reg.refCode} size={80} level="M" />
+                        <p className="text-[10px] text-gray-500 mt-1">Attendance QR</p>
+                      </div>
+                    )}
                     <span
                       className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
                         STATUS_PILL_STYLES[reg.status as RegistrationStatus] ?? STATUS_PILL_FALLBACK

@@ -93,6 +93,19 @@ function ParticipantModal({ participant: p, onClose, onStatusChange }: Props) {
           </div>
 
           <div className="mb-4">
+            <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold mb-2">Attendance History</div>
+            {p.attendanceHistory.length ? (
+              <ul className="space-y-1 text-sm text-gray-700">
+                {p.attendanceHistory.map((record, index) => (
+                  <li key={`${record.checkedInAt}-${record.dayNumber}-${index}`}>
+                    Day {record.dayNumber} · {fmt(record.checkedInAt)}
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="text-sm text-gray-400">No check-ins recorded for this activity.</p>}
+          </div>
+
+          <div className="mb-4">
             <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold mb-2">
               Current Status
             </div>

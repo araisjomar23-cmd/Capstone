@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { fetchBudgetOverview, saveBudgetEntry } from '../../features/budget/budgetService'
+import { deleteExpenseEntry, fetchBudgetOverview, saveBudgetEntry, updateExpenseEntry } from '../../features/budget/budgetService'
 import type { BudgetOverview } from '../../features/budget/budgetService'
-import { Wallet, Plus, Coins, ArrowLeft } from 'lucide-react'
+import { Wallet, Plus, Coins, ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '../../components/ToastProvider'
 import { SkeletonStatCard, SkeletonCard } from '../../components/Skeleton'
 import type { Activity } from '../../types/activity'
 import type { BudgetEntry } from '../../features/budget/budgetService'
+import { supabase } from '../../lib/supabase'
 
 const EXPENSE_CATEGORIES = [
   'Food & Catering',
@@ -32,23 +33,36 @@ function pctColor(pct: number) {
 function AdminBudget() {
   const [data, setData] = useState<BudgetOverview | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
 
   useEffect(() => {
     load()
+    const channel = supabase.channel(`budget-live-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_entries' }, () => load())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   async function load() {
     setLoading(true)
-    const d = await fetchBudgetOverview()
-    setData(d)
-    setLoading(false)
+    setLoadError('')
+    try {
+      const d = await fetchBudgetOverview()
+      setData(d)
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : 'Unable to load budget data.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading || !data) {
     return (
       <div className="p-4 md:p-8">
         <h1 className="text-2xl font-bold text-primary mb-6">Budget Monitor</h1>
+        {loadError && <div role="alert" className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">{loadError} <button type="button" onClick={() => void load()} className="ml-2 font-semibold underline">Retry</button></div>}
+        {!loadError && <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard />
         </div>
@@ -56,6 +70,7 @@ function AdminBudget() {
           <SkeletonCard lines={4} />
           <SkeletonCard lines={4} />
         </div>
+        </>}
       </div>
     )
   }
@@ -184,6 +199,7 @@ function ActivityBudgetDetail({
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
+  const [editingEntry, setEditingEntry] = useState<BudgetEntry | null>(null)
 
   const alloc = a.budgetAlloc
   const spent = a.budgetSpent
@@ -207,20 +223,40 @@ function ActivityBudgetDetail({
 
   async function handleExpense() {
     const amt = Number(amount)
-    if (!amt || amt <= 0) return showToast('Enter a valid amount.', 'error')
+    if (!Number.isFinite(amt) || amt <= 0) return showToast('Enter a valid positive amount.', 'error')
     if (!category) return showToast('Select a category.', 'error')
+    const proposedSpend = spent - (editingEntry?.amount || 0) + amt
     setSaving(true)
-    const result = await saveBudgetEntry(a.id, 'expense', amt, category, description)
+    const result = editingEntry
+      ? await updateExpenseEntry(editingEntry.id, amt, category, description)
+      : await saveBudgetEntry(a.id, 'expense', amt, category, description)
     setSaving(false)
     if (result.ok) {
       setAmount('')
       setCategory('')
       setDescription('')
-      showToast('Expense recorded.', 'success')
+      setEditingEntry(null)
+      showToast(proposedSpend > alloc ? 'Expense saved. Warning: total spending exceeds the allocation.' : editingEntry ? 'Expense updated.' : 'Expense recorded.', proposedSpend > alloc ? 'info' : 'success')
       onSaved()
     } else {
       showToast('Failed: ' + result.error, 'error')
     }
+  }
+
+  function beginEdit(entry: BudgetEntry) {
+    setEditingEntry(entry)
+    setAmount(String(entry.amount))
+    setCategory(entry.category)
+    setDescription(entry.description)
+  }
+
+  async function handleDelete(entry: BudgetEntry) {
+    if (!window.confirm(`Delete this ${entry.category || 'expense'} entry?`)) return
+    setSaving(true)
+    const result = await deleteExpenseEntry(entry.id)
+    setSaving(false)
+    if (result.ok) { showToast('Expense deleted.', 'success'); onSaved() }
+    else showToast(`Could not delete expense: ${result.error || 'Unknown error'}`, 'error')
   }
 
   if (alloc === 0) {
@@ -295,12 +331,13 @@ function ActivityBudgetDetail({
                 <th className="text-left py-1.5">Description</th>
                 <th className="text-left py-1.5">Amount</th>
                 <th className="text-left py-1.5">Recorded By</th>
+                <th className="text-left py-1.5">Actions</th>
               </tr>
             </thead>
             <tbody>
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-gray-400 py-4">
+                  <td colSpan={6} className="text-center text-gray-400 py-4">
                     No expenses recorded yet.
                   </td>
                 </tr>
@@ -318,6 +355,10 @@ function ActivityBudgetDetail({
                     <td className="py-1.5 max-w-[200px] truncate">{e.description || '—'}</td>
                     <td className="py-1.5 font-semibold text-red-500">₱{e.amount.toLocaleString()}</td>
                     <td className="py-1.5 text-gray-400">{e.recordedBy}</td>
+                    <td className="py-1.5">
+                      <button type="button" onClick={() => beginEdit(e)} className="mr-2 text-primary" aria-label="Edit expense"><Pencil size={14} /></button>
+                      <button type="button" onClick={() => void handleDelete(e)} disabled={saving} className="text-red-600 disabled:opacity-50" aria-label="Delete expense"><Trash2 size={14} /></button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -348,6 +389,10 @@ function ActivityBudgetDetail({
                     </span>
                     <span>{e.recordedBy}</span>
                   </div>
+                  <div className="flex justify-end gap-3 mt-2">
+                    <button type="button" onClick={() => beginEdit(e)} className="text-primary inline-flex items-center gap-1"><Pencil size={12} /> Edit</button>
+                    <button type="button" onClick={() => void handleDelete(e)} disabled={saving} className="text-red-600 inline-flex items-center gap-1 disabled:opacity-50"><Trash2 size={12} /> Delete</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -357,7 +402,7 @@ function ActivityBudgetDetail({
 
       <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
         <div className="text-[11px] font-bold uppercase text-gray-400 tracking-wide mb-2 flex items-center gap-1.5">
-          <Coins size={12} /> Add Expense
+          <Coins size={12} /> {editingEntry ? 'Edit Expense' : 'Add Expense'}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
           <select
@@ -388,12 +433,16 @@ function ActivityBudgetDetail({
           onChange={(e) => setDescription(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"
         />
+        {Number(amount) > 0 && spent - (editingEntry?.amount || 0) + Number(amount) > alloc && (
+          <p role="status" className="mb-2 text-xs text-amber-700">Warning: this expense will put total spending above the allocated budget.</p>
+        )}
         <button
           onClick={handleExpense}
           disabled={saving}
           className="w-full btn-primary inline-flex items-center justify-center gap-1.5 disabled:opacity-50">
-          <Plus size={14} /> Record Expense
+          <Plus size={14} /> {editingEntry ? 'Save Expense' : 'Record Expense'}
         </button>
+        {editingEntry && <button type="button" onClick={() => { setEditingEntry(null); setAmount(''); setCategory(''); setDescription('') }} className="w-full mt-2 text-sm text-gray-500">Cancel edit</button>}
       </div>
     </div>
   )
