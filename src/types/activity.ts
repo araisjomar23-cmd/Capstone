@@ -14,6 +14,7 @@ export interface Activity {
   endDate: string
   startTime: string
   endTime: string
+  checkInEarlyAccessMinutes: number
   previewDesc: string
   fullDesc: string
   outcomes: string[]

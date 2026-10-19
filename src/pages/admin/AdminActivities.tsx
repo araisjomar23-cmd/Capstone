@@ -8,12 +8,18 @@ import { SkeletonTableRows } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
 import { Pin as PinIcon } from 'lucide-react'
+import { getActivityLifecycleStatus, type ActivityLifecycleStatus } from '../../features/activities/activityLifecycle'
 
 const STATUS_PILL: Record<string, { cls: string; label: string }> = {
   open: { cls: 'bg-green-100 text-green-700', label: 'Open' },
   upcoming: { cls: 'bg-blue-100 text-blue-700', label: 'Upcoming' },
   full: { cls: 'bg-red-100 text-red-700', label: 'Full' },
   closed: { cls: 'bg-gray-100 text-gray-600', label: 'Closed' },
+}
+const LIFECYCLE_PILL: Record<ActivityLifecycleStatus, { cls: string; label: string }> = {
+  upcoming: { cls: 'bg-blue-50 text-blue-700', label: 'Upcoming' },
+  ongoing: { cls: 'bg-amber-50 text-amber-700', label: 'Ongoing' },
+  completed: { cls: 'bg-teal-50 text-teal-700', label: 'Completed' },
 }
 
 function barColor(pct: number) {
@@ -178,6 +184,7 @@ async function handleToggle(a: Activity) {
               filtered.map((a) => {
                 const pct = a.slots > 0 ? Math.min(100, Math.round((a.regCount / a.slots) * 100)) : 0
                 const pill = STATUS_PILL[a.status] || { cls: 'bg-gray-100 text-gray-600', label: a.status }
+                const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a)]
                 const bPct = a.budgetAlloc > 0 ? Math.round((a.budgetSpent / a.budgetAlloc) * 100) : 0
 
                 return (
@@ -185,6 +192,7 @@ async function handleToggle(a: Activity) {
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{a.title}</div>
                       <div className="text-xs text-gray-400">{a.venue}</div>
+                      <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${lifecycle.cls}`}>{lifecycle.label}</span>
                     </td>
                     <td className="px-4 py-3 text-xs">{a.programName}</td>
                     <td className="px-4 py-3 text-xs">
@@ -264,6 +272,7 @@ async function handleToggle(a: Activity) {
             {filtered.map((a) => {
               const pct = a.slots > 0 ? Math.min(100, Math.round((a.regCount / a.slots) * 100)) : 0
               const pill = STATUS_PILL[a.status] || { cls: 'bg-gray-100 text-gray-600', label: a.status }
+              const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a)]
               const bPct = a.budgetAlloc > 0 ? Math.round((a.budgetSpent / a.budgetAlloc) * 100) : 0
 
               return (
@@ -272,6 +281,7 @@ async function handleToggle(a: Activity) {
                     <div className="min-w-0">
                       <div className="font-semibold text-gray-900">{a.title}</div>
                       <div className="text-xs text-gray-400">{a.venue}</div>
+                      <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${lifecycle.cls}`}>{lifecycle.label}</span>
                     </div>
                     <span className={`shrink-0 px-2 py-1 rounded-full text-xs font-medium ${pill.cls}`}>
                       {pill.label}

@@ -21,7 +21,7 @@ export async function fetchActivities(): Promise<Activity[]> {
     .select(`
       id, program_id, title, color_bg, tags,
       status, slots, taken,
-      start_date, end_date, start_time, end_time,
+      start_date, end_date, start_time, end_time, checkin_early_access_minutes,
       venue, preview_desc, full_desc,
       outcomes, schedule, bring, note,
       created_at, updated_at,
@@ -72,6 +72,7 @@ export async function fetchActivities(): Promise<Activity[]> {
     endDate: a.end_date,
     startTime: a.start_time,
     endTime: a.end_time,
+    checkInEarlyAccessMinutes: a.checkin_early_access_minutes ?? 30,
     previewDesc: a.preview_desc || '',
     fullDesc: a.full_desc || '',
     outcomes: a.outcomes || [],
@@ -175,6 +176,7 @@ export interface ActivityFormPayload {
   endDate: string
   startTime: string
   endTime: string
+  checkInEarlyAccessMinutes: number
   slots: number
   status: string
   venue: string
@@ -197,6 +199,7 @@ export async function saveActivity(
     end_date: payload.endDate,
     start_time: payload.startTime,
     end_time: payload.endTime,
+    checkin_early_access_minutes: payload.checkInEarlyAccessMinutes,
     date_text: formatDateText(payload.startDate, payload.endDate),
     slots: payload.slots,
     status: payload.status || 'open',

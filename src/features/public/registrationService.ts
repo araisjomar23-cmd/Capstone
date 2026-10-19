@@ -114,6 +114,9 @@ export interface MyRegistration {
   canCancel: boolean
   refCode: string
   hasEvaluation: boolean
+  hasAttended: boolean
+  activityStatus: 'upcoming' | 'ongoing' | 'completed'
+  checkInOpensAt: string
 }
 
 interface MyRegistrationRecord {
@@ -132,6 +135,9 @@ interface MyEvaluationStatusRecord {
   ref_code: string
   activity_title: string
   evaluated: boolean
+  attended: boolean
+  activity_status: 'upcoming' | 'ongoing' | 'completed'
+  checkin_opens_at: string
 }
 
 export interface MyRegistrationsResult {
@@ -168,6 +174,9 @@ export async function fetchMyRegistrations(): Promise<MyRegistrationsResult> {
     canCancel: Boolean(r.can_cancel),
     refCode: statusByRegistration.get(r.id)?.ref_code || '',
     hasEvaluation: statusByRegistration.get(r.id)?.evaluated || false,
+    hasAttended: statusByRegistration.get(r.id)?.attended || false,
+    activityStatus: statusByRegistration.get(r.id)?.activity_status || 'upcoming',
+    checkInOpensAt: statusByRegistration.get(r.id)?.checkin_opens_at || '',
   }))
 
   return { ok: true, data: rows }

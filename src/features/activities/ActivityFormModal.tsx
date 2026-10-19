@@ -27,6 +27,7 @@ const emptyForm = {
   endDate: '',
   startTime: '',
   endTime: '',
+  checkInEarlyAccessMinutes: '30',
   previewDesc: '',
   fullDesc: '',
   budget: '',
@@ -62,6 +63,7 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
           endDate: editingActivity.endDate || '',
           startTime: editingActivity.startTime || '',
           endTime: editingActivity.endTime || '',
+          checkInEarlyAccessMinutes: String(editingActivity.checkInEarlyAccessMinutes ?? 30),
           previewDesc: editingActivity.previewDesc,
           fullDesc: editingActivity.fullDesc,
           budget: editingActivity.budgetAlloc > 0 ? String(editingActivity.budgetAlloc) : '',
@@ -102,6 +104,9 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
     if (!form.endDate) errs.endDate = 'End date is required.'
     if (!form.startTime) errs.startTime = 'Start time is required.'
     if (!form.endTime) errs.endTime = 'End time is required.'
+    if (!/^\d+$/.test(form.checkInEarlyAccessMinutes) || Number(form.checkInEarlyAccessMinutes) > 1440) {
+      errs.checkInEarlyAccessMinutes = 'Enter a whole number from 0 to 1440.'
+    }
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -119,6 +124,7 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
         endDate: form.endDate,
         startTime: form.startTime,
         endTime: form.endTime,
+        checkInEarlyAccessMinutes: Number(form.checkInEarlyAccessMinutes),
         slots: Number(form.slots),
         status: form.status,
         venue: form.venue.trim(),
@@ -192,6 +198,21 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
               </select>
               {errors.programId && <p className="text-xs text-red-500 mt-1">{errors.programId}</p>}
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-600">Check-in opens before start (minutes)</label>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              step={1}
+              value={form.checkInEarlyAccessMinutes}
+              onChange={(e) => setField('checkInEarlyAccessMinutes', e.target.value)}
+              className={inputClass('checkInEarlyAccessMinutes')}
+            />
+            <p className="text-xs text-gray-500 mt-1">Default: 30 minutes. Set 0 to open at the start time.</p>
+            {errors.checkInEarlyAccessMinutes && <p className="text-xs text-red-500 mt-1">{errors.checkInEarlyAccessMinutes}</p>}
           </div>
 
           <div className="flex gap-3">

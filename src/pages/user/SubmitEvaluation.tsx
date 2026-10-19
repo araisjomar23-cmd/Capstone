@@ -86,7 +86,7 @@ function SubmitEvaluation() {
   const [searchParams] = useSearchParams()
   const { activityId } = useParams()
   const [refCode, setRefCode] = useState(searchParams.get('ref') || '')
-  const [entryState, setEntryState] = useState<'checking' | 'not-registered' | 'not-attended' | 'ready' | 'evaluated' | 'error'>(activityId ? 'checking' : 'ready')
+  const [entryState, setEntryState] = useState<'checking' | 'not-registered' | 'not-attended' | 'event-not-finished' | 'ready' | 'evaluated' | 'error'>(activityId ? 'checking' : 'ready')
   const [entryMessage, setEntryMessage] = useState('')
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState('')
@@ -103,8 +103,9 @@ function SubmitEvaluation() {
       const registration = result.data.find((item) => item.activityId === activityId)
       if (!registration) { setEntryState('not-registered'); return }
       setRefCode(registration.refCode)
-      if (registration.hasEvaluation || ['Evaluated', 'evaluated', 'completed'].includes(registration.status)) { setEntryState('evaluated'); return }
-      if (!['Attended', 'attended', 'completed'].includes(registration.status)) { setEntryState('not-attended'); return }
+      if (registration.hasEvaluation) { setEntryState('evaluated'); return }
+      if (!registration.hasAttended) { setEntryState('not-attended'); return }
+      if (registration.activityStatus !== 'completed') { setEntryState('event-not-finished'); return }
       setEntryState('ready')
     })
     return () => { active = false }
@@ -163,6 +164,7 @@ function SubmitEvaluation() {
     const message = entryState === 'checking' ? 'Checking your activity registration…'
       : entryState === 'not-registered' ? "You're not registered for this activity. Please register before submitting an evaluation."
       : entryState === 'not-attended' ? 'Evaluation opens after your attendance is recorded.'
+      : entryState === 'event-not-finished' ? 'Your attendance is recorded. Evaluation opens after the activity has ended.'
       : entryState === 'evaluated' ? 'Thank you! Your evaluation has already been submitted.'
       : entryMessage
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4"><div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center"><HeartHandshake size={48} className="mx-auto mb-3 text-primary" /><h1 className="text-xl font-bold text-gray-900 mb-2">{entryState === 'evaluated' ? 'Thank You!' : 'Activity Evaluation'}</h1><p className="text-sm text-gray-600">{message}</p></div></div>

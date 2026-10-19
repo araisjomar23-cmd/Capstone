@@ -4,7 +4,7 @@ import { loginAdmin, getAdminRole } from '../../features/auth/authService'
 import { Mail, Lock, Eye, EyeOff, CalendarCheck2, Users, Wallet, Check } from 'lucide-react'
 import logo from '../../assets/CYDO LOGO.jpg'
 import { usePageTitle } from '../../hooks/usePageTitle'
-import { supabase } from '../../lib/supabase' // Removed persistRememberMe import
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../features/auth/AuthContext'
 
 const FEATURES = [
@@ -28,10 +28,8 @@ function AdminLogin() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   
-  // FIX 2: Default state true if an email was already remembered
-  const [rememberMe, setRememberMe] = useState(() => {
-    return !!localStorage.getItem('cydo_remembered_email')
-  })
+  // This checkbox controls saved email only. Supabase sessions always use localStorage.
+  const [rememberMe, setRememberMe] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -75,12 +73,10 @@ function AdminLogin() {
       return
     }
 
-    // FIX 4: Only alter persistence storage *after* successful authentication
     if (rememberMe) {
       localStorage.setItem('cydo_remembered_email', email.trim())
     } else {
       localStorage.removeItem('cydo_remembered_email')
-      // If remember me is false, set Supabase session persistence to 'session' if configured in your client
     }
 
     const role = await getAdminRole(userId)

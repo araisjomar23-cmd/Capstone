@@ -87,12 +87,12 @@ function AdminAttendance() {
     }
   }
 
-  function downloadQR(activityId: string, title: string) {
-    const canvas = document.getElementById(`qr-canvas-${activityId}`) as HTMLCanvasElement | null
+  function downloadQR(activityId: string, title: string, kind: 'checkin' | 'evaluation') {
+    const canvas = document.getElementById(`visible-${kind}-qr-canvas-${activityId}`) as HTMLCanvasElement | null
     if (!canvas) return
     const a = document.createElement('a')
     a.href = canvas.toDataURL('image/png')
-    a.download = `QR_${title.replace(/\s+/g, '_')}.png`
+    a.download = `QR_${title.replace(/\s+/g, '_')}_${kind}.png`
     a.click()
   }
 
@@ -289,16 +289,6 @@ function AdminAttendance() {
               {selectedQrActivity.date} · {selectedQrActivity.venue}
             </div>
 
-            <div className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-              <QRCodeCanvas
-                id={`visible-qr-canvas-${selectedQrActivity.id}`}
-                value={`${window.location.origin}/evaluate/${selectedQrActivity.id}`}
-                size={320}
-                fgColor="#1a5c3a"
-                bgColor="#ffffff"
-              />
-            </div>
-
             <div className="text-xs text-gray-400 mt-4">
               ACT-{String(selectedQrActivity.id).padStart(4, '0')}
             </div>
@@ -310,26 +300,43 @@ function AdminAttendance() {
               {selectedQrActivity.status}
             </span>
 
-            <button
-              onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title)}
-              className="text-primary text-sm font-semibold hover:underline"
-            >
-              <Download size={16} className="inline mr-1" /> Download PNG
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-3xl mt-4">
+              <section className="flex flex-col items-center">
+                <h3 className="font-semibold text-gray-900 mb-2">Participant Check-in QR</h3>
+                <div className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
+                  <QRCodeCanvas
+                    id={`visible-checkin-qr-canvas-${selectedQrActivity.id}`}
+                    value={`${window.location.origin}/checkin/${selectedQrActivity.id}`}
+                    size={220}
+                    fgColor="#1a5c3a"
+                    bgColor="#ffffff"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2 mb-3">Display during the activity check-in window.</p>
+                <button onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title, 'checkin')} className="text-primary text-sm font-semibold hover:underline">
+                  <Download size={16} className="inline mr-1" /> Download Check-in QR
+                </button>
+              </section>
+              <section className="flex flex-col items-center">
+                <h3 className="font-semibold text-gray-900 mb-2">Evaluation QR</h3>
+                <div className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
+                  <QRCodeCanvas
+                    id={`visible-evaluation-qr-canvas-${selectedQrActivity.id}`}
+                    value={`${window.location.origin}/evaluate/${selectedQrActivity.id}`}
+                    size={220}
+                    fgColor="#1a5c3a"
+                    bgColor="#ffffff"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2 mb-3">Display after the activity has ended.</p>
+                <button onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title, 'evaluation')} className="text-primary text-sm font-semibold hover:underline">
+                  <Download size={16} className="inline mr-1" /> Download Evaluation QR
+                </button>
+              </section>
+            </div>
           </div>
         </div>
       )}
-
-      <div className="hidden" aria-hidden="true">
-  {scannableActivities.map((a) => (
-    <QRCodeCanvas
-      key={a.id}
-      id={`qr-canvas-${a.id}`}
-      value={`${window.location.origin}/?activity=${a.id}`}
-      size={256}
-    />
-      ))}
-    </div>
 
     </div>
   )

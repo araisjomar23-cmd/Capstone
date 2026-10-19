@@ -7,6 +7,7 @@ import { Calendar, ClipboardList } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { QRCodeCanvas } from 'qrcode.react'
+import { formatActivityCheckInOpensAt } from '../../features/activities/activityLifecycle'
 import {
   fetchMyRegistrations,
   cancelRegistration,
@@ -139,31 +140,42 @@ export default function MyActivities() {
                           : 'Cancellation period has ended'}
                       </p>
                     )}
-                    {(reg.status === 'attended' || reg.status === 'completed') && (
+                    {reg.hasAttended && (
                       reg.hasEvaluation ? (
                         <p className="text-xs text-green-700 mt-2">Evaluation submitted. Thank you for your feedback.</p>
-                      ) : reg.refCode ? (
-                        <Link to={`/feedback?ref=${encodeURIComponent(reg.refCode)}`} className="inline-flex mt-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white">
+                      ) : reg.activityStatus === 'completed' && reg.refCode ? (
+                        <Link to={`/evaluate/${reg.activityId}`} className="inline-flex mt-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white">
                           Complete activity evaluation
                         </Link>
+                      ) : reg.activityStatus !== 'completed' ? (
+                        <p className="text-xs text-amber-700 mt-2">Evaluation opens after the activity has ended.</p>
                       ) : <p className="text-xs text-amber-700 mt-2">Evaluation link unavailable. Contact the activity facilitator.</p>
                     )}
                   </div>
 
                   <div className="flex items-center gap-3">
                     {reg.refCode && reg.status !== 'inactive' && (
-                      <div className="text-center">
-                        <QRCodeCanvas value={reg.refCode} size={80} level="M" />
-                        <p className="text-[10px] text-gray-500 mt-1">Attendance QR</p>
-                      </div>
+                      reg.activityStatus === 'upcoming' ? (
+                        <p className="max-w-40 text-center text-[11px] text-gray-500">Check-in opens on {formatActivityCheckInOpensAt(reg.checkInOpensAt)}</p>
+                      ) : reg.activityStatus === 'ongoing' ? (
+                        <div className="text-center">
+                          <QRCodeCanvas value={reg.refCode} size={80} level="M" />
+                          <p className="text-[10px] text-gray-500 mt-1">Attendance QR</p>
+                        </div>
+                      ) : <p className="max-w-40 text-center text-[11px] text-gray-500">Check-in is closed.</p>
                     )}
-                    <span
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${reg.activityStatus === 'upcoming' ? 'bg-blue-50 text-blue-700' : reg.activityStatus === 'ongoing' ? 'bg-amber-50 text-amber-700' : 'bg-teal-50 text-teal-700'}`}>
+                        {reg.activityStatus === 'upcoming' ? 'Upcoming' : reg.activityStatus === 'ongoing' ? 'Ongoing' : 'Completed'}
+                      </span>
+                      <span
                       className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
                         STATUS_PILL_STYLES[reg.status as RegistrationStatus] ?? STATUS_PILL_FALLBACK
                       }`}
                     >
                       {reg.status}
                     </span>
+                    </div>
                     {isRegistered && reg.canCancel && (
                       <button
                         type="button"
