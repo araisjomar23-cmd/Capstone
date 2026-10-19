@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from 'react-router-dom' // 1. Added useLocation hook
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from '../features/auth/AuthContext'
 
@@ -6,9 +6,10 @@ interface Props {
   children: ReactNode
   allowedRoles?: string[]
   loginPath?: string
+  roleMismatchMessage?: string
 }
 
-function ProtectedRoute({ children, allowedRoles, loginPath = '/admin/login' }: Props) {
+function ProtectedRoute({ children, allowedRoles, loginPath = '/admin/login', roleMismatchMessage }: Props) {
   const { loading, userId, role } = useAuth()
   const location = useLocation() 
 
@@ -22,6 +23,14 @@ function ProtectedRoute({ children, allowedRoles, loginPath = '/admin/login' }: 
   }
 
   if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+    if (roleMismatchMessage) {
+      return (
+        <main className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 p-6 text-center">
+          <p className="text-lg font-semibold text-gray-800">{roleMismatchMessage}</p>
+          <Link to="/" className="text-primary font-medium hover:underline">Back to activities</Link>
+        </main>
+      )
+    }
     return <Navigate to={loginPath} replace />
   }
 

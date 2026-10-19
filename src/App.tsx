@@ -22,6 +22,7 @@ import ParticipantDashboard from './pages/user/ParticipantDashboard'
 import CompleteProfile from './pages/user/CompleteProfile'
 import MyActivities from './pages/user/MyActivities'
 import ParticipantProfile from './pages/user/ParticipantProfile'
+import NotFound from './pages/NotFound'
 
 function App() {
   return (
@@ -31,7 +32,7 @@ function App() {
       <Route path="/signup" element={<ParticipantSignup />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/feedback" element={<SubmitEvaluation />} />
-      <Route path="/evaluate/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/admin/login"><SubmitEvaluation /></ProtectedRoute>} />
+      <Route path="/evaluate/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/admin/login" roleMismatchMessage="Evaluation is for participant accounts"><SubmitEvaluation /></ProtectedRoute>} />
 
       <Route
         path="/participant/complete-profile"
@@ -84,7 +85,6 @@ function App() {
         <Route path="evaluations" element={<AdminEvaluations />} />
         <Route path="reports" element={<AdminReports />} />
       </Route>
-
       <Route
         path="/admin/facilitator-portal"
         element={
@@ -97,6 +97,7 @@ function App() {
         <Route path="attendance" element={<FacilitatorAttendance />} />
         <Route path="participants" element={<FacilitatorParticipants />} />
       </Route>
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
