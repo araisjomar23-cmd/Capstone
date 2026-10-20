@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import ParticipantLayout from '../../layouts/ParticipantLayout'
 import { getProvinces, getCities, getBarangays } from '../../features/public/region11Data'
 import { User, Pencil, Save, X } from 'lucide-react'
+import DatePicker from '../../components/DatePicker'
 
 interface ParticipantRow {
   id: number
@@ -185,8 +186,7 @@ export default function ParticipantProfile() {
             {editing ? (
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Birthday</label>
-                <input type="date" className="input" value={form.birthday || ''}
-                  onChange={(e) => setField('birthday', e.target.value)} />
+                <DatePicker value={form.birthday || ''} onChange={(value) => setField('birthday', value)} className="input" aria-label="Birthday" />
               </div>
             ) : (
               <Field label="Birthday" editing={false} value={row.birthday || '—'} onChange={() => {}} />

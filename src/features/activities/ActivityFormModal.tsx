@@ -9,6 +9,7 @@ import type { Activity } from '../../types/activity'
 import type { Program } from '../../types/program'
 import type { Facilitator } from '../../types/facilitator'
 import { useToast } from '../../components/ToastProvider'
+import DatePicker from '../../components/DatePicker'
 
 interface Props {
   editingActivity: Activity | null
@@ -250,22 +251,12 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-600">Start Date *</label>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => setField('startDate', e.target.value)}
-                className={inputClass('startDate')}
-              />
+              <DatePicker value={form.startDate} onChange={(value) => setField('startDate', value)} className={inputClass('startDate')} aria-label="Start date" />
               {errors.startDate && <p className="text-xs text-red-500 mt-1">{errors.startDate}</p>}
             </div>
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-600">End Date *</label>
-              <input
-                type="date"
-                value={form.endDate}
-                onChange={(e) => setField('endDate', e.target.value)}
-                className={inputClass('endDate')}
-              />
+              <DatePicker value={form.endDate} onChange={(value) => setField('endDate', value)} className={inputClass('endDate')} aria-label="End date" />
               {errors.endDate && <p className="text-xs text-red-500 mt-1">{errors.endDate}</p>}
             </div>
           </div>

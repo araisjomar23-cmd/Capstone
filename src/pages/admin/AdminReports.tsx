@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { generateReport } from '../../features/reports/reportService'
 import type { ReportData } from '../../features/reports/reportService'
 import { FileText, Printer } from 'lucide-react'
+import DatePicker from '../../components/DatePicker'
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10)
@@ -73,11 +74,11 @@ function AdminReports() {
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
             <label className="text-xs font-semibold text-gray-600">Date From</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+            <DatePicker value={dateFrom} onChange={setDateFrom} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" aria-label="Date from" />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-600">Date To</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+            <DatePicker value={dateTo} onChange={setDateTo} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" aria-label="Date to" />
           </div>
         </div>
 

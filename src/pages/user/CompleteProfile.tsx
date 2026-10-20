@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import DatePicker from '../../components/DatePicker'
 import { useNavigate } from 'react-router-dom'
 import { getProvinces, getCities, getBarangays } from '../../features/public/region11Data'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -151,8 +152,7 @@ export default function CompleteProfile() {
 
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Birthday *</label>
-                <input type="date" value={form.birthday}
-                  onChange={(e) => setField('birthday', e.target.value)} className="input" />
+                <DatePicker value={form.birthday} onChange={(value) => setField('birthday', value)} className="input" aria-label="Birthday" />
               </div>
 
               <select value={form.gender} onChange={(e) => setField('gender', e.target.value)} className="input">
