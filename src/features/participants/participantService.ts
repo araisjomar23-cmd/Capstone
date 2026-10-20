@@ -7,6 +7,18 @@ interface AttendanceRecord {
   day_number: number
 }
 
+interface ProgramRecord {
+  name: string | null
+}
+
+interface LegacyActivityRecord {
+  id: string
+  title: string | null
+  date_text: string | null
+  venue: string | null
+  programs: ProgramRecord | ProgramRecord[] | null
+}
+
 interface ParticipantRegistrationRow {
   id: string
   ref_code: string | null
@@ -22,13 +34,7 @@ interface ParticipantRegistrationRow {
   attended_at: string | null
   notes: string | null
   sectoral_group: string | null
-  legacy_activities: {
-    id: string
-    title: string | null
-    date_text: string | null
-    venue: string | null
-    programs: { name: string | null }[]
-  }[]
+  legacy_activities: LegacyActivityRecord | LegacyActivityRecord[] | null
 }
 
 export async function fetchParticipants(): Promise<Registration[]> {
@@ -52,7 +58,7 @@ export async function fetchParticipants(): Promise<Registration[]> {
 
   const registrations = (data || []) as ParticipantRegistrationRow[]
   const registrationIds = registrations.map((row) => row.id)
-  let attendanceByRegistration = new Map<string, ParticipantAttendance[]>()
+  const attendanceByRegistration = new Map<string, ParticipantAttendance[]>()
   if (registrationIds.length) {
     const { data: attendanceRows, error: attendanceError } = await supabase
       .from('attendance_log')
@@ -60,7 +66,6 @@ export async function fetchParticipants(): Promise<Registration[]> {
       .in('registration_id', registrationIds)
       .order('checked_in_at', { ascending: false })
     if (attendanceError) console.error('fetchParticipantAttendance error:', attendanceError.message)
-    attendanceByRegistration = new Map<string, ParticipantAttendance[]>()
     for (const row of (attendanceRows || []) as AttendanceRecord[]) {
       const history = attendanceByRegistration.get(row.registration_id) || []
       history.push({ dayNumber: row.day_number, checkedInAt: row.checked_in_at })
@@ -70,27 +75,28 @@ export async function fetchParticipants(): Promise<Registration[]> {
 
   return registrations.map((r) => {
     const activity = Array.isArray(r.legacy_activities) ? r.legacy_activities[0] : r.legacy_activities
+    const program = Array.isArray(activity?.programs) ? activity.programs[0] : activity?.programs
 
     return {
-    id: r.id,
-    ref: r.ref_code || '',
-    registeredAt: r.registered_at,
-    attendedAt: r.attended_at,
-    notes: r.notes || '',
-    status: r.status || 'registered',
-    name: r.name || '—',
-    age: r.age ?? '—',
-    gender: r.gender_identity || '—',
-    contact: r.contact || '—',
-    barangay: r.barangay || '—',
-    org: r.organization || '',
-    activityId: activity?.id ?? r.activity_id,
-    activityTitle: activity?.title ?? '—',
-    activityDate: activity?.date_text ?? '—',
-    activityVenue: activity?.venue ?? '—',
-    program: activity?.programs?.[0]?.name ?? '—',
-    sectoralGroup: r.sectoral_group || 'None',
-    attendanceHistory: attendanceByRegistration.get(r.id) || [],
+      id: r.id,
+      ref: r.ref_code || '',
+      registeredAt: r.registered_at,
+      attendedAt: r.attended_at,
+      notes: r.notes || '',
+      status: r.status || 'registered',
+      name: r.name || '—',
+      age: r.age ?? '—',
+      gender: r.gender_identity || '—',
+      contact: r.contact || '—',
+      barangay: r.barangay || '—',
+      org: r.organization || '',
+      activityId: activity?.id ?? r.activity_id,
+      activityTitle: activity?.title ?? '—',
+      activityDate: activity?.date_text ?? '—',
+      activityVenue: activity?.venue ?? '—',
+      program: program?.name ?? '—',
+      sectoralGroup: r.sectoral_group || 'None',
+      attendanceHistory: attendanceByRegistration.get(r.id) || [],
     }
   })
 }
@@ -107,5 +113,6 @@ export async function updateStatusInDB(refCode: string, newStatus: string): Prom
   }
   return true
 }
+
 
 
