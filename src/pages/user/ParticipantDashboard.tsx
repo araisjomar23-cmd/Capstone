@@ -5,7 +5,7 @@ import type { PublicActivity } from '../../features/public/publicActivityService
 import ParticipantLayout from '../../layouts/ParticipantLayout'
 import { SkeletonCard } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
-import { MapPin, Calendar, Users, CalendarX } from 'lucide-react'
+import { MapPin, Calendar, Clock3, Users, CalendarX } from 'lucide-react'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { fetchMyRegistrations } from '../../features/public/registrationService'
 import { getActivityLifecycleStatus, type ActivityLifecycleStatus } from '../../features/activities/activityLifecycle'
@@ -98,6 +98,9 @@ export default function ParticipantDashboard() {
                   <div className="space-y-1.5 text-sm text-gray-500 mb-4">
                     <p className="flex items-center gap-1.5"><MapPin size={14} /> {activity.venue}</p>
                     <p className="flex items-center gap-1.5"><Calendar size={14} /> {activity.date}</p>
+                    {activity.time && (
+                      <p className="flex items-center gap-1.5"><Clock3 size={14} /> {activity.time}</p>
+                    )}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="flex items-center gap-1.5">
                         <Users size={14} /> {activity.taken}/{activity.slots} registered
