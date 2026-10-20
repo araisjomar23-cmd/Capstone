@@ -60,11 +60,11 @@ export default function ParticipantEvaluations() {
                   : 'Your evaluation is ready.'
 
             return (
-              <article key={registration.id} className="panel flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
+              <article key={registration.id} className="panel flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0">
+                <div className="flex items-start gap-3 min-w-0">
                   <span className="mt-1 text-primary"><ClipboardList size={20} /></span>
-                  <div>
-                    <h2 className="font-bold text-gray-900">{registration.title}</h2>
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-gray-900 break-words">{registration.title}</h2>
                     <p className="text-sm text-gray-500 mt-1">{statusText}</p>
                     {!registration.hasAttended && !registration.hasEvaluation && (
                       <p className="text-xs text-gray-500 mt-1">Attend the activity and wait for staff to record your attendance before taking the evaluation.</p>

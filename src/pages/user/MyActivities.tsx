@@ -124,11 +124,11 @@ export default function MyActivities() {
           {registrations.map((reg) => {
             const isRegistered = reg.status === REGISTRATION_STATUS.REGISTERED
             return (
-              <div key={reg.id} className="panel !p-0 overflow-hidden flex">
+              <div key={reg.id} className="panel !p-0 overflow-hidden flex min-w-0">
                 <div className="w-1.5 shrink-0" style={{ backgroundColor: reg.colorBg }} />
-                <div className="p-5 flex-1 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h2 className="font-bold text-lg text-gray-900">{reg.title}</h2>
+                <div className="p-4 sm:p-5 flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-lg text-gray-900 break-words">{reg.title}</h2>
                     <p className="text-sm text-gray-500 flex items-center gap-1.5 mt-1">
                       <Calendar size={13} />
                       Registered {fmtDate(reg.registeredAt)}
@@ -153,10 +153,10 @@ export default function MyActivities() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3">
                     {reg.refCode && reg.status !== 'inactive' && (
                       reg.activityStatus === 'upcoming' ? (
-                        <p className="max-w-40 text-center text-[11px] text-gray-500">Check-in opens on {formatActivityCheckInOpensAt(reg.checkInOpensAt)}</p>
+                        <p className="max-w-40 text-left sm:text-center text-[11px] text-gray-500">Check-in opens on {formatActivityCheckInOpensAt(reg.checkInOpensAt)}</p>
                       ) : reg.activityStatus === 'ongoing' ? (
                         <div className="text-center">
                           <QRCodeCanvas value={reg.refCode} size={80} level="M" />

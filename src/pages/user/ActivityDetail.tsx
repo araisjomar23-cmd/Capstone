@@ -137,7 +137,7 @@ function ActivityDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
        <button onClick={() => navigate(backTo)} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary mb-4">
           <ArrowLeft size={14} /> Back to activities
        </button>
@@ -146,10 +146,10 @@ function ActivityDetail() {
           <div className="h-28 relative" style={{ backgroundColor: activity.colorBg || '#1a5c3a' }}>
             <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 80% 30%, white 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
           </div>
-          <div className="p-6">
+            <div className="p-4 sm:p-6">
             <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-1.5">{activity.programName}</div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">{activity.title}</h1>
-            <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 mb-4">
               <span className="inline-flex items-center gap-1.5"><Calendar size={14} /> {activity.date}</span>
               <span className="inline-flex items-center gap-1.5"><MapPin size={14} /> {activity.venue}</span>
             </div>

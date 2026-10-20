@@ -147,7 +147,7 @@ export default function ParticipantProfile() {
 
   return (
     <ParticipantLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <User size={26} /> My Profile
@@ -173,7 +173,7 @@ export default function ParticipantProfile() {
 
       {error && <p className="text-sm text-red-500 mb-4">⚠️ {error}</p>}
 
-      <div className="panel p-6 space-y-6">
+      <div className="panel p-4 sm:p-6 space-y-6">
         <section>
           <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Personal Info</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
