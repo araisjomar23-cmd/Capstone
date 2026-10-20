@@ -190,8 +190,16 @@ function AdminParticipants() {
                   <td className="px-4 py-3">{p.barangay}</td>
                   <td className="px-4 py-3">{p.contact}</td>
                   <td className="px-4 py-3">
-                    <div className="font-medium">{p.status === 'not_registered' ? 'Unregistered' : p.activityTitle}</div>
-                    <div className="text-xs text-gray-400">{p.program}</div>
+                    {p.status === 'not_registered' ? (
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${PILL_STYLES.not_registered}`}>
+                        Unregistered
+                      </span>
+                    ) : (
+                      <>
+                        <div className="font-medium">{p.activityTitle}</div>
+                        <div className="text-xs text-gray-400">{p.program}</div>
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${PILL_STYLES[p.status] || 'bg-gray-100 text-gray-600'}`}>
