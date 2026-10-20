@@ -80,9 +80,6 @@ export default function ParticipantDashboard() {
                   className="h-20 relative"
                   style={{ backgroundColor: activity.colorBg || '#1a5c3a' }}
                 >
-                  <span className={`absolute top-3 right-3 z-10 rounded-full px-2.5 py-1 text-xs font-semibold ${LIFECYCLE_PILL[lifecycle]}`}>
-                    {lifecycle.charAt(0).toUpperCase() + lifecycle.slice(1)}
-                  </span>
                   <div
                     className="absolute inset-0 opacity-10"
                     style={{
@@ -101,15 +98,20 @@ export default function ParticipantDashboard() {
                   <div className="space-y-1.5 text-sm text-gray-500 mb-4">
                     <p className="flex items-center gap-1.5"><MapPin size={14} /> {activity.venue}</p>
                     <p className="flex items-center gap-1.5"><Calendar size={14} /> {activity.date}</p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="flex items-center gap-1.5">
                         <Users size={14} /> {activity.taken}/{activity.slots} registered
                       </p>
-                      {registered && (
-                        <span className="ml-auto rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
-                          Registered
+                      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${LIFECYCLE_PILL[lifecycle]}`}>
+                          {lifecycle.charAt(0).toUpperCase() + lifecycle.slice(1)}
                         </span>
-                      )}
+                        {registered && (
+                          <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                            Registered
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
