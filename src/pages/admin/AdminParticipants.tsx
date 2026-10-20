@@ -16,6 +16,11 @@ const PILL_STYLES: Record<string, string> = {
   not_registered: 'bg-amber-100 text-amber-700',
 }
 
+function formatStatus(status: string) {
+  if (status === 'not_registered') return 'Unregistered'
+  return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
 function AdminParticipants() {
   const [all, setAll] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
@@ -139,7 +144,7 @@ function AdminParticipants() {
           <option value="attended">Attended</option>
           <option value="completed">Completed</option>
           <option value="inactive">Inactive</option>
-          <option value="not_registered">Not registered</option>
+          <option value="not_registered">Unregistered</option>
         </select>
       </div>
 
@@ -185,12 +190,12 @@ function AdminParticipants() {
                   <td className="px-4 py-3">{p.barangay}</td>
                   <td className="px-4 py-3">{p.contact}</td>
                   <td className="px-4 py-3">
-                    <div className="font-medium">{p.activityTitle}</div>
+                    <div className="font-medium">{p.status === 'not_registered' ? 'Unregistered' : p.activityTitle}</div>
                     <div className="text-xs text-gray-400">{p.program}</div>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${PILL_STYLES[p.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {p.status}
+                      {formatStatus(p.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs">
@@ -245,7 +250,7 @@ function AdminParticipants() {
                     <div className="text-xs text-gray-400">{p.ref || '—'}</div>
                   </div>
                   <span className={`shrink-0 px-2 py-1 rounded-full text-xs font-medium ${PILL_STYLES[p.status] || 'bg-gray-100 text-gray-600'}`}>
-                    {p.status}
+                    {formatStatus(p.status)}
                   </span>
                 </div>
 
