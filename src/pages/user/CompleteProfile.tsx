@@ -155,8 +155,8 @@ export default function CompleteProfile() {
                 <DatePicker value={form.birthday} onChange={(value) => setField('birthday', value)} className="input" aria-label="Birthday" />
               </div>
 
-              <select value={form.gender} onChange={(e) => setField('gender', e.target.value)} className="input">
-                <option value="">Select Gender Identity *</option>
+              <select value={form.gender} onChange={(e) => setField('gender', e.target.value)} className="input self-end">
+                <option value="">Select Gender Identity</option>
                 <option>Male</option>
                 <option>Female</option>
               </select>
