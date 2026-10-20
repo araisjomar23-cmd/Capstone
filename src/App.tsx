@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import UserHome from './pages/user/UserHome'
+import PublicLandingPage from './pages/user/PublicLandingPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminParticipants from './pages/admin/AdminParticipants'
 import AdminActivities from './pages/admin/AdminActivities'
@@ -29,7 +29,7 @@ import ParticipantEvaluations from './pages/user/ParticipantEvaluations'
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<UserHome />} />
+      <Route path="/" element={<PublicLandingPage />} />
       <Route path="/activities/:id" element={<ActivityDetail />} />
       <Route path="/signup" element={<ParticipantSignup />} />
       <Route path="/admin/login" element={<AdminLogin />} />
@@ -40,7 +40,11 @@ function App() {
       <Route
         path="/participant/complete-profile"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute
+            allowedRoles={['participant']}
+            allowUnassignedRole
+            roleMismatchMessage="This profile form is for participant accounts. Sign out of your staff account to register for activities."
+          >
             <CompleteProfile />
           </ProtectedRoute>
         }

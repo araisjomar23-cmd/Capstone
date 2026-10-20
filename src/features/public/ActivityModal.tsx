@@ -5,6 +5,7 @@ import { fetchActivityById, registerParticipant } from './registrationService'
 import type { PublicActivity } from './publicActivityService'
 import { supabase } from '../../lib/supabase'
 import { QRCodeCanvas } from 'qrcode.react'
+import { useAuth } from '../auth/AuthContext'
 
 interface Props {
   activityId: string
@@ -13,6 +14,7 @@ interface Props {
 
 function ActivityModal({ activityId, onClose }: Props) {
   const navigate = useNavigate()
+  const { loading: authLoading, role } = useAuth()
   const [activity, setActivity] = useState<PublicActivity | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -38,10 +40,16 @@ function ActivityModal({ activityId, onClose }: Props) {
     if (!activity) return
     setError('')
 
+    if (authLoading) return
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      sessionStorage.setItem('postLoginRedirect', `/?activity=${activity.id}`)
-      navigate('/admin/login')
+      navigate(`/signup?activity=${encodeURIComponent(activity.id)}`)
+      return
+    }
+
+    if (role && role !== 'participant') {
+      setError('You are signed in with a staff account. Sign out, then create or sign in to a participant account to register.')
       return
     }
 
@@ -51,7 +59,7 @@ function ActivityModal({ activityId, onClose }: Props) {
 
     if (!result.ok) {
       if (result.error?.includes('complete your profile')) {
-        navigate('/participant/complete-profile')
+        navigate(`/participant/complete-profile?activity=${encodeURIComponent(activity.id)}`)
         return
       }
       setError(result.error || 'Registration failed.')
@@ -130,7 +138,7 @@ function ActivityModal({ activityId, onClose }: Props) {
 
               <button
                 onClick={handleRegister}
-                disabled={soldOut || submitting}
+                disabled={soldOut || submitting || authLoading}
                 className="w-full btn-primary py-2.5 disabled:opacity-40"
               >
                 {activity.status === 'closed'

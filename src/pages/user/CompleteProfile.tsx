@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import DatePicker from '../../components/DatePicker'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getProvinces, getCities, getBarangays } from '../../features/public/region11Data'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { useAuth } from '../../features/auth/AuthContext'
 
 const YOUTH_CLASSES = ['In-School Youth', 'Out-of-School Youth', 'Working Youth', 'Person with Disability (PWD Youth)']
 const SECTORAL_GROUPS = ['Indigenous People', 'LGBTQIA+', 'Solo Parent', 'Youth with Disability', 'None']
@@ -56,6 +57,9 @@ export default function CompleteProfile() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { refreshRole } = useAuth()
+  const activityId = searchParams.get('activity')
 
   const provinces = getProvinces()
   const cities = form.province ? getCities(form.province) : []
@@ -126,7 +130,8 @@ export default function CompleteProfile() {
       return
     }
 
-    navigate('/participant')
+    await refreshRole()
+    navigate(activityId ? `/?activity=${encodeURIComponent(activityId)}` : '/participant')
   }
 
   return (

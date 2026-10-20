@@ -10,11 +10,16 @@ interface AuthState {
   role: string | null
 }
 
-const AuthContext = createContext<AuthState>({
+interface AuthContextValue extends AuthState {
+  refreshRole: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextValue>({
   loading: true,
   userId: null,
   email: null,
   role: null,
+  refreshRole: async () => {},
 })
 
 async function resolveRole(userId: string): Promise<string | null> {
@@ -33,6 +38,13 @@ async function resolveRole(userId: string): Promise<string | null> {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ loading: true, userId: null, email: null, role: null })
+
+  async function refreshRole() {
+    const { data } = await supabase.auth.getUser()
+    const user = data.user
+    const role = user ? await resolveRole(user.id) : null
+    setState({ loading: false, userId: user?.id ?? null, email: user?.email ?? null, role })
+  }
 
   useEffect(() => {
     async function init() {
@@ -59,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ ...state, refreshRole }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

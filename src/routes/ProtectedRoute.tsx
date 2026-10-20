@@ -7,9 +7,10 @@ interface Props {
   allowedRoles?: string[]
   loginPath?: string
   roleMismatchMessage?: string
+  allowUnassignedRole?: boolean
 }
 
-function ProtectedRoute({ children, allowedRoles, loginPath = '/admin/login', roleMismatchMessage }: Props) {
+function ProtectedRoute({ children, allowedRoles, loginPath = '/admin/login', roleMismatchMessage, allowUnassignedRole = false }: Props) {
   const { loading, userId, role } = useAuth()
   const location = useLocation() 
 
@@ -22,7 +23,7 @@ function ProtectedRoute({ children, allowedRoles, loginPath = '/admin/login', ro
     return <Navigate to={`${loginPath}?returnTo=${encodeURIComponent(returnTo)}`} replace />
   }
 
-  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+  if (allowedRoles && (!role || !allowedRoles.includes(role)) && !(allowUnassignedRole && !role)) {
     if (roleMismatchMessage) {
       return (
         <main className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 p-6 text-center">

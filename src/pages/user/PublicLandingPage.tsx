@@ -45,7 +45,7 @@ function fmtShort(n: number) {
   return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n)
 }
 
-function UserHome() {
+function PublicLandingPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [activities, setActivities] = useState<PublicActivity[]>([])
@@ -473,4 +473,4 @@ function UserHome() {
   )
 }
 
-export default UserHome
+export default PublicLandingPage

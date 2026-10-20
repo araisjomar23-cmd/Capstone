@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import cydoLogo from '../../assets/CYDO LOGO.jpg'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -94,6 +94,8 @@ export default function ParticipantSignup() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const activityId = searchParams.get('activity')
 
   const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword
@@ -121,7 +123,8 @@ export default function ParticipantSignup() {
     }
 
     if (data.session) {
-      navigate('/participant/complete-profile')
+      const activityQuery = activityId ? `?activity=${encodeURIComponent(activityId)}` : ''
+      navigate(`/participant/complete-profile${activityQuery}`)
     }
   }
 
