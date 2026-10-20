@@ -7,6 +7,7 @@ import { ArrowLeft, MapPin, Calendar } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../features/auth/AuthContext'
 import { QRCodeCanvas } from 'qrcode.react'
+import { fetchMyRegistrations } from '../../features/public/registrationService'
 
 function ActivityDetail() {
   const { id } = useParams()
@@ -18,10 +19,21 @@ function ActivityDetail() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [refCode, setRefCode] = useState('')
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
 
   useEffect(() => {
     if (id) load(id)
   }, [id])
+
+  useEffect(() => {
+    if (role !== 'participant' || !id) return
+    fetchMyRegistrations().then((result) => {
+      if (!result.ok) return
+      setAlreadyRegistered(result.data.some((registration) =>
+        registration.activityId === id && registration.status !== 'inactive'
+      ))
+    })
+  }, [id, role])
 
   useEffect(() => {
     if (!id) return
@@ -69,6 +81,7 @@ function ActivityDetail() {
     }
 
     setRefCode(result.refCode || '')
+    setAlreadyRegistered(true)
 
     const updated = await fetchActivityById(activity.id)
     if (updated) {
@@ -142,7 +155,7 @@ function ActivityDetail() {
             </div>
             <p className="text-sm text-gray-600 mb-4">{activity.previewDesc}</p>
 
-            {activity.fullDesc && (
+            {activity.fullDesc && !(role === 'participant' && alreadyRegistered) && (
               <p className="text-sm text-gray-500 mb-4 italic">
                 Full details unlock after you register.
               </p>
@@ -153,14 +166,17 @@ function ActivityDetail() {
               <span>{activity.taken}/{activity.slots} registered</span>
             </div>
 
+            {alreadyRegistered && <p className="text-sm text-green-700 mb-4">You are registered for this activity. You can review its details here.</p>}
             {error && <p className="text-sm text-red-500 mb-4">⚠️ {error}</p>}
             
             <button
               onClick={handleRegister}
-              disabled={soldOut || submitting}
+              disabled={alreadyRegistered || soldOut || submitting}
               className="w-full btn-primary py-2.5 disabled:opacity-40"
               >
-              {activity.status === 'closed'
+              {alreadyRegistered
+                ? 'Registered'
+                : activity.status === 'closed'
                 ? 'Registration Closed'
                 : soldOut
                 ? 'Activity Full'

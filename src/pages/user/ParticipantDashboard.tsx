@@ -7,18 +7,28 @@ import { SkeletonCard } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { MapPin, Calendar, Users, CalendarX } from 'lucide-react'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { fetchMyRegistrations } from '../../features/public/registrationService'
 
 export default function ParticipantDashboard() {
   usePageTitle('PRIME')
   const navigate = useNavigate()
   const [activities, setActivities] = useState<PublicActivity[]>([])
   const [loading, setLoading] = useState(true)
+  const [registeredActivityIds, setRegisteredActivityIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function loadActivities() {
-      const data = await fetchPublicActivities()
-      setActivities(data)
-      setLoading(false)
+      try {
+        const [data, registrations] = await Promise.all([fetchPublicActivities(), fetchMyRegistrations()])
+        setActivities(data)
+        if (registrations.ok) {
+          setRegisteredActivityIds(new Set(
+            registrations.data.filter((registration) => registration.status !== 'inactive').map((registration) => registration.activityId)
+          ))
+        }
+      } finally {
+        setLoading(false)
+      }
     }
     loadActivities()
   }, [])
@@ -49,6 +59,7 @@ export default function ParticipantDashboard() {
           {activities.map((activity) => {
             const open = Math.max(0, activity.slots - activity.taken)
             const full = open <= 0
+            const registered = registeredActivityIds.has(activity.id)
             return (
               <div key={activity.id} className="panel overflow-hidden flex flex-col">
                 <div
@@ -78,10 +89,9 @@ export default function ParticipantDashboard() {
 
                   <button
                     onClick={() => navigate(`/activities/${activity.id}`)}
-                    disabled={full}
                     className="mt-auto w-full btn-primary py-2.5 disabled:opacity-40"
                   >
-                    {full ? 'Activity Full' : 'View & Register'}
+                    {registered ? 'Registered · View Activity' : full ? 'Activity Full · View Details' : 'View & Register'}
                   </button>
                 </div>
               </div>
