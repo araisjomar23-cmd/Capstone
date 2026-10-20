@@ -81,7 +81,7 @@ function LikertRow({ label, value, onChange }: { label: string; value: string; o
   )
 }
 
-function SubmitEvaluation() {
+function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubmit?: boolean }) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { activityId } = useParams()
@@ -107,12 +107,12 @@ function SubmitEvaluation() {
       if (!registration) { setEntryState('not-registered'); return }
       setRefCode(registration.refCode)
       if (registration.hasEvaluation) { setEntryState('evaluated'); return }
-      if (!registration.hasAttended) { setEntryState('not-attended'); return }
+      if (!registration.hasAttended && !markAttendedOnSubmit) { setEntryState('not-attended'); return }
       if (registration.activityStatus !== 'completed') { setEntryState('event-not-finished'); return }
       setEntryState('ready')
     })
     return () => { active = false }
-  }, [activityId, requestedRefCode])
+  }, [activityId, requestedRefCode, markAttendedOnSubmit])
 
   const filledCount = REQUIRED_KEYS.filter((k) => answers[k]).length
   const progressPct = Math.round((filledCount / REQUIRED_KEYS.length) * 100)
@@ -138,6 +138,7 @@ function SubmitEvaluation() {
       feedback: feedback.trim(),
       wouldRecommend: Number(answers.q4) >= 4,
       responses: answers,
+      markAttendedOnSubmit,
     })
     setSubmitting(false)
 
@@ -154,7 +155,7 @@ function SubmitEvaluation() {
         <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 max-w-md w-full text-center">
           <HeartHandshake size={48} className="mx-auto mb-3 text-primary" />
           <h1 className="text-xl font-bold text-gray-900 mb-1">Thank You!</h1>
-          <p className="text-sm text-gray-500 mb-6">Your feedback helps CYDO improve future activities for Panabo City youth.</p>
+          <p className="text-sm text-gray-500 mb-6">{markAttendedOnSubmit ? 'Your evaluation was submitted and your attendance has been recorded.' : 'Your feedback helps CYDO improve future activities for Panabo City youth.'}</p>
           <button onClick={() => navigate('/')} className="w-full bg-primary text-white font-medium py-2.5 rounded-lg">
             Back to Activities
           </button>

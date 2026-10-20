@@ -75,6 +75,7 @@ export interface SubmitEvaluationPayload {
   feedback: string
   wouldRecommend: boolean
   responses: Record<string, string>
+  markAttendedOnSubmit?: boolean
 }
 
 export async function submitEvaluation(
@@ -86,6 +87,7 @@ export async function submitEvaluation(
     p_feedback: payload.feedback,
     p_would_recommend: payload.wouldRecommend,
     p_responses: payload.responses,
+    p_mark_attended_on_submit: payload.markAttendedOnSubmit ?? false,
   })
 
   if (error) {

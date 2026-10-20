@@ -23,7 +23,6 @@ import CompleteProfile from './pages/user/CompleteProfile'
 import MyActivities from './pages/user/MyActivities'
 import ParticipantProfile from './pages/user/ParticipantProfile'
 import NotFound from './pages/NotFound'
-import ParticipantCheckin from './pages/user/ParticipantCheckin'
 import ParticipantEvaluations from './pages/user/ParticipantEvaluations'
 
 function App() {
@@ -34,8 +33,8 @@ function App() {
       <Route path="/signup" element={<ParticipantSignup />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/feedback" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/admin/login" roleMismatchMessage="Evaluation is for participant accounts"><SubmitEvaluation /></ProtectedRoute>} />
-      <Route path="/evaluate/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/admin/login" roleMismatchMessage="Evaluation is for participant accounts"><SubmitEvaluation /></ProtectedRoute>} />
-      <Route path="/checkin/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/admin/login" roleMismatchMessage="Check-in is for participant accounts"><ParticipantCheckin /></ProtectedRoute>} />
+      <Route path="/evaluate/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/signup" roleMismatchMessage="Evaluation is for participant accounts"><SubmitEvaluation /></ProtectedRoute>} />
+      <Route path="/checkin/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/signup" roleMismatchMessage="Evaluation is for participant accounts"><SubmitEvaluation markAttendedOnSubmit /></ProtectedRoute>} />
 
       <Route
         path="/participant/complete-profile"

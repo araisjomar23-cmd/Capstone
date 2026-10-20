@@ -191,7 +191,7 @@ function FacilitatorAttendance() {
       </div>
 
       <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-        <QrCode size={20} /> My Activity QR Codes
+        <QrCode size={20} /> Attendance & Evaluation QR Codes
       </h2>
       {activities.length === 0 ? (
         <EmptyState icon={<QrCode size={22} />} title="No assigned activities" />
@@ -204,6 +204,7 @@ function FacilitatorAttendance() {
               <div className="p-2 bg-white">
               <QRCodeCanvas id={`fac-qr-canvas-${a.id}`} value={`${window.location.origin}/checkin/${a.id}`} size={130} fgColor="#1a5c3a" bgColor="#ffffff" />
               </div>
+              <p className="text-xs text-gray-500 mt-2">Display after the activity; evaluation submission records attendance.</p>
               <span className={`px-2 py-1 rounded-full text-[10px] font-medium mt-2 mb-3 ${PILL_STYLES[a.status] || 'bg-gray-100 text-gray-600'}`}>
                 {a.status}
               </span>

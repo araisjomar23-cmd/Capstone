@@ -285,7 +285,7 @@ function AdminAttendance() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-3xl mt-4">
               <section className="flex flex-col items-center">
-                <h3 className="font-semibold text-gray-900 mb-2">Participant Check-in QR</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">Attendance & Evaluation QR</h3>
                 <div className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
                   <QRCodeCanvas
                     id={`visible-checkin-qr-canvas-${selectedQrActivity.id}`}
@@ -295,13 +295,13 @@ function AdminAttendance() {
                     bgColor="#ffffff"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2 mb-3">Display during the activity check-in window.</p>
+                <p className="text-xs text-gray-500 mt-2 mb-3">Display after the activity; participants submit the evaluation to record attendance.</p>
                 <button onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title, 'checkin')} className="text-primary text-sm font-semibold hover:underline">
                   <Download size={16} className="inline mr-1" /> Download Check-in QR
                 </button>
               </section>
               <section className="flex flex-col items-center">
-                <h3 className="font-semibold text-gray-900 mb-2">Evaluation QR</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">Evaluation QR (Already Checked In)</h3>
                 <div className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
                   <QRCodeCanvas
                     id={`visible-evaluation-qr-canvas-${selectedQrActivity.id}`}
@@ -311,7 +311,7 @@ function AdminAttendance() {
                     bgColor="#ffffff"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2 mb-3">Display after the activity has ended.</p>
+                <p className="text-xs text-gray-500 mt-2 mb-3">Use for participants whose attendance was recorded separately.</p>
                 <button onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title, 'evaluation')} className="text-primary text-sm font-semibold hover:underline">
                   <Download size={16} className="inline mr-1" /> Download Evaluation QR
                 </button>

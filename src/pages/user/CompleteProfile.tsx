@@ -60,6 +60,7 @@ export default function CompleteProfile() {
   const [searchParams] = useSearchParams()
   const { refreshRole } = useAuth()
   const activityId = searchParams.get('activity')
+  const requestedReturnTo = searchParams.get('returnTo')
 
   const provinces = getProvinces()
   const cities = form.province ? getCities(form.province) : []
@@ -131,7 +132,11 @@ export default function CompleteProfile() {
     }
 
     await refreshRole()
-    navigate(activityId ? `/?activity=${encodeURIComponent(activityId)}` : '/participant')
+    const returnTo = requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')
+      ? requestedReturnTo
+      : activityId ? `/?activity=${encodeURIComponent(activityId)}` : '/participant'
+    sessionStorage.removeItem('postLoginRedirect')
+    navigate(returnTo)
   }
 
   return (

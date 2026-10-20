@@ -96,6 +96,7 @@ export default function ParticipantSignup() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const activityId = searchParams.get('activity')
+  const requestedReturnTo = searchParams.get('returnTo')
 
   const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword
@@ -123,8 +124,14 @@ export default function ParticipantSignup() {
     }
 
     if (data.session) {
-      const activityQuery = activityId ? `?activity=${encodeURIComponent(activityId)}` : ''
-      navigate(`/participant/complete-profile${activityQuery}`)
+      const profileParams = new URLSearchParams()
+      if (requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')) {
+        profileParams.set('returnTo', requestedReturnTo)
+      } else if (activityId) {
+        profileParams.set('activity', activityId)
+      }
+      const profileQuery = profileParams.size ? `?${profileParams.toString()}` : ''
+      navigate(`/participant/complete-profile${profileQuery}`)
     }
   }
 
