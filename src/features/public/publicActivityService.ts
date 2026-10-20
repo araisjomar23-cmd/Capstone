@@ -13,6 +13,10 @@ export interface PublicActivity {
   venue: string
   date: string
   time: string
+  startDate: string
+  endDate: string
+  startTime: string | null
+  endTime: string | null
   previewDesc: string
   fullDesc: string
   outcomes: string[]
@@ -82,6 +86,10 @@ export async function fetchPublicActivities(): Promise<PublicActivity[]> {
     venue: a.venue || '—',
     date: formatDateRange(a.start_date, a.end_date),
     time: formatTimeRange(a.start_time, a.end_time),
+    startDate: a.start_date,
+    endDate: a.end_date,
+    startTime: a.start_time,
+    endTime: a.end_time,
     previewDesc: a.preview_desc || '',
     fullDesc: a.full_desc || '',
     outcomes: a.outcomes || [],

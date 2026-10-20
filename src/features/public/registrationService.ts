@@ -57,6 +57,10 @@ export async function fetchActivityById(id: string): Promise<PublicActivity | nu
         ? fmt(data.start_date)
         : `${fmt(data.start_date)} – ${fmt(data.end_date)}`,
     time: formatTimeRange(data.start_time, data.end_time),
+    startDate: data.start_date,
+    endDate: data.end_date,
+    startTime: data.start_time,
+    endTime: data.end_time,
     previewDesc: data.preview_desc || '',
     fullDesc: data.full_desc || '',
     outcomes: data.outcomes || [],

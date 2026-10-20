@@ -8,6 +8,13 @@ import { EmptyState } from '../../components/EmptyState'
 import { MapPin, Calendar, Users, CalendarX } from 'lucide-react'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { fetchMyRegistrations } from '../../features/public/registrationService'
+import { getActivityLifecycleStatus, type ActivityLifecycleStatus } from '../../features/activities/activityLifecycle'
+
+const LIFECYCLE_PILL: Record<ActivityLifecycleStatus, string> = {
+  upcoming: 'bg-blue-50 text-blue-700',
+  ongoing: 'bg-amber-50 text-amber-700',
+  completed: 'bg-teal-50 text-teal-700',
+}
 
 export default function ParticipantDashboard() {
   usePageTitle('PRIME')
@@ -15,6 +22,12 @@ export default function ParticipantDashboard() {
   const [activities, setActivities] = useState<PublicActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [registeredActivityIds, setRegisteredActivityIds] = useState<Set<string>>(new Set())
+  const [clockNow, setClockNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     async function loadActivities() {
@@ -60,12 +73,16 @@ export default function ParticipantDashboard() {
             const open = Math.max(0, activity.slots - activity.taken)
             const full = open <= 0
             const registered = registeredActivityIds.has(activity.id)
+            const lifecycle = getActivityLifecycleStatus(activity, clockNow)
             return (
               <div key={activity.id} className="panel overflow-hidden flex flex-col">
                 <div
                   className="h-20 relative"
                   style={{ backgroundColor: activity.colorBg || '#1a5c3a' }}
                 >
+                  <span className={`absolute top-3 right-3 z-10 rounded-full px-2.5 py-1 text-xs font-semibold ${LIFECYCLE_PILL[lifecycle]}`}>
+                    {lifecycle.charAt(0).toUpperCase() + lifecycle.slice(1)}
+                  </span>
                   <div
                     className="absolute inset-0 opacity-10"
                     style={{

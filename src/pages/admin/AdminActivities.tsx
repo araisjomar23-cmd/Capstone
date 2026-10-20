@@ -10,12 +10,6 @@ import { supabase } from '../../lib/supabase'
 import { Pin as PinIcon } from 'lucide-react'
 import { getActivityLifecycleStatus, type ActivityLifecycleStatus } from '../../features/activities/activityLifecycle'
 
-const STATUS_PILL: Record<string, { cls: string; label: string }> = {
-  open: { cls: 'bg-green-100 text-green-700', label: 'Open' },
-  upcoming: { cls: 'bg-blue-100 text-blue-700', label: 'Upcoming' },
-  full: { cls: 'bg-red-100 text-red-700', label: 'Full' },
-  closed: { cls: 'bg-gray-100 text-gray-600', label: 'Closed' },
-}
 const LIFECYCLE_PILL: Record<ActivityLifecycleStatus, { cls: string; label: string }> = {
   upcoming: { cls: 'bg-blue-50 text-blue-700', label: 'Upcoming' },
   ongoing: { cls: 'bg-amber-50 text-amber-700', label: 'Ongoing' },
@@ -189,7 +183,6 @@ async function handleToggle(a: Activity) {
                 ) : (
               filtered.map((a) => {
                 const pct = a.slots > 0 ? Math.min(100, Math.round((a.regCount / a.slots) * 100)) : 0
-                const pill = STATUS_PILL[a.status] || { cls: 'bg-gray-100 text-gray-600', label: a.status }
                 const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a, clockNow)]
                 const bPct = a.budgetAlloc > 0 ? Math.round((a.budgetSpent / a.budgetAlloc) * 100) : 0
 
@@ -278,7 +271,6 @@ async function handleToggle(a: Activity) {
           <div className="space-y-3">
             {filtered.map((a) => {
               const pct = a.slots > 0 ? Math.min(100, Math.round((a.regCount / a.slots) * 100)) : 0
-              const pill = STATUS_PILL[a.status] || { cls: 'bg-gray-100 text-gray-600', label: a.status }
               const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a, clockNow)]
               const bPct = a.budgetAlloc > 0 ? Math.round((a.budgetSpent / a.budgetAlloc) * 100) : 0
 
