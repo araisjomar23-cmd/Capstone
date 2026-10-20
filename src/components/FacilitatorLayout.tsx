@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, Users } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Users, Menu, X } from 'lucide-react'
 import { logoutAdmin } from '../features/auth/authService'
 import { useAuth } from '../features/auth/AuthContext'
 
@@ -12,6 +13,7 @@ const navItems = [
 function FacilitatorLayout() {
   const navigate = useNavigate()
   const { email } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   async function handleLogout() {
     await logoutAdmin()
@@ -20,14 +22,22 @@ function FacilitatorLayout() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 sticky top-0 h-screen">
-        <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-primary to-primary-dark">
-          <div className="text-sm font-extrabold text-white tracking-tight">City Youth Development Office</div>
-          <div className="text-xs text-green-100">Facilitator Portal</div>
-          <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-white bg-white/15 backdrop-blur px-2.5 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-            Facilitator Access
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-[2px] z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+      <aside className={`portal-sidebar w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 h-screen fixed md:sticky top-0 z-50 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <div className="portal-brand p-5 border-b border-white/10 flex items-start justify-between">
+          <div>
+            <div className="text-sm font-extrabold text-white tracking-tight">City Youth Development Office</div>
+            <div className="text-xs text-green-100">Facilitator Portal</div>
+            <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-white bg-white/15 backdrop-blur px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              Facilitator Access
+            </div>
           </div>
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/80 hover:text-white" aria-label="Close navigation">
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3">
@@ -37,10 +47,11 @@ function FacilitatorLayout() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center gap-3 mx-2 my-0.5 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                `portal-nav-link flex items-center gap-3 mx-2 my-0.5 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${
                   isActive ? 'bg-primary-light text-primary font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                 }`
               }
+              onClick={() => setSidebarOpen(false)}
             >
               <span className="shrink-0">{item.icon}</span>
               {item.label}
@@ -67,9 +78,17 @@ function FacilitatorLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="portal-topbar md:hidden sticky top-0 z-30 border-b flex items-center gap-3 px-4 py-3">
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-600 hover:text-primary" aria-label="Open navigation">
+            <Menu size={22} />
+          </button>
+          <div className="text-sm font-bold text-gray-800">Facilitator Portal</div>
+        </div>
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

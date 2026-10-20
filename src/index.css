@@ -2,53 +2,78 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #1a5c3a;
-  --color-primary-dark: #0f4429;
-  --color-primary-light: #e8f5ee;
-  --color-accent: #e8a020;
-  --color-teal: #2e7d5a;
-  --color-danger: #c0392b;
-  --color-info: #1a4d7a;
+  --color-primary: #17623d;
+  --color-primary-dark: #10452d;
+  --color-primary-light: #e8f4ed;
+  --color-accent: #e5a333;
+  --color-teal: #278365;
+  --color-danger: #c34242;
+  --color-info: #32678f;
   --color-warn: #b36b00;
-  --color-ink: #1a1a1a;
-  --color-muted: #6b6b6b;
-  --color-paper: #f0ede8;
-  --color-border-warm: #e2ddd6;
+  --color-ink: #17231d;
+  --color-muted: #718078;
+  --color-paper: #f5f7f5;
+  --color-border-warm: #e2e9e4;
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
   font-family: var(--font-sans);
   color: var(--color-ink);
-  background-color: var(--color-paper);
+  background: #f5f7f5;
+  font-feature-settings: 'ss01' on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, a, input, select, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a {
+  transition-timing-function: cubic-bezier(.2,.75,.25,1);
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+  outline: 3px solid rgb(39 131 101 / 32%);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: #10452d;
+  background: #cce8d7;
 }
 
 .input {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 0.625rem;
-  padding: 0.55rem 0.8rem;
+  border: 1px solid #dce5df;
+  border-radius: 0.75rem;
+  padding: 0.68rem 0.85rem;
   font-size: 0.875rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  background: #fff;
+  color: var(--color-ink);
+  transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s;
 }
 .input:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
+  border-color: #61a17a;
+  box-shadow: 0 0 0 4px rgb(23 98 61 / 9%);
 }
 
 .btn-primary {
   background: var(--color-primary);
   color: white;
   font-weight: 600;
-  border-radius: 0.625rem;
-  padding: 0.6rem 1.1rem;
+  border-radius: 0.75rem;
+  padding: 0.68rem 1.1rem;
   font-size: 0.875rem;
-  box-shadow: 0 2px 8px rgba(26, 92, 58, 0.2);
-  transition: box-shadow 0.2s, transform 0.1s;
+  box-shadow: 0 5px 14px rgba(23, 98, 61, 0.16);
+  transition: box-shadow 0.2s, transform 0.16s, background-color 0.2s;
 }
 .btn-primary:hover {
-  box-shadow: 0 4px 14px rgba(26, 92, 58, 0.3);
+  box-shadow: 0 8px 20px rgba(23, 98, 61, 0.22);
+  background: var(--color-primary-dark);
 }
 .btn-primary:active {
   transform: scale(0.98);
@@ -63,29 +88,31 @@ body {
   color: #4b5563;
   font-weight: 500;
   border: 1px solid var(--color-border-warm);
-  border-radius: 0.625rem;
-  padding: 0.6rem 1.1rem;
+  border-radius: 0.75rem;
+  padding: 0.68rem 1.1rem;
   font-size: 0.875rem;
-  transition: background 0.15s;
+  transition: background 0.18s, border-color 0.18s, transform 0.16s;
 }
 .btn-secondary:hover {
-  background: #f9fafb;
+  background: #f6f9f7;
+  border-color: #cbd9cf;
 }
 
 /* Stat card — colored left bar + watermark icon + hover lift */
 .stat-card {
   background: white;
-  border-radius: 14px;
-  border: 1px solid var(--color-border-warm);
-  padding: 20px 22px;
-  box-shadow: 0 2px 12px rgba(26, 92, 58, 0.06);
+  border-radius: 18px;
+  border: 1px solid rgb(218 229 221 / 85%);
+  padding: 22px 24px;
+  box-shadow: 0 5px 20px rgba(29, 66, 43, 0.045), 0 1px 2px rgba(29, 66, 43, 0.035);
   position: relative;
   overflow: hidden;
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition: box-shadow 0.22s, transform 0.22s, border-color 0.22s;
 }
 .stat-card:hover {
-  box-shadow: 0 6px 28px rgba(26, 92, 58, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(29, 66, 43, 0.09);
+  border-color: #c9dccf;
+  transform: translateY(-3px);
 }
 .stat-accent-bar {
   position: absolute;
@@ -105,14 +132,14 @@ body {
 }
 .stat-label {
   font-size: 10px;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--color-muted);
   font-weight: 700;
   margin-bottom: 10px;
 }
 .stat-value {
-  font-size: 30px;
+  font-size: clamp(26px, 2.4vw, 32px);
   font-weight: 800;
   line-height: 1;
   margin-bottom: 6px;
@@ -126,13 +153,13 @@ body {
 /* Panel — the "card container" for tables/sections */
 .panel {
   background: white;
-  border-radius: 14px;
-  border: 1px solid var(--color-border-warm);
-  box-shadow: 0 2px 12px rgba(26, 92, 58, 0.06);
+  border-radius: 18px;
+  border: 1px solid rgb(218 229 221 / 85%);
+  box-shadow: 0 5px 20px rgba(29, 66, 43, 0.045), 0 1px 2px rgba(29, 66, 43, 0.035);
   overflow: hidden;
 }
 .panel-header {
-  padding: 16px 22px;
+  padding: 18px 22px;
   border-bottom: 1px solid var(--color-border-warm);
   display: flex;
   align-items: center;
@@ -182,4 +209,60 @@ body {
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+/* Shared portal shell polish */
+.portal-sidebar {
+  background: rgb(255 255 255 / 96%);
+  border-color: #e5ebe6;
+  box-shadow: 8px 0 28px rgb(24 61 38 / 3%);
+}
+.portal-brand {
+  background-image: radial-gradient(ellipse at 100% 0%, rgb(255 255 255 / 13%), transparent 54%),
+    linear-gradient(145deg, #1b7048, #10452d 78%);
+}
+.portal-nav-link {
+  position: relative;
+  min-height: 42px;
+}
+.portal-nav-link[aria-current='page'] {
+  background: #eaf4ed;
+  color: #155d39;
+  box-shadow: inset 0 0 0 1px rgb(23 98 61 / 5%);
+}
+.portal-nav-link[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: #278365;
+}
+.portal-topbar {
+  background: rgb(255 255 255 / 92%);
+  border-color: #e5ebe6;
+  backdrop-filter: blur(14px);
+}
+
+/* Keep dense data pages readable while preserving their mobile scroll behavior. */
+.panel table th {
+  color: #65766c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .075em;
+}
+.panel table tbody tr {
+  transition: background-color .16s ease;
+}
+.panel table tbody tr:hover {
+  background-color: #f8fbf8;
+}
+
+@media (max-width: 767px) {
+  .stat-card { padding: 18px; border-radius: 16px; }
+  .panel { border-radius: 15px; }
+  .panel-header { padding: 15px 16px; }
+  .panel table th, .panel table td { white-space: nowrap; }
 }

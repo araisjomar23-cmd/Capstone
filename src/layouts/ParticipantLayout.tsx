@@ -15,7 +15,7 @@ export default function ParticipantLayout({ children }: Props) {
       <ParticipantSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="md:hidden sticky top-0 z-30 bg-white border-b border-gray-200 flex items-center gap-3 px-4 py-3">
+        <div className="portal-topbar md:hidden sticky top-0 z-30 border-b flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => setSidebarOpen(true)}
             className="text-gray-600 hover:text-gray-900"
