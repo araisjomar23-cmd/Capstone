@@ -72,12 +72,12 @@ function AdminAttendance() {
     }
   }
 
-  function downloadQR(activityId: string, title: string, kind: 'checkin' | 'evaluation') {
-    const canvas = document.getElementById(`visible-${kind}-qr-canvas-${activityId}`) as HTMLCanvasElement | null
+  function downloadQR(activityId: string, title: string) {
+    const canvas = document.getElementById(`visible-checkin-qr-canvas-${activityId}`) as HTMLCanvasElement | null
     if (!canvas) return
     const a = document.createElement('a')
     a.href = canvas.toDataURL('image/png')
-    a.download = `QR_${title.replace(/\s+/g, '_')}_${kind}.png`
+    a.download = `QR_${title.replace(/\s+/g, '_')}_attendance_evaluation.png`
     a.click()
   }
 
@@ -283,7 +283,7 @@ function AdminAttendance() {
               {selectedQrActivity.status}
             </span>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-3xl mt-4">
+            <div className="grid grid-cols-1 gap-8 w-full max-w-3xl mt-4">
               <section className="flex flex-col items-center">
                 <h3 className="font-semibold text-gray-900 mb-2">Attendance & Evaluation QR</h3>
                 <div className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
@@ -296,24 +296,8 @@ function AdminAttendance() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-2 mb-3">Display after the activity; participants submit the evaluation to record attendance.</p>
-                <button onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title, 'checkin')} className="text-primary text-sm font-semibold hover:underline">
-                  <Download size={16} className="inline mr-1" /> Download Check-in QR
-                </button>
-              </section>
-              <section className="flex flex-col items-center">
-                <h3 className="font-semibold text-gray-900 mb-2">Evaluation QR (Already Checked In)</h3>
-                <div className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-                  <QRCodeCanvas
-                    id={`visible-evaluation-qr-canvas-${selectedQrActivity.id}`}
-                    value={`${window.location.origin}/evaluate/${selectedQrActivity.id}`}
-                    size={220}
-                    fgColor="#1a5c3a"
-                    bgColor="#ffffff"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-2 mb-3">Use for participants whose attendance was recorded separately.</p>
-                <button onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title, 'evaluation')} className="text-primary text-sm font-semibold hover:underline">
-                  <Download size={16} className="inline mr-1" /> Download Evaluation QR
+                <button onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title)} className="text-primary text-sm font-semibold hover:underline">
+                  <Download size={16} className="inline mr-1" /> Download QR
                 </button>
               </section>
             </div>
