@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface DatePickerProps {
   value: string
@@ -28,17 +28,28 @@ function toISODate(date: Date) {
 function DatePicker({ value, onChange, className = 'input', placeholder = 'Select a date', 'aria-label': ariaLabel }: DatePickerProps) {
   const selectedDate = parseDate(value)
   const [open, setOpen] = useState(false)
+  const [choosingYear, setChoosingYear] = useState(false)
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const date = selectedDate || new Date()
     return new Date(date.getFullYear(), date.getMonth(), 1)
   })
   const rootRef = useRef<HTMLDivElement>(null)
+  const yearListRef = useRef<HTMLDivElement>(null)
+  const selectedYearRef = useRef<HTMLButtonElement>(null)
   const today = toISODate(new Date())
   const days = useMemo(() => {
     const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
     const start = new Date(firstDay.getFullYear(), firstDay.getMonth(), -firstDay.getDay() + 1)
     return Array.from({ length: 42 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index))
   }, [visibleMonth])
+
+  useEffect(() => {
+    if (choosingYear && yearListRef.current && selectedYearRef.current) {
+      const list = yearListRef.current
+      const selected = selectedYearRef.current
+      list.scrollTop = selected.offsetTop - list.offsetTop - (list.clientHeight - selected.offsetHeight) / 2
+    }
+  }, [choosingYear, visibleMonth])
 
   useEffect(() => {
     if (!open) return
@@ -59,11 +70,14 @@ function DatePicker({ value, onChange, className = 'input', placeholder = 'Selec
   function showPicker() {
     const date = selectedDate || new Date()
     setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1))
+    setChoosingYear(false)
     setOpen((current) => !current)
   }
 
   function shiftMonth(amount: number) {
-    setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + amount, 1))
+    setVisibleMonth((month) => choosingYear
+      ? new Date(month.getFullYear() + amount * 12, month.getMonth(), 1)
+      : new Date(month.getFullYear(), month.getMonth() + amount, 1))
   }
 
   function selectDate(date: Date) {
@@ -90,59 +104,81 @@ function DatePicker({ value, onChange, className = 'input', placeholder = 'Selec
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Choose a date" className="absolute left-0 top-[calc(100%+8px)] z-[100] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-900/10">
-          <div className="mb-4 flex items-center justify-between">
+        <div role="dialog" aria-label="Choose a date" className="absolute left-0 top-[calc(100%+8px)] z-[100] w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-gray-100 bg-white p-3 shadow-xl shadow-gray-900/10 sm:p-4">
+          <div className="mb-3 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">Choose date</p>
-              <h3 className="mt-0.5 text-base font-bold text-gray-900">
-                {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(visibleMonth)}
-              </h3>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">{choosingYear ? 'Select year' : 'Choose date'}</p>
+              {!choosingYear && (
+                <button type="button" onClick={() => setChoosingYear(true)} className="mt-0.5 inline-flex items-center gap-1 text-sm font-bold text-gray-900 hover:text-primary sm:text-base">
+                  {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(visibleMonth)}
+                  <ChevronDown size={15} />
+                </button>
+              )}
             </div>
             <div className="flex gap-1">
-              <button type="button" onClick={() => shiftMonth(-1)} aria-label="Previous month" className="grid size-9 place-items-center rounded-xl text-gray-600 hover:bg-gray-100">
+              <button type="button" onClick={() => shiftMonth(-1)} aria-label={choosingYear ? 'Previous 12 years' : 'Previous month'} className="grid size-8 place-items-center rounded-lg text-gray-600 hover:bg-gray-100 sm:size-9 sm:rounded-xl">
                 <ChevronLeft size={18} />
               </button>
-              <button type="button" onClick={() => shiftMonth(1)} aria-label="Next month" className="grid size-9 place-items-center rounded-xl text-gray-600 hover:bg-gray-100">
+              <button type="button" onClick={() => shiftMonth(1)} aria-label={choosingYear ? 'Next 12 years' : 'Next month'} className="grid size-8 place-items-center rounded-lg text-gray-600 hover:bg-gray-100 sm:size-9 sm:rounded-xl">
                 <ChevronRight size={18} />
               </button>
             </div>
           </div>
 
-          <div className="mb-2 grid grid-cols-7 text-center">
-            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-              <span key={day} className="py-2 text-[11px] font-semibold uppercase text-gray-400">{day}</span>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-y-1">
-            {days.map((date) => {
-              const iso = toISODate(date)
-              const inMonth = date.getMonth() === visibleMonth.getMonth()
-              const isSelected = iso === value
-              const isToday = iso === today
-              return (
+          {choosingYear ? (
+            <div ref={yearListRef} className="grid max-h-48 grid-cols-4 gap-1 overflow-y-auto rounded-xl bg-gray-50 p-2" aria-label="Years">
+              {Array.from({ length: 201 }, (_, index) => 1900 + index).map((year) => (
                 <button
-                  key={iso}
+                  key={year}
+                  ref={year === visibleMonth.getFullYear() ? selectedYearRef : null}
                   type="button"
-                  onClick={() => selectDate(date)}
-                  aria-label={new Intl.DateTimeFormat('en-US', { dateStyle: 'full' }).format(date)}
-                  aria-pressed={isSelected}
-                  className={`mx-auto grid size-9 place-items-center rounded-xl text-sm transition-colors ${
-                    isSelected
-                      ? 'bg-primary font-semibold text-white shadow-sm'
-                      : isToday
-                        ? 'bg-emerald-50 font-semibold text-primary ring-1 ring-inset ring-emerald-200'
-                        : inMonth
-                          ? 'text-gray-700 hover:bg-emerald-50 hover:text-primary'
-                          : 'text-gray-300 hover:bg-gray-50'
-                  }`}
+                  onClick={() => { setVisibleMonth((month) => new Date(year, month.getMonth(), 1)); setChoosingYear(false) }}
+                  aria-pressed={year === visibleMonth.getFullYear()}
+                  className={`rounded-lg px-2 py-2 text-sm ${year === visibleMonth.getFullYear() ? 'bg-primary font-semibold text-white' : 'text-gray-700 hover:bg-emerald-50 hover:text-primary'}`}
                 >
-                  {date.getDate()}
+                  {year}
                 </button>
-              )
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="mb-1 grid grid-cols-7 text-center">
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                  <span key={day} className="py-1.5 text-[10px] font-semibold uppercase text-gray-400">{day}</span>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-y-0.5">
+                {days.map((date) => {
+                  const iso = toISODate(date)
+                  const inMonth = date.getMonth() === visibleMonth.getMonth()
+                  const isSelected = iso === value
+                  const isToday = iso === today
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      onClick={() => selectDate(date)}
+                      aria-label={new Intl.DateTimeFormat('en-US', { dateStyle: 'full' }).format(date)}
+                      aria-pressed={isSelected}
+                      className={`mx-auto grid size-8 place-items-center rounded-lg text-xs transition-colors sm:size-9 sm:rounded-xl sm:text-sm ${
+                        isSelected
+                          ? 'bg-primary font-semibold text-white shadow-sm'
+                          : isToday
+                            ? 'bg-emerald-50 font-semibold text-primary ring-1 ring-inset ring-emerald-200'
+                            : inMonth
+                              ? 'text-gray-700 hover:bg-emerald-50 hover:text-primary'
+                              : 'text-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {date.getDate()}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
 
-          <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+          <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-2">
             <button type="button" onClick={() => { onChange(''); setOpen(false) }} className="rounded-lg px-2 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
               Clear date
             </button>
