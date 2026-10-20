@@ -38,6 +38,7 @@ export default function MyActivities() {
 
   useEffect(() => {
     loadRegistrations(true)
+    const refreshTimer = window.setInterval(() => { void loadRegistrations() }, 60_000)
     let channel: ReturnType<typeof supabase.channel> | null = null
     void supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return
@@ -45,7 +46,10 @@ export default function MyActivities() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations', filter: `user_uuid=eq.${data.user.id}` }, () => { void loadRegistrations() })
         .subscribe()
     })
-    return () => { if (channel) void supabase.removeChannel(channel) }
+    return () => {
+      window.clearInterval(refreshTimer)
+      if (channel) void supabase.removeChannel(channel)
+    }
   }, [])
 
   async function loadRegistrations(initial = false) {

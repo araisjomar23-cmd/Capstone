@@ -47,6 +47,12 @@ function AdminActivities() {
   const [statusFilter, setStatusFilter] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
+  const [clockNow, setClockNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
  useEffect(() => {
   load()
@@ -137,7 +143,7 @@ async function handleToggle(a: Activity) {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
         >
-          <option value="">All Statuses</option>
+          <option value="">All Registration Statuses</option>
           <option value="open">Open</option>
           <option value="upcoming">Upcoming</option>
           <option value="full">Full</option>
@@ -163,7 +169,7 @@ async function handleToggle(a: Activity) {
               <th className="text-left px-4 py-3">Date</th>
               <th className="text-left px-4 py-3">Slots</th>
               <th className="text-left px-4 py-3">Fill</th>
-              <th className="text-left px-4 py-3">Status</th>
+              <th className="text-left px-4 py-3">Activity Status</th>
               <th className="text-left px-4 py-3">Budget</th>
               <th className="text-left px-4 py-3">Actions</th>
             </tr>
@@ -184,7 +190,7 @@ async function handleToggle(a: Activity) {
               filtered.map((a) => {
                 const pct = a.slots > 0 ? Math.min(100, Math.round((a.regCount / a.slots) * 100)) : 0
                 const pill = STATUS_PILL[a.status] || { cls: 'bg-gray-100 text-gray-600', label: a.status }
-                const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a)]
+                const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a, clockNow)]
                 const bPct = a.budgetAlloc > 0 ? Math.round((a.budgetSpent / a.budgetAlloc) * 100) : 0
 
                 return (
@@ -192,7 +198,6 @@ async function handleToggle(a: Activity) {
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{a.title}</div>
                       <div className="text-xs text-gray-400">{a.venue}</div>
-                      <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${lifecycle.cls}`}>{lifecycle.label}</span>
                     </td>
                     <td className="px-4 py-3 text-xs">{a.programName}</td>
                     <td className="px-4 py-3 text-xs">
@@ -212,9 +217,14 @@ async function handleToggle(a: Activity) {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${pill.cls}`}>
-                        {pill.label}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${lifecycle.cls}`}>
+                          {lifecycle.label}
+                        </span>
+                        <span className="text-[10px] font-medium text-gray-500">
+                          Registration: {pill.label}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {a.budgetAlloc > 0 ? (
@@ -272,7 +282,7 @@ async function handleToggle(a: Activity) {
             {filtered.map((a) => {
               const pct = a.slots > 0 ? Math.min(100, Math.round((a.regCount / a.slots) * 100)) : 0
               const pill = STATUS_PILL[a.status] || { cls: 'bg-gray-100 text-gray-600', label: a.status }
-              const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a)]
+              const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a, clockNow)]
               const bPct = a.budgetAlloc > 0 ? Math.round((a.budgetSpent / a.budgetAlloc) * 100) : 0
 
               return (
@@ -281,11 +291,15 @@ async function handleToggle(a: Activity) {
                     <div className="min-w-0">
                       <div className="font-semibold text-gray-900">{a.title}</div>
                       <div className="text-xs text-gray-400">{a.venue}</div>
-                      <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${lifecycle.cls}`}>{lifecycle.label}</span>
                     </div>
-                    <span className={`shrink-0 px-2 py-1 rounded-full text-xs font-medium ${pill.cls}`}>
-                      {pill.label}
-                    </span>
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${lifecycle.cls}`}>
+                        {lifecycle.label}
+                      </span>
+                      <span className="text-[10px] font-medium text-gray-500">
+                        Registration: {pill.label}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="text-xs text-gray-600 mb-3">

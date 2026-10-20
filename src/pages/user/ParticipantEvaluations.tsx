@@ -22,6 +22,7 @@ export default function ParticipantEvaluations() {
 
   useEffect(() => {
     void load(true)
+    const refreshTimer = window.setInterval(() => { void load() }, 60_000)
     let channel: ReturnType<typeof supabase.channel> | null = null
     void supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return
@@ -31,7 +32,10 @@ export default function ParticipantEvaluations() {
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'evaluations' }, () => { void load() })
         .subscribe()
     })
-    return () => { if (channel) void supabase.removeChannel(channel) }
+    return () => {
+      window.clearInterval(refreshTimer)
+      if (channel) void supabase.removeChannel(channel)
+    }
   }, [load])
 
   return (
