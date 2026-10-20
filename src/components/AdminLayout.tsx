@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { logoutAdmin } from '../features/auth/authService'
 import { useAuth } from '../features/auth/AuthContext'
+import logo from '../assets/CYDO LOGO.jpg'
 import {
   LayoutDashboard,
   Users,
@@ -69,13 +70,20 @@ function AdminLayout() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0`}
       >
-        <div className="portal-brand p-5 border-b border-white/10 flex items-start justify-between">
-          <div>
-            <div className="text-sm font-extrabold text-white tracking-tight">City Youth Development Office</div>
-            <div className="text-xs text-green-100">Panabo City Government</div>
-            <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-white bg-white/15 backdrop-blur px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-              MEAL System Admin
+        <div className="portal-brand p-4 sm:p-5 border-b border-white/10 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src={logo}
+              alt="City Youth Development Office logo"
+              className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-white object-contain p-0.5"
+            />
+            <div className="min-w-0">
+              <div className="text-sm font-extrabold text-white tracking-tight leading-tight">City Youth Development Office</div>
+              <div className="text-xs text-green-100">Panabo City Government</div>
+              <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-white bg-white/15 backdrop-blur px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                MEAL System Admin
+              </div>
             </div>
           </div>
           <button
@@ -142,7 +150,8 @@ function AdminLayout() {
           >
             <Menu size={22} />
           </button>
-          <div className="text-sm font-bold text-gray-800">City Youth Development Office</div>
+          <img src={logo} alt="" className="w-7 h-7 shrink-0 rounded-full bg-white object-contain p-0.5" />
+          <div className="text-sm font-bold text-gray-800 truncate">City Youth Development Office</div>
         </div>
 
         <main className="flex-1 overflow-y-auto">
