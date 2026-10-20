@@ -161,11 +161,15 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
   const insights: string[] = []
   const attendanceRate = totalRegistered > 0 ? (totalAttended / totalRegistered) * 100 : 0
 
-  if (attendanceRate < 60 && totalRegistered > 0) {
+  if (!activities?.length) {
+    insights.push('No activities were recorded during this period, so there is not enough data to assess program performance.')
+  } else if (totalRegistered === 0) {
+    insights.push('No participants registered for activities during this period. Review outreach and registration activity.')
+  } else if (attendanceRate < 60) {
     insights.push(
       `Attendance rate for this period is ${attendanceRate.toFixed(0)}%, below the 60% benchmark. Consider reviewing reminder/follow-up processes for registered participants.`
     )
-  } else if (totalRegistered > 0) {
+  } else {
     insights.push(
       `Attendance rate for this period is ${attendanceRate.toFixed(0)}%, meeting expected benchmarks. Continue current outreach practices.`
     )
@@ -189,6 +193,10 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
     insights.push(
       `Average satisfaction rating (${avgSatisfaction}/5) is below the 3.5 benchmark. Review evaluation feedback for common concerns.`
     )
+  }
+
+  if (activities?.length && (!evals || evals.length === 0)) {
+    insights.push('No evaluation responses were collected in this period, so participant satisfaction could not be assessed.')
   }
 
   if (insights.length === 0) {

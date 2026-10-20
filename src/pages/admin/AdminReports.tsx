@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { generateReport } from '../../features/reports/reportService'
 import type { ReportData } from '../../features/reports/reportService'
-import { FileText, Printer } from 'lucide-react'
+import { Activity, FileText, Lightbulb, Printer, Star, Users } from 'lucide-react'
 import DatePicker from '../../components/DatePicker'
 
 function todayISO() {
@@ -22,12 +22,30 @@ function AdminReports() {
   const [approvedBy, setApprovedBy] = useState('')
   const [office, setOffice] = useState('City Youth Development Office')
   const [report, setReport] = useState<ReportData | null>(null)
+  const [insightData, setInsightData] = useState<ReportData | null>(null)
+  const [insightsLoading, setInsightsLoading] = useState(true)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    setInsightsLoading(true)
+    generateReport(dateFrom, dateTo).then((data) => {
+      if (!active) return
+      setInsightData(data)
+      setInsightsLoading(false)
+    }).catch(() => {
+      if (!active) return
+      setInsightData(null)
+      setInsightsLoading(false)
+    })
+    return () => { active = false }
+  }, [dateFrom, dateTo])
 
   async function handleGenerate() {
     setLoading(true)
     const data = await generateReport(dateFrom, dateTo)
     setReport(data)
+    setInsightData(data)
     setLoading(false)
   }
 
@@ -51,6 +69,46 @@ function AdminReports() {
           </button>
         )}
       </div>
+
+      <section className="bg-white rounded-xl shadow border border-gray-100 p-5 mb-6 print:hidden" aria-labelledby="period-insights-title">
+        <div className="flex items-start gap-3 mb-4">
+          <span className="rounded-lg bg-green-50 p-2 text-primary"><Lightbulb size={19} /></span>
+          <div>
+            <h2 id="period-insights-title" className="font-bold text-gray-900">Insights for this period</h2>
+            <p className="text-xs text-gray-500">Automatically updated for {dateFrom} to {dateTo}</p>
+          </div>
+        </div>
+
+        {insightsLoading ? (
+          <p className="text-sm text-gray-500 py-3">Analyzing activity, attendance, budget, and evaluation data…</p>
+        ) : insightData ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+              <InsightMetric icon={<Activity size={16} />} label="Activities" value={insightData.totalActivities} />
+              <InsightMetric icon={<Users size={16} />} label="Registered participants" value={insightData.totalRegistered} />
+              <InsightMetric
+                icon={<Users size={16} />}
+                label="Attendance rate"
+                value={insightData.totalRegistered ? `${Math.round((insightData.totalAttended / insightData.totalRegistered) * 100)}%` : '—'}
+              />
+              <InsightMetric icon={<Star size={16} />} label="Avg. satisfaction" value={insightData.avgSatisfaction === 'N/A' ? 'No ratings' : `${insightData.avgSatisfaction} / 5`} />
+            </div>
+            <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Key takeaways</h3>
+              <ul className="space-y-2">
+                {insightData.insights.map((insight, index) => (
+                  <li key={index} className="flex gap-2 text-sm text-gray-700">
+                    <span className="mt-0.5 text-amber-600"><Lightbulb size={15} /></span>
+                    <span>{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-red-600 py-2">Could not load insights. Try changing the date range or generating the report again.</p>
+        )}
+      </section>
 
       {/* Generator form */}
       <div className="bg-white rounded-xl shadow border border-gray-100 p-5 mb-6 print:hidden">
@@ -239,6 +297,14 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className="bg-gray-50 rounded-lg p-3 text-center">
       <div className="text-[10px] uppercase text-gray-400">{label}</div>
       <div className="text-lg font-bold text-gray-900 mt-1">{value}</div>
+    </div>
+  )
+}
+function InsightMetric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+      <div className="flex items-center gap-1.5 text-xs text-gray-500">{icon}<span>{label}</span></div>
+      <div className="mt-1 text-xl font-bold text-gray-900">{value}</div>
     </div>
   )
 }
