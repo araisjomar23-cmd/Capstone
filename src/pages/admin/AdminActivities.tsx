@@ -143,7 +143,7 @@ async function handleToggle(a: Activity) {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
         >
-          <option value="">All Registration Statuses</option>
+          <option value="">Filter by Registration State</option>
           <option value="open">Open</option>
           <option value="upcoming">Upcoming</option>
           <option value="full">Full</option>
@@ -221,9 +221,6 @@ async function handleToggle(a: Activity) {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${lifecycle.cls}`}>
                           {lifecycle.label}
                         </span>
-                        <span className="text-[10px] font-medium text-gray-500">
-                          Registration: {pill.label}
-                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs">
@@ -295,9 +292,6 @@ async function handleToggle(a: Activity) {
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${lifecycle.cls}`}>
                         {lifecycle.label}
-                      </span>
-                      <span className="text-[10px] font-medium text-gray-500">
-                        Registration: {pill.label}
                       </span>
                     </div>
                   </div>

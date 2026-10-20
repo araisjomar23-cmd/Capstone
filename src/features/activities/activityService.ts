@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase'
 import type { Activity } from '../../types/activity'
 import type { Program } from '../../types/program'
 import type { Facilitator } from '../../types/facilitator'
+import { getActivityLifecycleStatus } from './activityLifecycle'
 
 function formatDateRange(startDate?: string, endDate?: string): string {
   if (!startDate) return '—'
@@ -178,7 +179,7 @@ export interface ActivityFormPayload {
   endTime: string
   checkInEarlyAccessMinutes: number
   slots: number
-  status: string
+  status?: string
   venue: string
   previewDesc: string
   fullDesc: string
@@ -202,7 +203,15 @@ export async function saveActivity(
     checkin_early_access_minutes: payload.checkInEarlyAccessMinutes,
     date_text: formatDateText(payload.startDate, payload.endDate),
     slots: payload.slots,
-    status: payload.status || 'open',
+    status: payload.status || (() => {
+      const lifecycle = getActivityLifecycleStatus({
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+        startTime: payload.startTime,
+        endTime: payload.endTime,
+      })
+      return lifecycle === 'upcoming' ? 'upcoming' : lifecycle === 'ongoing' ? 'open' : 'closed'
+    })(),
     venue: payload.venue,
     preview_desc: payload.previewDesc,
     full_desc: payload.fullDesc,

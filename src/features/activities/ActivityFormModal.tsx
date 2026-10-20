@@ -20,7 +20,6 @@ const emptyForm = {
   title: '',
   programId: '',
   slots: '',
-  status: 'open',
   colorBg: '#1a5c3a',
   venue: '',
   startDate: '',
@@ -56,7 +55,6 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
           title: editingActivity.title,
           programId: String(editingActivity.programId),
           slots: String(editingActivity.slots),
-          status: editingActivity.status,
           colorBg: editingActivity.colorBg || '#1a5c3a',
           venue: editingActivity.venue,
           startDate: editingActivity.startDate || '',
@@ -126,7 +124,7 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
         endTime: form.endTime,
         checkInEarlyAccessMinutes: Number(form.checkInEarlyAccessMinutes),
         slots: Number(form.slots),
-        status: form.status,
+        status: editingActivity?.status,
         venue: form.venue.trim(),
         previewDesc: form.previewDesc.trim(),
         fullDesc: form.fullDesc.trim(),
@@ -226,19 +224,6 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
                 className={inputClass('slots')}
               />
               {errors.slots && <p className="text-xs text-red-500 mt-1">{errors.slots}</p>}
-            </div>
-            <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-600">Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => setField('status', e.target.value)}
-                className={inputClass('status')}
-              >
-                <option value="open">Open</option>
-                <option value="upcoming">Upcoming</option>
-                <option value="full">Full</option>
-                <option value="closed">Closed</option>
-              </select>
             </div>
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-600">Card Color</label>
