@@ -172,18 +172,5 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
   return [...unregisteredProfiles, ...enrichedRegistrations]
 }
 
-export async function updateStatusInDB(refCode: string, newStatus: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('registrations')
-    .update({ status: newStatus })
-    .eq('ref_code', refCode)
-
-  if (error) {
-    console.error('updateStatusInDB error:', error.message)
-    return false
-  }
-  return true
-}
-
 
 

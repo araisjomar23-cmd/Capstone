@@ -51,13 +51,6 @@ function AdminParticipants() {
     setLoading(false)
   }
 
-  function handleStatusChange(ref: string, newStatus: string) {
-  setAll((prev) =>
-    prev.map((p) => (p.ref === ref ? { ...p, status: newStatus as Registration['status'] } : p))
-  )
-  setSelected((prev) => (prev && prev.ref === ref ? { ...prev, status: newStatus as Registration['status'] } : prev))
-}
-
   const activityOptions = useMemo(() => {
     const seen = new Map<string, string>()
     all.forEach((p) => {
@@ -291,7 +284,6 @@ function AdminParticipants() {
         <ParticipantModal
           participant={selected}
           onClose={() => setSelected(null)}
-          onStatusChange={handleStatusChange}
         />
       )}
     </div>

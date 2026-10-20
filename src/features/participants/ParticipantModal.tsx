@@ -1,8 +1,5 @@
-import { useState } from 'react'
-import { updateStatusInDB } from './participantService'
 import type { Registration } from '../../types/registration'
 import { X } from 'lucide-react'
-import { useToast } from '../../components/ToastProvider'
 
 const PILL_STYLES: Record<string, string> = {
   registered: 'bg-green-100 text-green-700',
@@ -11,8 +8,6 @@ const PILL_STYLES: Record<string, string> = {
   inactive: 'bg-gray-100 text-gray-600',
   not_registered: 'bg-amber-100 text-amber-700',
 }
-
-const STATUS_OPTIONS = ['registered', 'attended', 'completed', 'inactive'] as const
 
 function fmt(iso: string | null) {
   if (!iso) return '—'
@@ -27,12 +22,9 @@ function fmt(iso: string | null) {
 interface Props {
   participant: Registration
   onClose: () => void
-  onStatusChange: (ref: string, newStatus: string) => void
 }
 
-function ParticipantModal({ participant: p, onClose, onStatusChange }: Props) {
-  const { showToast } = useToast()
-  const [updating, setUpdating] = useState(false)
+function ParticipantModal({ participant: p, onClose }: Props) {
 
   const fields: [string, string][] = [
     ['Full Name', p.name],
@@ -55,18 +47,6 @@ function ParticipantModal({ participant: p, onClose, onStatusChange }: Props) {
     ['Venue', p.activityVenue],
     ['Notes', p.notes || '—'],
   ]
-
-  async function handleStatusClick(newStatus: string) {
-  setUpdating(true)
-  const ok = await updateStatusInDB(p.ref, newStatus)
-  setUpdating(false)
-  if (ok) {
-    onStatusChange(p.ref, newStatus)
-    showToast(`Status updated to "${newStatus}".`, 'success')
-  } else {
-    showToast('Failed to update status. Please try again.', 'error')
-  }
-}
 
   return (
     <div
@@ -121,23 +101,6 @@ function ParticipantModal({ participant: p, onClose, onStatusChange }: Props) {
             </span>
           </div>
 
-          {p.status !== 'not_registered' && <div>
-            <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold mb-2">
-              Update Status
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {STATUS_OPTIONS.map((status) => (
-                <button
-                  key={status}
-                  disabled={updating || status === p.status}
-                  onClick={() => handleStatusClick(status)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-white disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>}
         </div>
       </div>
     </div>
