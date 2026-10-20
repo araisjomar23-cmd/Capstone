@@ -141,17 +141,17 @@ export default function CompleteProfile() {
           <section>
             <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Personal Info</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input placeholder="First Name *" value={form.firstName}
+              <input placeholder="First Name" value={form.firstName}
                 onChange={(e) => setField('firstName', e.target.value)} className="input" />
               <input placeholder="Middle Name" value={form.middleName}
                 onChange={(e) => setField('middleName', e.target.value)} className="input" />
-              <input placeholder="Last Name *" value={form.lastName}
+              <input placeholder="Last Name" value={form.lastName}
                 onChange={(e) => setField('lastName', e.target.value)} className="input" />
               <input placeholder="Suffix (Jr., III, etc.)" value={form.suffix}
                 onChange={(e) => setField('suffix', e.target.value)} className="input" />
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Birthday *</label>
+                <label className="block text-xs text-gray-500 mb-1">Birthday</label>
                 <DatePicker value={form.birthday} onChange={(value) => setField('birthday', value)} className="input" aria-label="Birthday" />
               </div>
 
@@ -161,7 +161,7 @@ export default function CompleteProfile() {
                 <option>Female</option>
               </select>
 
-              <input placeholder="Contact Number * (09XXXXXXXXX)" value={form.contact}
+              <input placeholder="Contact Number (09XXXXXXXXX)" value={form.contact}
                 onChange={(e) => setField('contact', e.target.value)} className="input" />
             </div>
           </section>
@@ -170,19 +170,19 @@ export default function CompleteProfile() {
             <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Address</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <select value={form.province} onChange={(e) => setField('province', e.target.value)} className="input">
-                <option value="">Select Province *</option>
+                <option value="">Select Province</option>
                 {provinces.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
 
               <select value={form.city} disabled={!form.province}
                 onChange={(e) => setField('city', e.target.value)} className="input">
-                <option value="">Select City / Municipality *</option>
+                <option value="">Select City / Municipality</option>
                 {cities.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
 
               <select value={form.barangay} disabled={!form.city}
                 onChange={(e) => setField('barangay', e.target.value)} className="input">
-                <option value="">Select Barangay *</option>
+                <option value="">Select Barangay</option>
                 {barangays.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
@@ -195,7 +195,7 @@ export default function CompleteProfile() {
                 onChange={(e) => setField('organization', e.target.value)} className="input" />
 
               <select value={form.youthClass} onChange={(e) => setField('youthClass', e.target.value)} className="input">
-                <option value="">Select Youth Classification *</option>
+                <option value="">Select Youth Classification</option>
                 {YOUTH_CLASSES.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
 
