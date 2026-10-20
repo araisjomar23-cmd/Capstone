@@ -137,6 +137,12 @@ export default function MyActivities() {
                       <Calendar size={13} />
                       Registered {fmtDate(reg.registeredAt)}
                     </p>
+                    {reg.refCode && reg.status !== 'inactive' && (
+                      <div className="mt-2 inline-flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2">
+                        <span className="text-xs text-amber-800">Reference code</span>
+                        <span className="font-mono text-sm font-bold tracking-wide text-amber-900">{reg.refCode}</span>
+                      </div>
+                    )}
                     {isRegistered && reg.cancelDeadline && (
                       <p className="text-xs text-gray-400 mt-1">
                         {reg.canCancel

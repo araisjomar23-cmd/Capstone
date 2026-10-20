@@ -109,7 +109,7 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
     fetchParticipants(),
     supabase
       .from('participants')
-      .select('user_uuid, email, first_name, middle_name, last_name, suffix, age, gender_identity, contact, barangay, organization, sectoral_group, created_at'),
+      .select('user_uuid, email, first_name, middle_name, last_name, suffix, birthday, age, gender_identity, contact, barangay, city_municipality, province, organization, youth_classification, sectoral_group, created_at'),
   ])
 
   if (profilesResult.error) {
