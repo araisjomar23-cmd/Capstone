@@ -21,6 +21,7 @@ interface LegacyActivityRecord {
 
 interface ParticipantRegistrationRow {
   id: string
+  user_uuid: string
   ref_code: string | null
   activity_id: string
   name: string | null
@@ -41,7 +42,7 @@ export async function fetchParticipants(): Promise<Registration[]> {
   const { data, error } = await supabase
     .from('registration_details')
     .select(`
-      id, ref_code, activity_id,
+      id, user_uuid, ref_code, activity_id,
       name, age, gender_identity, contact, barangay, organization,
       status, registered_at, attended_at, notes, sectoral_group,
       legacy_activities (
@@ -79,6 +80,7 @@ export async function fetchParticipants(): Promise<Registration[]> {
 
     return {
       id: r.id,
+      userUuid: r.user_uuid,
       ref: r.ref_code || '',
       registeredAt: r.registered_at,
       attendedAt: r.attended_at,
@@ -115,6 +117,21 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
     return registered
   }
 
+  const profiles = profilesResult.data || []
+  const profileByUser = new Map(profiles.map((profile) => [profile.user_uuid, profile]))
+  const enrichedRegistrations = registered.map((registration) => {
+    const profile = registration.userUuid ? profileByUser.get(registration.userUuid) : undefined
+    return profile ? {
+      ...registration,
+      email: profile.email || '',
+      birthday: profile.birthday,
+      cityMunicipality: profile.city_municipality || '',
+      province: profile.province || '',
+      youthClassification: profile.youth_classification || '',
+      sectoralGroup: profile.sectoral_group || 'None',
+    } : registration
+  })
+
   const registeredUsers = new Set<string>()
   const { data: registrationUsers, error: registrationUsersError } = await supabase
     .from('registrations')
@@ -122,11 +139,17 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
   if (registrationUsersError) console.error('fetchAdminRegistrationUsers error:', registrationUsersError.message)
   for (const row of registrationUsers || []) registeredUsers.add(row.user_uuid)
 
-  const unregisteredProfiles = (profilesResult.data || [])
+  const unregisteredProfiles = profiles
     .filter((profile) => !registeredUsers.has(profile.user_uuid))
     .map((profile): Registration => ({
       id: `profile:${profile.user_uuid}`,
-      ref: profile.email || '',
+      ref: '',
+      email: profile.email || '',
+      birthday: profile.birthday,
+      cityMunicipality: profile.city_municipality || '',
+      province: profile.province || '',
+      youthClassification: profile.youth_classification || '',
+      userUuid: profile.user_uuid,
       registeredAt: profile.created_at,
       attendedAt: null,
       notes: '',
@@ -146,7 +169,7 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
       attendanceHistory: [],
     }))
 
-  return [...unregisteredProfiles, ...registered]
+  return [...unregisteredProfiles, ...enrichedRegistrations]
 }
 
 export async function updateStatusInDB(refCode: string, newStatus: string): Promise<boolean> {

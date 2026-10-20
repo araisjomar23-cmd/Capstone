@@ -9,6 +9,7 @@ const PILL_STYLES: Record<string, string> = {
   attended: 'bg-blue-100 text-blue-700',
   completed: 'bg-teal-100 text-teal-700',
   inactive: 'bg-gray-100 text-gray-600',
+  not_registered: 'bg-amber-100 text-amber-700',
 }
 
 const STATUS_OPTIONS = ['registered', 'attended', 'completed', 'inactive'] as const
@@ -35,15 +36,21 @@ function ParticipantModal({ participant: p, onClose, onStatusChange }: Props) {
 
   const fields: [string, string][] = [
     ['Full Name', p.name],
+    ['Email', p.email || '—'],
     ['Age / Gender', `${p.age} / ${p.gender}`],
+    ['Birthday', p.birthday || '—'],
     ['Barangay', p.barangay],
+    ['City / Municipality', p.cityMunicipality || '—'],
+    ['Province', p.province || '—'],
     ['Contact', p.contact],
     ['Organization', p.org || '—'],
+    ['Youth Classification', p.youthClassification || '—'],
+    ['Sectoral Group', p.sectoralGroup || '—'],
     ['Reference Code', p.ref || '—'],
-    ['Registered At', fmt(p.registeredAt)],
+    [p.status === 'not_registered' ? 'Account Created' : 'Registered At', fmt(p.registeredAt)],
     ['Attended At', fmt(p.attendedAt)],
     ['Program', p.program],
-    ['Activity', p.activityTitle],
+    ['Activity', p.status === 'not_registered' ? 'Unregistered' : p.activityTitle],
     ['Date', p.activityDate],
     ['Venue', p.activityVenue],
     ['Notes', p.notes || '—'],
@@ -73,7 +80,7 @@ function ParticipantModal({ participant: p, onClose, onStatusChange }: Props) {
         <div className="p-6 border-b border-gray-100 flex justify-between items-start">
           <div>
             <h2 className="text-lg font-bold text-gray-900">{p.name}</h2>
-            <p className="text-sm text-gray-500">{p.activityTitle} · {p.program}</p>
+            <p className="text-sm text-gray-500">{p.status === 'not_registered' ? 'Unregistered' : `${p.activityTitle} · ${p.program}`}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
             <X size={20} />
@@ -110,11 +117,11 @@ function ParticipantModal({ participant: p, onClose, onStatusChange }: Props) {
               Current Status
             </div>
             <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${PILL_STYLES[p.status] || 'bg-gray-100 text-gray-600'}`}>
-              {p.status.toUpperCase()}
+              {p.status === 'not_registered' ? 'UNREGISTERED' : p.status.toUpperCase()}
             </span>
           </div>
 
-          <div>
+          {p.status !== 'not_registered' && <div>
             <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold mb-2">
               Update Status
             </div>
@@ -130,7 +137,7 @@ function ParticipantModal({ participant: p, onClose, onStatusChange }: Props) {
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

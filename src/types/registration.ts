@@ -17,6 +17,12 @@ export interface Registration {
   activityVenue: string
   program: string
   sectoralGroup: string
+  email?: string
+  birthday?: string | null
+  cityMunicipality?: string
+  province?: string
+  youthClassification?: string
+  userUuid?: string
   attendanceHistory: ParticipantAttendance[]
 }
 

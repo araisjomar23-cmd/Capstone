@@ -184,7 +184,7 @@ function AdminParticipants() {
                 <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50/60 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{p.name}</div>
-                    <div className="text-xs text-gray-400">{p.ref || '—'}</div>
+                    <div className="text-xs text-gray-400">{p.ref || p.email || '—'}</div>
                   </td>
                   <td className="px-4 py-3">{p.age} / {p.gender}</td>
                   <td className="px-4 py-3">{p.barangay}</td>
@@ -255,7 +255,7 @@ function AdminParticipants() {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
                     <div className="font-semibold text-gray-900 truncate">{p.name}</div>
-                    <div className="text-xs text-gray-400">{p.ref || '—'}</div>
+                    <div className="text-xs text-gray-400">{p.ref || p.email || '—'}</div>
                   </div>
                   <span className={`shrink-0 px-2 py-1 rounded-full text-xs font-medium ${PILL_STYLES[p.status] || 'bg-gray-100 text-gray-600'}`}>
                     {formatStatus(p.status)}
