@@ -202,7 +202,7 @@ function FacilitatorAttendance() {
               <div className="text-sm font-bold text-gray-900">{a.title}</div>
               <div className="text-xs text-gray-400 mb-3">{a.date} · {a.venue}</div>
               <div className="p-2 bg-white">
-                <QRCodeCanvas id={`fac-qr-canvas-${a.id}`} value={`${window.location.origin}/?activity=${a.id}`} size={130} fgColor="#1a5c3a" bgColor="#ffffff" />
+              <QRCodeCanvas id={`fac-qr-canvas-${a.id}`} value={`${window.location.origin}/checkin/${a.id}`} size={130} fgColor="#1a5c3a" bgColor="#ffffff" />
               </div>
               <span className={`px-2 py-1 rounded-full text-[10px] font-medium mt-2 mb-3 ${PILL_STYLES[a.status] || 'bg-gray-100 text-gray-600'}`}>
                 {a.status}

@@ -424,7 +424,9 @@ function ActivityBudgetDetail({
                   <div className="text-gray-600">
                     {String(snapshot?.category || 'Uncategorized')}{amountText ? ` · ${amountText}${event.operation === 'UPDATE' ? changedFrom : ''}` : ''}
                   </div>
-                  {snapshot?.description && <div className="text-gray-500 break-words">{String(snapshot.description)}</div>}
+                  {snapshot?.description != null && String(snapshot.description) !== '' && (
+                    <div className="text-gray-500 break-words">{String(snapshot.description)}</div>
+                  )}
                   <div className="mt-0.5 text-[11px] text-gray-400">
                     {new Date(event.changedAt).toLocaleString('en-PH')} · {actor}
                   </div>
