@@ -101,6 +101,54 @@ export async function fetchParticipants(): Promise<Registration[]> {
   })
 }
 
+/** Admin directory: includes completed participant profiles with no activity registration yet. */
+export async function fetchAdminParticipants(): Promise<Registration[]> {
+  const [registered, profilesResult] = await Promise.all([
+    fetchParticipants(),
+    supabase
+      .from('participants')
+      .select('user_uuid, email, first_name, middle_name, last_name, suffix, age, gender_identity, contact, barangay, organization, sectoral_group, created_at'),
+  ])
+
+  if (profilesResult.error) {
+    console.error('fetchAdminParticipantProfiles error:', profilesResult.error.message)
+    return registered
+  }
+
+  const registeredUsers = new Set<string>()
+  const { data: registrationUsers, error: registrationUsersError } = await supabase
+    .from('registrations')
+    .select('user_uuid')
+  if (registrationUsersError) console.error('fetchAdminRegistrationUsers error:', registrationUsersError.message)
+  for (const row of registrationUsers || []) registeredUsers.add(row.user_uuid)
+
+  const unregisteredProfiles = (profilesResult.data || [])
+    .filter((profile) => !registeredUsers.has(profile.user_uuid))
+    .map((profile): Registration => ({
+      id: `profile:${profile.user_uuid}`,
+      ref: profile.email || '',
+      registeredAt: profile.created_at,
+      attendedAt: null,
+      notes: '',
+      status: 'not_registered',
+      name: [profile.first_name, profile.middle_name, profile.last_name, profile.suffix].filter(Boolean).join(' ') || profile.email || 'Participant',
+      age: profile.age ?? '—',
+      gender: profile.gender_identity || '—',
+      contact: profile.contact || '—',
+      barangay: profile.barangay || '—',
+      org: profile.organization || '',
+      activityId: '',
+      activityTitle: 'Not registered',
+      activityDate: '—',
+      activityVenue: '—',
+      program: '—',
+      sectoralGroup: profile.sectoral_group || 'None',
+      attendanceHistory: [],
+    }))
+
+  return [...unregisteredProfiles, ...registered]
+}
+
 export async function updateStatusInDB(refCode: string, newStatus: string): Promise<boolean> {
   const { error } = await supabase
     .from('registrations')

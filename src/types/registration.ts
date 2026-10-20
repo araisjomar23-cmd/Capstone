@@ -4,7 +4,7 @@ export interface Registration {
   registeredAt: string
   attendedAt: string | null
   notes: string
-  status: 'registered' | 'attended' | 'completed' | 'inactive'
+  status: 'registered' | 'attended' | 'completed' | 'inactive' | 'not_registered'
   name: string
   age: number | string
   gender: string

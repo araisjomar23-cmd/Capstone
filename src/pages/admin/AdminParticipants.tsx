@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchParticipants } from '../../features/participants/participantService'
+import { fetchAdminParticipants } from '../../features/participants/participantService'
 import ParticipantModal from '../../features/participants/ParticipantModal'
 import type { Registration } from '../../types/registration'
 import { Search, Eye, ChevronRight } from 'lucide-react'
@@ -13,6 +13,7 @@ const PILL_STYLES: Record<string, string> = {
   attended: 'bg-blue-100 text-blue-700',
   completed: 'bg-teal-100 text-teal-700',
   inactive: 'bg-gray-100 text-gray-600',
+  not_registered: 'bg-amber-100 text-amber-700',
 }
 
 function AdminParticipants() {
@@ -29,6 +30,7 @@ function AdminParticipants() {
     const channel = supabase
       .channel(`participants-live-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => load())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_log' }, () => load())
       .subscribe()
 
@@ -39,7 +41,7 @@ function AdminParticipants() {
 
   async function load() {
     setLoading(true)
-    const data = await fetchParticipants()
+    const data = await fetchAdminParticipants()
     setAll(data)
     setLoading(false)
   }
@@ -137,6 +139,7 @@ function AdminParticipants() {
           <option value="attended">Attended</option>
           <option value="completed">Completed</option>
           <option value="inactive">Inactive</option>
+          <option value="not_registered">Not registered</option>
         </select>
       </div>
 
