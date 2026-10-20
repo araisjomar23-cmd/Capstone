@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { submitEvaluation } from '../../features/evaluations/evaluationService'
+import { recordAttendanceForSubmittedEvaluation, submitEvaluation } from '../../features/evaluations/evaluationService'
 import { useSearchParams } from 'react-router-dom'
 import { fetchMyRegistrations } from '../../features/public/registrationService'
 import { HeartHandshake } from 'lucide-react'
@@ -87,13 +87,14 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
   const { activityId } = useParams()
   const requestedRefCode = searchParams.get('ref')?.trim() || ''
   const [refCode, setRefCode] = useState(requestedRefCode)
-  const [entryState, setEntryState] = useState<'checking' | 'not-registered' | 'not-attended' | 'event-not-finished' | 'ready' | 'evaluated' | 'error'>(activityId || requestedRefCode ? 'checking' : 'error')
+  const [entryState, setEntryState] = useState<'checking' | 'not-registered' | 'not-attended' | 'event-not-finished' | 'ready' | 'evaluated' | 'evaluation-needs-attendance' | 'error'>(activityId || requestedRefCode ? 'checking' : 'error')
   const [entryMessage, setEntryMessage] = useState(activityId || requestedRefCode ? '' : 'Open an eligible activity from My Evaluations to submit its evaluation.')
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [recordingAttendance, setRecordingAttendance] = useState(false)
 
   useEffect(() => {
     if (!activityId && !requestedRefCode) return
@@ -106,13 +107,29 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
         : item.refCode.toUpperCase() === requestedRefCode.toUpperCase())
       if (!registration) { setEntryState('not-registered'); return }
       setRefCode(registration.refCode)
-      if (registration.hasEvaluation) { setEntryState('evaluated'); return }
+      if (registration.hasEvaluation) {
+        setEntryState(markAttendedOnSubmit && !registration.hasAttended ? 'evaluation-needs-attendance' : 'evaluated')
+        return
+      }
       if (!registration.hasAttended && !markAttendedOnSubmit) { setEntryState('not-attended'); return }
       if (registration.activityStatus !== 'completed') { setEntryState('event-not-finished'); return }
       setEntryState('ready')
     })
     return () => { active = false }
   }, [activityId, requestedRefCode, markAttendedOnSubmit])
+
+  async function handleRecordAttendance() {
+    if (!refCode || recordingAttendance) return
+    setRecordingAttendance(true)
+    const result = await recordAttendanceForSubmittedEvaluation(refCode)
+    setRecordingAttendance(false)
+    if (!result.ok) {
+      setEntryMessage(result.error || 'Could not record attendance. Please try again or contact the activity organizer.')
+      setEntryState('error')
+      return
+    }
+    setDone(true)
+  }
 
   const filledCount = REQUIRED_KEYS.filter((k) => answers[k]).length
   const progressPct = Math.round((filledCount / REQUIRED_KEYS.length) * 100)
@@ -170,8 +187,9 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
       : entryState === 'not-attended' ? 'Evaluation opens after your attendance is recorded.'
       : entryState === 'event-not-finished' ? 'Your attendance is recorded. Evaluation opens after the activity has ended.'
       : entryState === 'evaluated' ? 'Thank you! Your evaluation has already been submitted.'
+      : entryState === 'evaluation-needs-attendance' ? 'Your evaluation is already submitted. Record your attendance below to complete check-in.'
       : entryMessage
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4"><div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center"><HeartHandshake size={48} className="mx-auto mb-3 text-primary" /><h1 className="text-xl font-bold text-gray-900 mb-2">{entryState === 'evaluated' ? 'Thank You!' : 'Activity Evaluation'}</h1><p className="text-sm text-gray-600">{message}</p></div></div>
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4"><div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center"><HeartHandshake size={48} className="mx-auto mb-3 text-primary" /><h1 className="text-xl font-bold text-gray-900 mb-2">{entryState === 'evaluated' ? 'Thank You!' : 'Activity Evaluation'}</h1><p className="text-sm text-gray-600">{message}</p>{entryState === 'evaluation-needs-attendance' && <button onClick={handleRecordAttendance} disabled={recordingAttendance} className="mt-5 w-full rounded-lg bg-primary px-4 py-2.5 font-semibold text-white disabled:opacity-60">{recordingAttendance ? 'Recording attendance…' : 'Record My Attendance'}</button>}</div></div>
   }
 
   return (

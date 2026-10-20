@@ -96,3 +96,14 @@ export async function submitEvaluation(
 
   return { ok: true }
 }
+
+export async function recordAttendanceForSubmittedEvaluation(
+  refCode: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc('record_attendance_for_submitted_evaluation', {
+    p_ref_code: refCode.trim().toUpperCase(),
+  })
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
