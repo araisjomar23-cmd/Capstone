@@ -1,0 +1,54 @@
+{
+  "positive": [
+    { "term": "good", "weight": 1 }, { "term": "great", "weight": 1.4 }, { "term": "excellent", "weight": 1.6 },
+    { "term": "helpful", "weight": 1.2 }, { "term": "informative", "weight": 1.2 }, { "term": "enjoyable", "weight": 1.2 },
+    { "term": "fun", "weight": 1 }, { "term": "interesting", "weight": 1 }, { "term": "organized", "weight": 1 },
+    { "term": "comfortable", "weight": 1 }, { "term": "learned a lot", "weight": 1.5 }, { "term": "recommend", "weight": 1 },
+    { "term": "maganda", "weight": 1.2 }, { "term": "ganda", "weight": 1.2 }, { "term": "maayos", "weight": 1.1 }, { "term": "ayos", "weight": 1.1 }, { "term": "bait", "weight": 1.2 }, { "term": "mahusay", "weight": 1.3 },
+    { "term": "masaya", "weight": 1.2 }, { "term": "masarap", "weight": 1.1 }, { "term": "natuto", "weight": 1 }, { "term": "natutunan", "weight": 1.1 },
+    { "term": "sulit", "weight": 1.2 }, { "term": "kapaki pakinabang", "weight": 1.4 },
+    { "term": "nindot", "weight": 1.3 }, { "term": "nindut", "weight": 1.3 }, { "term": "maayo", "weight": 1.2 },
+    { "term": "lingaw", "weight": 1.2 }, { "term": "malingaw", "weight": 1.2 }, { "term": "ganahan", "weight": 1.1 },
+    { "term": "nakat on", "weight": 1.1 }, { "term": "nakakat on", "weight": 1.1 }, { "term": "makatabang", "weight": 1.2 },
+    { "term": "hapsay", "weight": 1.1 }, { "term": "lami", "weight": 1.1 }, { "term": "limpyo", "weight": 1 },
+    { "term": "klaro", "weight": 1 }, { "term": "kasabot", "weight": 1 }, { "term": "salamat", "weight": 1 }, { "term": "engaging", "weight": 1.2 },
+    { "term": "natun-an", "weight": 1.1 }, { "term": "nakat-unan", "weight": 1.1 }, { "term": "katun-an", "weight": 1.1 },
+    { "term": "wala koy reklamo", "weight": 1.5 }, { "term": "walay problema", "weight": 1.2 }, { "term": "walang masabi", "weight": 1.2 }
+  ],
+  "negative": [
+    { "term": "bad", "weight": 1 }, { "term": "poor", "weight": 1.1 }, { "term": "terrible", "weight": 1.5 },
+    { "term": "boring", "weight": 1.1 }, { "term": "confusing", "weight": 1.1 }, { "term": "uncomfortable", "weight": 1.2 },
+    { "term": "rushed", "weight": 1.1 }, { "term": "too short", "weight": 1 }, { "term": "too long", "weight": 1 }, { "term": "too hot", "weight": 1.1 }, { "term": "too early", "weight": 0.8 }, { "term": "not enough", "weight": 1.1 }, { "term": "gamay ra", "weight": 0.3 }, { "term": "disappointing", "weight": 1.3 },
+    { "term": "pangit", "weight": 1.2 }, { "term": "pangit ang", "weight": 1.2 }, { "term": "mahirap", "weight": 1 },
+    { "term": "nakakapagod", "weight": 1.1 }, { "term": "magulo", "weight": 1.1 }, { "term": "kulang", "weight": 1 },
+    { "term": "nakakainip", "weight": 1.1 }, { "term": "hindi maganda", "weight": 1.3 },
+    { "term": "bati", "weight": 1.2 }, { "term": "kapoy", "weight": 0.3 }, { "term": "hinay", "weight": 0.3 }, { "term": "mainit", "weight": 0.3 }, { "term": "gamay", "weight": 0.3 }, { "term": "hago", "weight": 1 },
+    { "term": "lisod", "weight": 1 }, { "term": "samok", "weight": 1.1 }, { "term": "hugaw", "weight": 1.1 },
+    { "term": "init", "weight": 0.9 }, { "term": "saba", "weight": 1 }, { "term": "dugay", "weight": 0.3 },
+    { "term": "kulang", "weight": 1 }, { "term": "reklamo", "weight": 1 }, { "term": "problema", "weight": 1 },
+    { "term": "dili maayo", "weight": 1.3 }, { "term": "walay lami", "weight": 1.2 }
+  ],
+  "themes": {
+    "venue": ["venue", "place", "location", "room", "facilities", "comfortable", "access", "lugar", "pasilidad", "init", "saba", "hugaw", "limpyo", "layo", "dapit"],
+    "schedule": ["time", "schedule", "timing", "rushed", "delay", "late", "short", "oras", "iskedyul", "panahon", "dugay", "sayo", "ulahi", "dali ra", "daghan hulat"],
+    "food": ["food", "meal", "lunch", "snack", "refreshment", "pagkaon", "kaon", "lami", "gutom", "walay pagkaon", "masarap"],
+    "facilitators": ["facilitator", "speaker", "trainer", "staff", "organizer", "resource person", "tagapagsalita", "tagapag ayos", "motudlo", "nagtudlo", "giya"],
+    "content": ["content", "topic", "lesson", "session", "activity", "relevant", "informative", "leksyon", "hilisgutan", "natuto", "nakat on", "kahibalo", "skills"]
+  },
+  "negators": ["not", "no", "never", "without", "hindi", "di", "dili", "wala", "walay", "walang", "ayaw", "dili gyud"],
+  "negationWindow": 3,
+  "negationExceptions": ["not only", "not just", "dili lang", "dili ra", "di lang", "hindi lang", "hindi lamang"],
+  "intensifiers": {
+    "very": 1.5, "really": 1.4, "extremely": 1.7, "so": 1.3, "super": 1.5,
+    "sobrang": 1.6, "talagang": 1.4, "masyadong": 1.3, "kaayo": 1.5, "gyud": 1.3,
+    "jud": 1.3, "ayo": 1.4, "grabe": 1.5
+  },
+  "diminishers": { "slightly": 0.6, "somewhat": 0.7, "medyo": 0.7 },
+  "ambiguousTerms": ["hinay", "dugay", "mainit", "gamay", "gamay ra"],
+  "spellingVariants": {
+    "nindot": "nindot", "nindud": "nindut", "maau": "maayo", "maayu": "maayo",
+    "lingaw kaayo": "lingaw kaayo", "nakatoon": "nakat on", "nakat-on": "nakat on",
+    "nakakat-on": "nakakat on", "kapoi": "kapoy", "kapoyy": "kapoy", "sabaay": "saba",
+    "dli": "dili", "ndot": "nindot", "ganahan kaayo": "ganahan kaayo"
+  }
+}

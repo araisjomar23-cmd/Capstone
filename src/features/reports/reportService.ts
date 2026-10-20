@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { analyzeFeedback, type SuggestedSentiment } from '../evaluations/feedbackAnalyzer'
 
 export interface ReportData {
   period: string
@@ -37,6 +38,11 @@ export interface ReportData {
     avgRating: string
     recommendPct: string
   }[]
+  feedbackAnalysis: {
+    analyzedComments: number
+    sentimentCounts: Record<SuggestedSentiment, number>
+    themeCounts: { theme: string; count: number }[]
+  }
   insights: string[]
 }
 
@@ -61,7 +67,7 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
 
   const { data: evals } = await supabase
     .from('evaluations')
-    .select('activity_id, rating, would_recommend')
+    .select('activity_id, rating, would_recommend, feedback')
     .in('activity_id', activityIds.length ? activityIds : ['none'])
 
   const regsByActivity: Record<string, typeof regs> = {}
@@ -158,6 +164,31 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
       ? `A total of ${evals.length} evaluation${evals.length === 1 ? '' : 's'} were collected across ${evalRows.length} activit${evalRows.length === 1 ? 'y' : 'ies'}, with an overall average satisfaction rating of ${avgSatisfaction} out of 5.`
       : 'No evaluation responses were collected during this period.'
 
+  const comments = (evals || [])
+    .map((evaluation: any) => String(evaluation.feedback || '').trim())
+    .filter(Boolean)
+  const sentimentCounts: Record<SuggestedSentiment, number> = {
+    positive: 0,
+    negative: 0,
+    mixed: 0,
+    'no-signal': 0,
+  }
+  const themeCounts = new Map<string, number>()
+  for (const comment of comments) {
+    const analysis = analyzeFeedback(comment)
+    sentimentCounts[analysis.label] += 1
+    for (const { theme } of analysis.themes) {
+      themeCounts.set(theme, (themeCounts.get(theme) || 0) + 1)
+    }
+  }
+  const feedbackAnalysis = {
+    analyzedComments: comments.length,
+    sentimentCounts,
+    themeCounts: [...themeCounts.entries()]
+      .map(([theme, count]) => ({ theme, count }))
+      .sort((a, b) => b.count - a.count),
+  }
+
   const insights: string[] = []
   const attendanceRate = totalRegistered > 0 ? (totalAttended / totalRegistered) * 100 : 0
 
@@ -220,6 +251,7 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
     budgetRows,
     evalSummary,
     evalRows,
+    feedbackAnalysis,
     insights,
   }
 }

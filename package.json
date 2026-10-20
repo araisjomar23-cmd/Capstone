@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test:feedback": "node --experimental-strip-types --test tests/feedbackAnalyzer.test.ts",
+    "eval:feedback": "node --experimental-strip-types scripts/eval-feedback.ts",
     "preview": "vite preview",
     "db:new": "supabase migration new",
     "db:status": "supabase migration list --linked",

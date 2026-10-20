@@ -5,12 +5,83 @@ import { Activity, FileText, Lightbulb, Printer, Star, Users } from 'lucide-reac
 import DatePicker from '../../components/DatePicker'
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10)
+  return localDateISO(new Date())
 }
 function monthAgoISO() {
   const d = new Date()
   d.setMonth(d.getMonth() - 1)
-  return d.toISOString().slice(0, 10)
+  return localDateISO(d)
+}
+function localDateISO(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+function monthRange(year: number, month: number) {
+  const from = new Date(year, month, 1)
+  const to = new Date(year, month + 1, 0)
+  return { from: localDateISO(from), to: localDateISO(to) }
+}
+function attendanceRate(data: ReportData) {
+  return data.totalRegistered ? (data.totalAttended / data.totalRegistered) * 100 : null
+}
+function evaluationCount(data: ReportData) {
+  return data.evalRows.reduce((sum, row) => sum + row.responses, 0)
+}
+function buildAdvancedInsights(current: ReportData, previous: ReportData) {
+  const results = [...current.insights]
+  const currentAttendance = attendanceRate(current)
+  const previousAttendance = attendanceRate(previous)
+  if (currentAttendance !== null && previousAttendance !== null) {
+    const change = currentAttendance - previousAttendance
+    if (Math.abs(change) >= 5) {
+      results.push(`Attendance ${change > 0 ? 'improved' : 'fell'} by ${Math.abs(change).toFixed(0)} percentage points compared with the previous month (${previousAttendance.toFixed(0)}% to ${currentAttendance.toFixed(0)}%).`)
+    }
+  }
+
+  const ratedActivities = current.evalRows.filter((row) => Number.isFinite(Number(row.avgRating)))
+  if (ratedActivities.length) {
+    const bestRated = [...ratedActivities].sort((a, b) => Number(b.avgRating) - Number(a.avgRating))[0]
+    results.push(`Highest-rated activity: ${bestRated.title} at ${bestRated.avgRating}/5 from ${bestRated.responses} evaluation${bestRated.responses === 1 ? '' : 's'}.`)
+  }
+
+  const attendanceByActivity = current.activityRows
+    .filter((row) => row.registered > 0)
+    .map((row) => ({ ...row, rate: (row.attended / row.registered) * 100 }))
+    .sort((a, b) => a.rate - b.rate)
+  if (attendanceByActivity.length) {
+    const lowest = attendanceByActivity[0]
+    if (lowest.rate < 70) {
+      results.push(`${lowest.title} had the lowest attendance (${lowest.rate.toFixed(0)}%, ${lowest.attended} of ${lowest.registered} registered). Consider reviewing reminders, timing, or access barriers.`)
+    }
+  }
+
+  const evaluations = evaluationCount(current)
+  if (current.totalAttended > 0) {
+    const responseRate = (evaluations / current.totalAttended) * 100
+    if (responseRate < 50) {
+      results.push(`Evaluation response coverage is ${responseRate.toFixed(0)}% (${evaluations} responses for ${current.totalAttended} attendees). Consider setting aside time for feedback before participants leave.`)
+    }
+  }
+
+  if (current.topBarangays[0]) {
+    results.push(`Most represented barangay: ${current.topBarangays[0].label} (${current.topBarangays[0].count} registrations). Use this to compare reach across communities.`)
+  }
+
+  const commentAnalysis = current.feedbackAnalysis
+  if (commentAnalysis.analyzedComments >= 3) {
+    const negativeShare = commentAnalysis.sentimentCounts.negative / commentAnalysis.analyzedComments
+    const positiveShare = commentAnalysis.sentimentCounts.positive / commentAnalysis.analyzedComments
+    if (negativeShare >= 0.3) {
+      const mainTheme = commentAnalysis.themeCounts[0]?.theme
+      results.push(`Suggested text analysis found negative signals in ${Math.round(negativeShare * 100)}% of ${commentAnalysis.analyzedComments} written comments${mainTheme ? `; ${mainTheme} is the most-mentioned feedback theme` : ''}. Review the comments for context.`)
+    } else if (positiveShare >= 0.6) {
+      results.push(`Suggested text analysis found mostly positive signals in ${Math.round(positiveShare * 100)}% of written comments. Review the comments to identify practices worth repeating.`)
+    }
+  }
+
+  return [...new Set(results)]
 }
 
 function AdminReports() {
@@ -23,29 +94,39 @@ function AdminReports() {
   const [office, setOffice] = useState('City Youth Development Office')
   const [report, setReport] = useState<ReportData | null>(null)
   const [insightData, setInsightData] = useState<ReportData | null>(null)
+  const [previousInsightData, setPreviousInsightData] = useState<ReportData | null>(null)
+  const [insightMonth, setInsightMonth] = useState(new Date().getMonth())
+  const [insightYear, setInsightYear] = useState(new Date().getFullYear())
   const [insightsLoading, setInsightsLoading] = useState(true)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     let active = true
     setInsightsLoading(true)
-    generateReport(dateFrom, dateTo).then((data) => {
+    const range = monthRange(insightYear, insightMonth)
+    const previousDate = new Date(insightYear, insightMonth - 1, 1)
+    const previousRange = monthRange(previousDate.getFullYear(), previousDate.getMonth())
+    Promise.all([
+      generateReport(range.from, range.to),
+      generateReport(previousRange.from, previousRange.to),
+    ]).then(([current, previous]) => {
       if (!active) return
-      setInsightData(data)
+      setInsightData(current)
+      setPreviousInsightData(previous)
       setInsightsLoading(false)
     }).catch(() => {
       if (!active) return
       setInsightData(null)
+      setPreviousInsightData(null)
       setInsightsLoading(false)
     })
     return () => { active = false }
-  }, [dateFrom, dateTo])
+  }, [insightMonth, insightYear])
 
   async function handleGenerate() {
     setLoading(true)
     const data = await generateReport(dateFrom, dateTo)
     setReport(data)
-    setInsightData(data)
     setLoading(false)
   }
 
@@ -74,9 +155,24 @@ function AdminReports() {
         <div className="flex items-start gap-3 mb-4">
           <span className="rounded-lg bg-green-50 p-2 text-primary"><Lightbulb size={19} /></span>
           <div>
-            <h2 id="period-insights-title" className="font-bold text-gray-900">Insights for this period</h2>
-            <p className="text-xs text-gray-500">Automatically updated for {dateFrom} to {dateTo}</p>
-          </div>
+            <h2 id="period-insights-title" className="font-bold text-gray-900">
+              Insights for {new Date(insightYear, insightMonth, 1).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}
+            </h2>
+            <p className="text-xs text-gray-500">Monthly performance, comparisons, and recommended follow-ups</p>
+        </div>
+      </div>
+
+        <div className="flex flex-wrap gap-3 mb-4 print:hidden">
+          <label className="text-xs font-semibold text-gray-600">Month
+            <select value={insightMonth} onChange={(event) => setInsightMonth(Number(event.target.value))} className="ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800">
+              {Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{new Date(2000, month, 1).toLocaleString('en', { month: 'long' })}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-gray-600">Year
+            <select value={insightYear} onChange={(event) => setInsightYear(Number(event.target.value))} className="ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800">
+              {Array.from({ length: 11 }, (_, offset) => new Date().getFullYear() - 10 + offset).map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          </label>
         </div>
 
         {insightsLoading ? (
@@ -89,20 +185,58 @@ function AdminReports() {
               <InsightMetric
                 icon={<Users size={16} />}
                 label="Attendance rate"
-                value={insightData.totalRegistered ? `${Math.round((insightData.totalAttended / insightData.totalRegistered) * 100)}%` : '—'}
+                value={attendanceRate(insightData) === null ? '—' : `${Math.round(attendanceRate(insightData)!)}%`}
+                comparison={previousInsightData && attendanceRate(previousInsightData) !== null && attendanceRate(insightData) !== null
+                  ? `${(attendanceRate(insightData)! - attendanceRate(previousInsightData)! >= 0 ? '+' : '')}${(attendanceRate(insightData)! - attendanceRate(previousInsightData)!).toFixed(0)} pts vs previous month`
+                  : 'No previous-month baseline'}
               />
-              <InsightMetric icon={<Star size={16} />} label="Avg. satisfaction" value={insightData.avgSatisfaction === 'N/A' ? 'No ratings' : `${insightData.avgSatisfaction} / 5`} />
+              <InsightMetric
+                icon={<Star size={16} />}
+                label="Avg. satisfaction"
+                value={insightData.avgSatisfaction === 'N/A' ? 'No ratings' : `${insightData.avgSatisfaction} / 5`}
+                comparison={insightData.avgSatisfaction !== 'N/A' && previousInsightData && previousInsightData.avgSatisfaction !== 'N/A'
+                  ? `${Number(insightData.avgSatisfaction) - Number(previousInsightData.avgSatisfaction) >= 0 ? '+' : ''}${(Number(insightData.avgSatisfaction) - Number(previousInsightData.avgSatisfaction)).toFixed(1)} vs previous month`
+                  : 'No previous-month baseline'}
+              />
             </div>
             <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Key takeaways</h3>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Key takeaways and recommended actions</h3>
               <ul className="space-y-2">
-                {insightData.insights.map((insight, index) => (
+                {buildAdvancedInsights(insightData, previousInsightData || insightData).map((insight, index) => (
                   <li key={index} className="flex gap-2 text-sm text-gray-700">
                     <span className="mt-0.5 text-amber-600"><Lightbulb size={15} /></span>
                     <span>{insight}</span>
                   </li>
                 ))}
               </ul>
+            </div>
+            <div className="mt-4 rounded-lg border border-gray-200 p-4">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h3 className="text-sm font-semibold text-gray-900">Written feedback analysis</h3>
+                <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">Suggested</span>
+                <span className="text-xs text-gray-500">Rule-based language signals</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">Based on {insightData.feedbackAnalysis.analyzedComments} written comment{insightData.feedbackAnalysis.analyzedComments === 1 ? '' : 's'}. Review the original feedback before making decisions; spelling, sarcasm, and unlisted Bisaya expressions may not be recognized.</p>
+              {insightData.feedbackAnalysis.analyzedComments === 0 ? (
+                <p className="text-sm text-gray-500">No written comments are available for this period.</p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <SentimentCount label="Positive" count={insightData.feedbackAnalysis.sentimentCounts.positive} color="bg-green-50 text-green-700" />
+                    <SentimentCount label="Negative" count={insightData.feedbackAnalysis.sentimentCounts.negative} color="bg-red-50 text-red-700" />
+                    <SentimentCount label="Mixed" count={insightData.feedbackAnalysis.sentimentCounts.mixed} color="bg-amber-50 text-amber-700" />
+                    <SentimentCount label="No signal" count={insightData.feedbackAnalysis.sentimentCounts['no-signal']} color="bg-gray-100 text-gray-600" />
+                  </div>
+                  {insightData.feedbackAnalysis.themeCounts.length ? (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                      <span className="font-semibold">Common themes:</span>
+                      {insightData.feedbackAnalysis.themeCounts.slice(0, 5).map((theme) => (
+                        <span key={theme.theme} className="rounded-full border border-gray-200 px-2.5 py-1 capitalize">{theme.theme} · {theme.count}</span>
+                      ))}
+                    </div>
+                  ) : <p className="text-xs text-gray-500">No configured feedback themes were matched.</p>}
+                </>
+              )}
             </div>
           </>
         ) : (
@@ -300,13 +434,17 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     </div>
   )
 }
-function InsightMetric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+function InsightMetric({ icon, label, value, comparison }: { icon: React.ReactNode; label: string; value: string | number; comparison?: string }) {
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
       <div className="flex items-center gap-1.5 text-xs text-gray-500">{icon}<span>{label}</span></div>
       <div className="mt-1 text-xl font-bold text-gray-900">{value}</div>
+      {comparison && <div className="mt-1 text-[11px] text-gray-500">{comparison}</div>}
     </div>
   )
+}
+function SentimentCount({ label, count, color }: { label: string; count: number; color: string }) {
+  return <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${color}`}>{label}: {count}</span>
 }
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="text-left px-2 py-2 font-semibold">{children}</th>
