@@ -23,6 +23,7 @@ interface ParticipantRegistrationRow {
   notes: string | null
   sectoral_group: string | null
   legacy_activities: {
+    id: string
     title: string | null
     date_text: string | null
     venue: string | null
@@ -67,7 +68,10 @@ export async function fetchParticipants(): Promise<Registration[]> {
     }
   }
 
-  return registrations.map((r) => ({
+  return registrations.map((r) => {
+    const activity = Array.isArray(r.legacy_activities) ? r.legacy_activities[0] : r.legacy_activities
+
+    return {
     id: r.id,
     ref: r.ref_code || '',
     registeredAt: r.registered_at,
@@ -80,14 +84,15 @@ export async function fetchParticipants(): Promise<Registration[]> {
     contact: r.contact || '—',
     barangay: r.barangay || '—',
     org: r.organization || '',
-    activityId: r.activity_id,
-    activityTitle: r.legacy_activities[0]?.title ?? '—',
-    activityDate: r.legacy_activities[0]?.date_text ?? '—',
-    activityVenue: r.legacy_activities[0]?.venue ?? '—',
-    program: r.legacy_activities[0]?.programs[0]?.name ?? '—',
+    activityId: activity?.id ?? r.activity_id,
+    activityTitle: activity?.title ?? '—',
+    activityDate: activity?.date_text ?? '—',
+    activityVenue: activity?.venue ?? '—',
+    program: activity?.programs?.[0]?.name ?? '—',
     sectoralGroup: r.sectoral_group || 'None',
     attendanceHistory: attendanceByRegistration.get(r.id) || [],
-  }))
+    }
+  })
 }
 
 export async function updateStatusInDB(refCode: string, newStatus: string): Promise<boolean> {
@@ -102,3 +107,5 @@ export async function updateStatusInDB(refCode: string, newStatus: string): Prom
   }
   return true
 }
+
+
