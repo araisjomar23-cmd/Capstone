@@ -39,7 +39,7 @@ const navItems = [
     section: 'Evaluation & Learning',
     items: [
       { to: '/admin/evaluations', label: 'Evaluations', icon: <FileText size={18} /> },
-      { to: '/admin/reports', label: 'Reports & DSS', icon: <BarChart3 size={18} /> },
+      { to: '/admin/reports', label: 'Reports & Insights', icon: <BarChart3 size={18} /> },
     ],
   },
 ]
