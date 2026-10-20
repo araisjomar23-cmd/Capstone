@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { deleteExpenseEntry, fetchBudgetOverview, saveBudgetEntry, updateExpenseEntry } from '../../features/budget/budgetService'
-import type { BudgetOverview } from '../../features/budget/budgetService'
+import type { BudgetAuditEvent, BudgetOverview } from '../../features/budget/budgetService'
 import { Wallet, Plus, Coins, ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '../../components/ToastProvider'
 import { SkeletonStatCard, SkeletonCard } from '../../components/Skeleton'
@@ -103,6 +103,7 @@ function AdminBudget() {
           <ActivityBudgetDetail
             activity={selectedActivity}
             entries={data.entriesByActivity[selectedActivity.id] || []}
+            auditEvents={data.auditByActivity[selectedActivity.id] || []}
             onSaved={load}
           />
         </div>
@@ -187,10 +188,12 @@ function ActivityBudgetSummaryCard({
 function ActivityBudgetDetail({
   activity: a,
   entries,
+  auditEvents,
   onSaved,
 }: {
   activity: Activity
   entries: BudgetEntry[]
+  auditEvents: BudgetAuditEvent[]
   onSaved: () => void
 }) {
   const { showToast } = useToast()
@@ -399,6 +402,38 @@ function ActivityBudgetDetail({
           )}
         </div>
       </div>
+
+      <section className="mb-4 rounded-lg border border-gray-200 p-3 sm:p-4">
+        <h3 className="text-[11px] font-bold uppercase text-gray-500 tracking-wide mb-3">Change Audit History</h3>
+        {auditEvents.length === 0 ? (
+          <p className="text-xs text-gray-400">No changes recorded yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {auditEvents.map((event) => {
+              const previous = event.oldValues
+              const current = event.newValues
+              const snapshot = event.operation === 'DELETE' ? previous : current
+              const amountValue = snapshot?.amount
+              const amountText = amountValue == null ? '' : `₱${Number(amountValue).toLocaleString()}`
+              const changedFrom = previous?.amount == null ? '' : ` from ₱${Number(previous.amount).toLocaleString()}`
+              const actor = event.actorEmail || 'Unknown administrator'
+              const action = event.operation === 'INSERT' ? 'created' : event.operation === 'UPDATE' ? 'updated' : 'deleted'
+              return (
+                <div key={event.id} className="border-l-2 border-primary/30 pl-3 text-xs">
+                  <div className="font-semibold text-gray-800 capitalize">{action} {String(snapshot?.entry_type || 'budget entry')}</div>
+                  <div className="text-gray-600">
+                    {String(snapshot?.category || 'Uncategorized')}{amountText ? ` · ${amountText}${event.operation === 'UPDATE' ? changedFrom : ''}` : ''}
+                  </div>
+                  {snapshot?.description && <div className="text-gray-500 break-words">{String(snapshot.description)}</div>}
+                  <div className="mt-0.5 text-[11px] text-gray-400">
+                    {new Date(event.changedAt).toLocaleString('en-PH')} · {actor}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
 
       <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
         <div className="text-[11px] font-bold uppercase text-gray-400 tracking-wide mb-2 flex items-center gap-1.5">

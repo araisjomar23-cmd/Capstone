@@ -13,6 +13,17 @@ export interface BudgetEntry {
   recordedBy: string
 }
 
+export interface BudgetAuditEvent {
+  id: number
+  activityId: string
+  budgetEntryId: string
+  operation: 'INSERT' | 'UPDATE' | 'DELETE'
+  actorEmail: string | null
+  changedAt: string
+  oldValues: Record<string, unknown> | null
+  newValues: Record<string, unknown> | null
+}
+
 export interface BudgetOverview {
   totalAlloc: number
   totalSpent: number
@@ -20,6 +31,18 @@ export interface BudgetOverview {
   utilRate: number
   activities: Activity[]
   entriesByActivity: Record<string, BudgetEntry[]>
+  auditByActivity: Record<string, BudgetAuditEvent[]>
+}
+
+interface BudgetAuditRecord {
+  id: number
+  activity_id: string
+  budget_entry_id: string
+  operation: BudgetAuditEvent['operation']
+  actor_email: string | null
+  changed_at: string
+  old_values: Record<string, unknown> | null
+  new_values: Record<string, unknown> | null
 }
 
 interface BudgetEntryRecord {
@@ -42,6 +65,12 @@ export async function fetchBudgetOverview(): Promise<BudgetOverview> {
     .order('recorded_at', { ascending: false })
   if (error) throw new Error(`Unable to load budget entries: ${error.message}`)
 
+  const { data: auditRows, error: auditError } = await supabase
+    .from('budget_entry_audit')
+    .select('id, activity_id, budget_entry_id, operation, actor_email, changed_at, old_values, new_values')
+    .order('changed_at', { ascending: false })
+  if (auditError) throw new Error(`Unable to load budget audit history: ${auditError.message}`)
+
   const allEntries: BudgetEntry[] = ((entries || []) as BudgetEntryRecord[]).map((e) => ({
     id: e.id,
     activityId: e.activity_id,
@@ -61,12 +90,27 @@ export async function fetchBudgetOverview(): Promise<BudgetOverview> {
       entriesByActivity[e.activityId].push(e)
     })
 
+  const auditByActivity: Record<string, BudgetAuditEvent[]> = {}
+  for (const row of (auditRows || []) as BudgetAuditRecord[]) {
+    if (!auditByActivity[row.activity_id]) auditByActivity[row.activity_id] = []
+    auditByActivity[row.activity_id].push({
+      id: row.id,
+      activityId: row.activity_id,
+      budgetEntryId: row.budget_entry_id,
+      operation: row.operation,
+      actorEmail: row.actor_email,
+      changedAt: row.changed_at,
+      oldValues: row.old_values,
+      newValues: row.new_values,
+    })
+  }
+
   const totalAlloc = acts.reduce((s, a) => s + a.budgetAlloc, 0)
   const totalSpent = acts.reduce((s, a) => s + a.budgetSpent, 0)
   const totalRemain = totalAlloc - totalSpent
   const utilRate = totalAlloc > 0 ? Math.round((totalSpent / totalAlloc) * 100) : 0
 
-  return { totalAlloc, totalSpent, totalRemain, utilRate, activities: acts, entriesByActivity }
+  return { totalAlloc, totalSpent, totalRemain, utilRate, activities: acts, entriesByActivity, auditByActivity }
 }
 
 export async function saveBudgetEntry(
