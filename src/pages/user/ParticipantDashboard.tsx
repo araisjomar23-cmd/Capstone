@@ -84,14 +84,23 @@ export default function ParticipantDashboard() {
                   <div className="space-y-1.5 text-sm text-gray-500 mb-4">
                     <p className="flex items-center gap-1.5"><MapPin size={14} /> {activity.venue}</p>
                     <p className="flex items-center gap-1.5"><Calendar size={14} /> {activity.date}</p>
-                    <p className="flex items-center gap-1.5"><Users size={14} /> {activity.taken}/{activity.slots} registered</p>
+                    <div className="flex items-center gap-3">
+                      <p className="flex items-center gap-1.5">
+                        <Users size={14} /> {activity.taken}/{activity.slots} registered
+                      </p>
+                      {registered && (
+                        <span className="ml-auto rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                          Registered
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <button
                     onClick={() => navigate(`/activities/${activity.id}`)}
                     className="mt-auto w-full btn-primary py-2.5 disabled:opacity-40"
                   >
-                    {registered ? 'Registered · View Activity' : full ? 'Activity Full · View Details' : 'View & Register'}
+                    {registered ? 'View Activity' : full ? 'Activity Full · View Details' : 'View & Register'}
                   </button>
                 </div>
               </div>
