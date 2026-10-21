@@ -133,7 +133,7 @@ function ActivityDetail() {
   }
 
   const open = Math.max(0, activity.slots - activity.taken)
-  const soldOut = open <= 0 || activity.status === 'full' || activity.status === 'closed'
+  const soldOut = open <= 0 || activity.status === 'full' || activity.status === 'closed' || activity.lifecycleStatus !== 'upcoming'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -176,7 +176,7 @@ function ActivityDetail() {
               >
               {alreadyRegistered
                 ? 'Registered'
-                : activity.status === 'closed'
+                : activity.lifecycleStatus !== 'upcoming'
                 ? 'Registration Closed'
                 : soldOut
                 ? 'Activity Full'

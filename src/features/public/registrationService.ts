@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import type { PublicActivity } from './publicActivityService'
+import { getActivityLifecycleStatus } from '../activities/activityLifecycle'
 import {
   CANCELLATION_ERROR,
   CANCELLATION_ERROR_MESSAGES,
@@ -49,6 +50,12 @@ export async function fetchActivityById(id: string): Promise<PublicActivity | nu
     colorBg: data.color_bg || '',
     tags: data.tags || [],
     status: data.status || 'open',
+    lifecycleStatus: getActivityLifecycleStatus({
+      startDate: data.start_date,
+      endDate: data.end_date,
+      startTime: data.start_time,
+      endTime: data.end_time,
+    }),
     slots: data.slots || 0,
     taken: data.taken || 0,
     venue: data.venue || '—',

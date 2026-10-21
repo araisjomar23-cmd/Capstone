@@ -224,6 +224,7 @@ function PublicLandingPage() {
             {filtered.map((a) => {
               const open = Math.max(0, a.slots - a.taken)
               const isFull = open <= 0
+              const registrationClosed = a.lifecycleStatus !== 'upcoming'
               const isUrgent = !isFull && a.slots > 0 && open / a.slots <= 0.15
 
               return (
@@ -246,11 +247,11 @@ function PublicLandingPage() {
                     <span
                       className="absolute top-2.5 right-2.5 z-20 px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm"
                       style={{
-                        background: a.status === 'open' ? 'rgba(212,240,224,.92)' : a.status === 'upcoming' ? 'rgba(220,238,255,.92)' : 'rgba(253,232,200,.92)',
-                        color: a.status === 'open' ? '#1a5c3a' : a.status === 'upcoming' ? '#1a4d7a' : '#9a5f0a',
+                        background: a.lifecycleStatus === 'ongoing' ? 'rgba(212,240,224,.92)' : a.lifecycleStatus === 'upcoming' ? 'rgba(220,238,255,.92)' : 'rgba(253,232,200,.92)',
+                        color: a.lifecycleStatus === 'ongoing' ? '#1a5c3a' : a.lifecycleStatus === 'upcoming' ? '#1a4d7a' : '#9a5f0a',
                       }}
                     >
-                      {a.status}
+                      {a.lifecycleStatus}
                     </span>
 
                     {isUrgent && (
@@ -288,10 +289,10 @@ function PublicLandingPage() {
                         e.stopPropagation()
                         setSelectedId(a.id)
                       }}
-                      disabled={isFull}
+                      disabled={isFull || registrationClosed}
                       className="w-full btn-primary flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {isFull ? 'Activity Full' : <>View & Register</>}
+                      {isFull ? 'Activity Full' : registrationClosed ? 'Registration Closed' : <>View & Register</>}
                     </button>
                   </div>
                 </div>

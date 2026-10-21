@@ -8,12 +8,15 @@ import type { MarkAttendanceResult } from '../../features/attendance/attendanceS
 import { ClipboardList, Download, ArrowLeft,QrCode, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { SkeletonCard } from '../../components/Skeleton'
 import { supabase } from '../../lib/supabase'
+import { getActivityLifecycleStatus } from '../../features/activities/activityLifecycle'
 
 const PILL_STYLES: Record<string, string> = {
   open: 'bg-green-100 text-green-700',
   upcoming: 'bg-blue-100 text-blue-700',
   full: 'bg-red-100 text-red-700',
   closed: 'bg-gray-100 text-gray-600',
+  ongoing: 'bg-amber-100 text-amber-700',
+  completed: 'bg-teal-100 text-teal-700',
 }
 
 function AdminAttendance() {
@@ -26,6 +29,12 @@ function AdminAttendance() {
   const [scanResult, setScanResult] = useState<MarkAttendanceResult | null>(null)
   const [checking, setChecking] = useState(false)
   const [selectedQrActivityId, setSelectedQrActivityId] = useState<string | null>(null)
+  const [, setClockNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     init()
@@ -247,10 +256,10 @@ function AdminAttendance() {
               </div>
               <span
                 className={`px-2 py-1 rounded-full text-[10px] font-medium mt-2 ${
-                  PILL_STYLES[a.status] || 'bg-gray-100 text-gray-600'
+                  PILL_STYLES[getActivityLifecycleStatus(a)] || 'bg-gray-100 text-gray-600'
                 }`}
               >
-                {a.status}
+                {getActivityLifecycleStatus(a)}
               </span>
             </button>
           ))}
@@ -277,10 +286,10 @@ function AdminAttendance() {
             </div>
             <span
               className={`px-3 py-1 rounded-full text-xs font-medium mt-2 mb-6 ${
-                PILL_STYLES[selectedQrActivity.status] || 'bg-gray-100 text-gray-600'
+                PILL_STYLES[getActivityLifecycleStatus(selectedQrActivity)] || 'bg-gray-100 text-gray-600'
               }`}
             >
-              {selectedQrActivity.status}
+              {getActivityLifecycleStatus(selectedQrActivity)}
             </span>
 
             <div className="grid grid-cols-1 gap-8 w-full max-w-3xl mt-4">

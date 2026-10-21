@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { getActivityLifecycleStatus, type ActivityLifecycleStatus } from '../activities/activityLifecycle'
 
 export interface PublicActivity {
   id: string
@@ -8,6 +9,7 @@ export interface PublicActivity {
   colorBg: string
   tags: string[]
   status: string
+  lifecycleStatus: ActivityLifecycleStatus
   slots: number
   taken: number
   venue: string
@@ -81,6 +83,12 @@ export async function fetchPublicActivities(): Promise<PublicActivity[]> {
     colorBg: a.color_bg || '',
     tags: a.tags || [],
     status: a.status || 'open',
+    lifecycleStatus: getActivityLifecycleStatus({
+      startDate: a.start_date,
+      endDate: a.end_date,
+      startTime: a.start_time,
+      endTime: a.end_time,
+    }),
     slots: a.slots || 0,
     taken: regMap[a.id] || 0,
     venue: a.venue || '—',

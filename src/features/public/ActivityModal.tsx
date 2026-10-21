@@ -70,7 +70,7 @@ function ActivityModal({ activityId, onClose }: Props) {
   }
 
   const open = activity ? Math.max(0, activity.slots - activity.taken) : 0
-  const soldOut = activity? open <= 0 || activity.status === 'full' || activity.status === 'closed': true
+  const soldOut = activity? open <= 0 || activity.status === 'full' || activity.status === 'closed' || activity.lifecycleStatus !== 'upcoming': true
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -141,7 +141,7 @@ function ActivityModal({ activityId, onClose }: Props) {
                 disabled={soldOut || submitting || authLoading}
                 className="w-full btn-primary py-2.5 disabled:opacity-40"
               >
-                {activity.status === 'closed'
+                {activity.lifecycleStatus !== 'upcoming'
                   ? 'Registration Closed'
                   : soldOut
                   ? 'Activity Full'
