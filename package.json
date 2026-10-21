@@ -16,6 +16,7 @@
     "db:baseline": "supabase migration repair 20261016000000 20261017 --status applied --linked"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
     "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/vite": "^4.3.3",
     "html5-qrcode": "^2.3.8",

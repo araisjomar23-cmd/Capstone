@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import { analyzeFeedback, type SuggestedSentiment } from '../evaluations/feedbackAnalyzer'
+import { analyzeFeedbackHybrid, type SuggestedSentiment } from '../evaluations/feedbackAnalyzer'
 
 export interface ReportData {
   period: string
@@ -40,35 +40,51 @@ export interface ReportData {
   }[]
   feedbackAnalysis: {
     analyzedComments: number
+    semanticAssistedComments: number
+    modelStatus: 'not-needed' | 'ready' | 'unavailable'
+    modelError?: string
     sentimentCounts: Record<SuggestedSentiment, number>
-    themeCounts: { theme: string; count: number }[]
+    themeCounts: {
+      theme: string
+      count: number
+      sentimentCounts: Record<SuggestedSentiment, number>
+    }[]
   }
   insights: string[]
 }
 
 export async function generateReport(dateFrom: string, dateTo: string): Promise<ReportData> {
-  const { data: activities } = await supabase
+  const { data: activities, error: activitiesError } = await supabase
     .from('legacy_activities')
     .select('id, title, status, slots, start_date, programs(name)')
     .gte('start_date', dateFrom)
     .lte('start_date', dateTo)
 
+  if (activitiesError) throw new Error(`Unable to load report activities: ${activitiesError.message}`)
+
   const activityIds = (activities || []).map((a: any) => a.id)
 
-  const { data: regs } = await supabase
+  const { data: regs, error: registrationsError } = await supabase
     .from('registration_details')
-    .select('id, activity_id, status, gender_identity, age_bracket, barangay')
+    .select('id, activity_id, status, gender_identity, age, barangay')
     .in('activity_id', activityIds.length ? activityIds : ['none'])
+    .neq('status', 'inactive')
 
-  const { data: budgetEntries } = await supabase
+  if (registrationsError) throw new Error(`Unable to load report registrations: ${registrationsError.message}`)
+
+  const { data: budgetEntries, error: budgetError } = await supabase
     .from('budget_entries')
     .select('activity_id, amount, entry_type')
     .in('activity_id', activityIds.length ? activityIds : ['none'])
 
-  const { data: evals } = await supabase
+  if (budgetError) throw new Error(`Unable to load report budgets: ${budgetError.message}`)
+
+  const { data: evals, error: evaluationsError } = await supabase
     .from('evaluations')
     .select('activity_id, rating, would_recommend, feedback')
     .in('activity_id', activityIds.length ? activityIds : ['none'])
+
+  if (evaluationsError) throw new Error(`Unable to load report evaluations: ${evaluationsError.message}`)
 
   const regsByActivity: Record<string, typeof regs> = {}
   ;(regs || []).forEach((r: any) => {
@@ -123,7 +139,15 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
   }
 
   const genderBreakdown = tally(regs || [], 'gender_identity')
-  const ageBreakdown = tally(regs || [], 'age_bracket')
+  const ageBreakdown = tally((regs || []).map((registration: any) => {
+    const age = Number(registration.age)
+    const bracket = !Number.isFinite(age) ? 'Unspecified'
+      : age < 15 ? 'Under 15'
+        : age <= 17 ? '15-17'
+          : age <= 24 ? '18-24'
+            : age <= 30 ? '25-30' : 'Over 30'
+    return { age_bracket: bracket }
+  }), 'age_bracket')
   const topBarangays = tally(regs || [], 'barangay').slice(0, 5)
 
   const budgetAllocated = Object.values(budgetByActivity).reduce((s, b) => s + b.alloc, 0)
@@ -173,19 +197,28 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
     mixed: 0,
     'no-signal': 0,
   }
-  const themeCounts = new Map<string, number>()
-  for (const comment of comments) {
-    const analysis = analyzeFeedback(comment)
+  const hybridResults = await analyzeFeedbackHybrid(comments)
+  const themeCounts = new Map<string, { count: number; sentimentCounts: Record<SuggestedSentiment, number> }>()
+  for (const analysis of hybridResults.analyses) {
     sentimentCounts[analysis.label] += 1
-    for (const { theme } of analysis.themes) {
-      themeCounts.set(theme, (themeCounts.get(theme) || 0) + 1)
+    for (const { theme, sentiment } of analysis.themes) {
+      const counts = themeCounts.get(theme) || {
+        count: 0,
+        sentimentCounts: { positive: 0, negative: 0, mixed: 0, 'no-signal': 0 },
+      }
+      counts.count += 1
+      counts.sentimentCounts[sentiment] += 1
+      themeCounts.set(theme, counts)
     }
   }
   const feedbackAnalysis = {
     analyzedComments: comments.length,
+    semanticAssistedComments: hybridResults.semanticAssistedComments,
+    modelStatus: hybridResults.modelStatus,
+    modelError: hybridResults.modelError,
     sentimentCounts,
     themeCounts: [...themeCounts.entries()]
-      .map(([theme, count]) => ({ theme, count }))
+      .map(([theme, counts]) => ({ theme, ...counts }))
       .sort((a, b) => b.count - a.count),
   }
 

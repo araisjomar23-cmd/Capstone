@@ -176,7 +176,7 @@ function AdminReports() {
         </div>
 
         {insightsLoading ? (
-          <p className="text-sm text-gray-500 py-3">Analyzing activity, attendance, budget, and evaluation data…</p>
+          <p className="text-sm text-gray-500 py-3">Loading report data and analyzing written feedback… If comments exist, the first analysis downloads the multilingual model to this browser; later runs can reuse the cached model.</p>
         ) : insightData ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -214,9 +214,22 @@ function AdminReports() {
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h3 className="text-sm font-semibold text-gray-900">Written feedback analysis</h3>
                 <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">Suggested</span>
-                <span className="text-xs text-gray-500">Rule-based language signals</span>
+                <span className="text-xs text-gray-500">
+                  {insightData.feedbackAnalysis.modelStatus === 'ready'
+                    ? 'Local multilingual semantic model + Bisaya rules'
+                    : insightData.feedbackAnalysis.modelStatus === 'unavailable'
+                      ? 'Bisaya-aware NLP rules (semantic model unavailable)'
+                      : 'Bisaya rules ready; semantic model loads when comments exist'}
+                </span>
               </div>
-              <p className="text-xs text-gray-500 mb-3">Based on {insightData.feedbackAnalysis.analyzedComments} written comment{insightData.feedbackAnalysis.analyzedComments === 1 ? '' : 's'}. Review the original feedback before making decisions; spelling, sarcasm, and unlisted Bisaya expressions may not be recognized.</p>
+              <p className="text-xs text-gray-500 mb-3">
+                Based on {insightData.feedbackAnalysis.analyzedComments} written comment{insightData.feedbackAnalysis.analyzedComments === 1 ? '' : 's'}. Pretrained multilingual embeddings compare comments with sentiment and theme examples; weighted Bisaya/English rules handle negation, contrast, and emphasis, and take priority when they match. The model runs locally in this browser; feedback text is not sent to an inference API. Cebuano is low-resource for this model, so review the original comments.
+                {' '}{insightData.feedbackAnalysis.modelStatus === 'ready'
+                  ? `Semantic analysis contributed to ${insightData.feedbackAnalysis.semanticAssistedComments} comment${insightData.feedbackAnalysis.semanticAssistedComments === 1 ? '' : 's'}.`
+                  : insightData.feedbackAnalysis.modelStatus === 'unavailable'
+                    ? 'The model could not be loaded, so these results use the Bisaya-aware rules only.'
+                    : 'The model loads when written comments are available.'} Review original feedback before making decisions.
+              </p>
               {insightData.feedbackAnalysis.analyzedComments === 0 ? (
                 <p className="text-sm text-gray-500">No written comments are available for this period.</p>
               ) : (
@@ -231,7 +244,9 @@ function AdminReports() {
                     <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
                       <span className="font-semibold">Common themes:</span>
                       {insightData.feedbackAnalysis.themeCounts.slice(0, 5).map((theme) => (
-                        <span key={theme.theme} className="rounded-full border border-gray-200 px-2.5 py-1 capitalize">{theme.theme} · {theme.count}</span>
+                        <span key={theme.theme} className="rounded-full border border-gray-200 px-2.5 py-1 capitalize">
+                          {theme.theme} · {theme.count} (positive {theme.sentimentCounts.positive}, negative {theme.sentimentCounts.negative}, mixed {theme.sentimentCounts.mixed})
+                        </span>
                       ))}
                     </div>
                   ) : <p className="text-xs text-gray-500">No configured feedback themes were matched.</p>}
