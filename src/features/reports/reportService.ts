@@ -64,25 +64,31 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
 
   const activityIds = (activities || []).map((a: any) => a.id)
 
-  const { data: regs, error: registrationsError } = await supabase
-    .from('registration_details')
-    .select('id, activity_id, status, gender_identity, age, barangay')
-    .in('activity_id', activityIds.length ? activityIds : ['none'])
-    .neq('status', 'inactive')
+  const { data: regs, error: registrationsError } = activityIds.length
+    ? await supabase
+      .from('registration_details')
+      .select('id, activity_id, status, gender_identity, age, barangay')
+      .in('activity_id', activityIds)
+      .neq('status', 'inactive')
+    : { data: null, error: null }
 
   if (registrationsError) throw new Error(`Unable to load report registrations: ${registrationsError.message}`)
 
-  const { data: budgetEntries, error: budgetError } = await supabase
-    .from('budget_entries')
-    .select('activity_id, amount, entry_type')
-    .in('activity_id', activityIds.length ? activityIds : ['none'])
+  const { data: budgetEntries, error: budgetError } = activityIds.length
+    ? await supabase
+      .from('budget_entries')
+      .select('activity_id, amount, entry_type')
+      .in('activity_id', activityIds)
+    : { data: null, error: null }
 
   if (budgetError) throw new Error(`Unable to load report budgets: ${budgetError.message}`)
 
-  const { data: evals, error: evaluationsError } = await supabase
-    .from('evaluations')
-    .select('activity_id, rating, would_recommend, feedback')
-    .in('activity_id', activityIds.length ? activityIds : ['none'])
+  const { data: evals, error: evaluationsError } = activityIds.length
+    ? await supabase
+      .from('evaluations')
+      .select('activity_id, rating, would_recommend, feedback')
+      .in('activity_id', activityIds)
+    : { data: null, error: null }
 
   if (evaluationsError) throw new Error(`Unable to load report evaluations: ${evaluationsError.message}`)
 

@@ -98,11 +98,13 @@ function AdminReports() {
   const [insightMonth, setInsightMonth] = useState(new Date().getMonth())
   const [insightYear, setInsightYear] = useState(new Date().getFullYear())
   const [insightsLoading, setInsightsLoading] = useState(true)
+  const [insightsError, setInsightsError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     let active = true
     setInsightsLoading(true)
+    setInsightsError('')
     const range = monthRange(insightYear, insightMonth)
     const previousDate = new Date(insightYear, insightMonth - 1, 1)
     const previousRange = monthRange(previousDate.getFullYear(), previousDate.getMonth())
@@ -114,10 +116,11 @@ function AdminReports() {
       setInsightData(current)
       setPreviousInsightData(previous)
       setInsightsLoading(false)
-    }).catch(() => {
+    }).catch((error: unknown) => {
       if (!active) return
       setInsightData(null)
       setPreviousInsightData(null)
+      setInsightsError(error instanceof Error ? error.message : String(error))
       setInsightsLoading(false)
     })
     return () => { active = false }
@@ -255,7 +258,7 @@ function AdminReports() {
             </div>
           </>
         ) : (
-          <p className="text-sm text-red-600 py-2">Could not load insights. Try changing the date range or generating the report again.</p>
+          <p className="text-sm text-red-600 py-2">Could not load insights: {insightsError || 'Try changing the date range or generating the report again.'}</p>
         )}
       </section>
 
