@@ -1,3 +1,5 @@
+import ActivityDateFilter from '../../components/ActivityDateFilter'
+import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { useEffect, useState } from 'react'
 import { deleteExpenseEntry, fetchBudgetOverview, saveBudgetEntry, updateExpenseEntry } from '../../features/budget/budgetService'
 import type { BudgetAuditEvent, BudgetOverview } from '../../features/budget/budgetService'
@@ -31,6 +33,7 @@ function pctColor(pct: number) {
 }
 
 function AdminBudget() {
+  const [period, setPeriod] = useState(currentYearPeriod)
   const [data, setData] = useState<BudgetOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -40,6 +43,7 @@ function AdminBudget() {
     load()
     const channel = supabase.channel(`budget-live-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_entries' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => load())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [])
@@ -75,23 +79,32 @@ function AdminBudget() {
     )
   }
 
+  const activities = data.activities.filter((a) => matchesDatePeriod(a.startDate, a.endDate, period))
+    .sort((a, b) => b.startDate.localeCompare(a.startDate))
+  const totalAlloc = activities.reduce((sum, a) => sum + a.budgetAlloc, 0)
+  const totalSpent = activities.reduce((sum, a) => sum + a.budgetSpent, 0)
+  const totalRemain = totalAlloc - totalSpent
+  const utilRate = totalAlloc > 0 ? Math.round(totalSpent / totalAlloc * 100) : 0
   const selectedActivity = selectedActivityId
-    ? data.activities.find((a) => a.id === selectedActivityId) || null
+    ? activities.find((a) => a.id === selectedActivityId) || null
     : null
 
   return (
     <div className="p-4 md:p-8">
       <h1 className="text-2xl font-bold text-primary mb-6">Budget Monitor</h1>
 
+      <ActivityDateFilter value={period} onChange={(next) => { setPeriod(next); setSelectedActivityId(null) }} dates={data.activities.map((a) => ({ start: a.startDate, end: a.endDate }))} />
+      <p className="text-xs text-gray-500 mb-4">Showing {activities.length} of {data.activities.length} activities. Totals reflect the selected activity period.</p>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard barColor="var(--color-primary)" label="Allocated" value={`₱${data.totalAlloc.toLocaleString()}`} sub={`Across ${data.activities.length} activities`} />
-        <StatCard barColor="var(--color-danger)" label="Spent" value={`₱${data.totalSpent.toLocaleString()}`} />
-        <StatCard barColor="var(--color-teal)" label="Remaining" value={`₱${Math.max(0, data.totalRemain).toLocaleString()}`} />
-        <StatCard barColor="var(--color-accent)" label="Utilization" value={`${data.utilRate}%`} />
+        <StatCard barColor="var(--color-primary)" label="Allocated" value={`₱${totalAlloc.toLocaleString()}`} sub={`Across ${activities.length} activities`} />
+        <StatCard barColor="var(--color-danger)" label="Spent" value={`₱${totalSpent.toLocaleString()}`} />
+        <StatCard barColor="var(--color-teal)" label="Remaining" value={`₱${totalRemain.toLocaleString()}`} />
+        <StatCard barColor="var(--color-accent)" label="Utilization" value={`${utilRate}%`} />
       </div>
 
-      {data.activities.length === 0 ? (
-        <div className="text-center text-gray-400 py-12">No activities with budget data yet.</div>
+      {activities.length === 0 ? (
+        <div className="text-center text-gray-400 py-12">No activities found for this period. Try clearing the date filters.</div>
       ) : selectedActivity ? (
         <div>
           <button
@@ -109,7 +122,7 @@ function AdminBudget() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {data.activities.map((a) => (
+          {activities.map((a) => (
             <ActivityBudgetSummaryCard
               key={a.id}
               activity={a}
@@ -152,6 +165,7 @@ function ActivityBudgetSummaryCard({
     >
       <div className="text-base font-bold text-gray-900 truncate">{a.title}</div>
       <div className="text-xs text-gray-400 mb-3 truncate">{a.programName}</div>
+      <div className="text-xs text-gray-500 mb-3">{activityDateLabel(a.startDate, a.endDate)}</div>
 
       {alloc === 0 ? (
         <div className="text-sm text-gray-400">No budget allocated yet</div>
@@ -247,6 +261,7 @@ function ActivityBudgetDetail({
   }
 
   function beginEdit(entry: BudgetEntry) {
+    if (!window.confirm(`Do you want to edit this ${entry.category || 'budget'} entry?`)) return
     setEditingEntry(entry)
     setAmount(String(entry.amount))
     setCategory(entry.category)
@@ -267,6 +282,7 @@ function ActivityBudgetDetail({
       <div className="panel p-4 md:p-5">
         <div className="text-base font-bold text-gray-900">{a.title}</div>
         <div className="text-xs text-gray-400 mb-3">{a.programName}</div>
+      <div className="text-xs text-gray-500 mb-3">{activityDateLabel(a.startDate, a.endDate)}</div>
         <div className="text-sm text-gray-400 mb-3">No budget allocated yet</div>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
@@ -294,6 +310,7 @@ function ActivityBudgetDetail({
         <div>
           <div className="text-base font-bold text-gray-900">{a.title}</div>
           <div className="text-xs text-gray-400">{a.programName}</div>
+      <div className="text-xs text-gray-500 mb-3">{activityDateLabel(a.startDate, a.endDate)}</div>
         </div>
         <div className="grid grid-cols-3 gap-3 sm:flex sm:gap-5">
           <div className="text-center">

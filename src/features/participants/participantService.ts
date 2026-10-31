@@ -14,6 +14,8 @@ interface ProgramRecord {
 interface LegacyActivityRecord {
   id: string
   title: string | null
+  start_date: string | null
+  end_date: string | null
   date_text: string | null
   venue: string | null
   programs: ProgramRecord | ProgramRecord[] | null
@@ -38,7 +40,7 @@ interface ParticipantRegistrationRow {
   legacy_activities: LegacyActivityRecord | LegacyActivityRecord[] | null
 }
 
-export async function fetchParticipants(): Promise<Registration[]> {
+export async function fetchParticipants(strict = false): Promise<Registration[]> {
   const { data, error } = await supabase
     .from('registration_details')
     .select(`
@@ -46,13 +48,14 @@ export async function fetchParticipants(): Promise<Registration[]> {
       name, age, gender_identity, contact, barangay, organization,
       status, registered_at, attended_at, notes, sectoral_group,
       legacy_activities (
-        id, title, date_text, venue,
+        id, title, start_date, end_date, date_text, venue,
         programs ( name )
       )
     `)
     .order('registered_at', { ascending: false })
 
   if (error) {
+    if (strict) throw new Error('Unable to load registrations: ' + error.message)
     console.error('fetchParticipants error:', error.message)
     return []
   }
@@ -66,6 +69,7 @@ export async function fetchParticipants(): Promise<Registration[]> {
       .select('registration_id, checked_in_at, day_number')
       .in('registration_id', registrationIds)
       .order('checked_in_at', { ascending: false })
+    if (strict && attendanceError) throw new Error('Unable to load attendance: ' + attendanceError.message)
     if (attendanceError) console.error('fetchParticipantAttendance error:', attendanceError.message)
     for (const row of (attendanceRows || []) as AttendanceRecord[]) {
       const history = attendanceByRegistration.get(row.registration_id) || []
@@ -94,6 +98,8 @@ export async function fetchParticipants(): Promise<Registration[]> {
       org: r.organization || '',
       activityId: activity?.id ?? r.activity_id,
       activityTitle: activity?.title ?? '—',
+      activityStartDate: activity?.start_date || undefined,
+      activityEndDate: activity?.end_date || undefined,
       activityDate: activity?.date_text ?? '—',
       activityVenue: activity?.venue ?? '—',
       program: program?.name ?? '—',

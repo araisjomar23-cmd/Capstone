@@ -7,6 +7,9 @@ export interface EvaluationRow {
   wouldRecommend: boolean
   submittedAt: string
   participantName: string
+  activityId: string
+  activityStartDate?: string
+  activityEndDate?: string
   activityTitle: string
 }
 
@@ -16,13 +19,14 @@ export interface EvaluationStats {
   recommendRate: number
 }
 
-export async function fetchEvaluations(): Promise<{ stats: EvaluationStats; rows: EvaluationRow[] }> {
+export async function fetchEvaluations(strict = false): Promise<{ stats: EvaluationStats; rows: EvaluationRow[] }> {
   const { data, error } = await supabase
     .from('evaluations')
     .select('id, rating, feedback, would_recommend, submitted_at, registration_id')
     .order('submitted_at', { ascending: false })
 
   if (error) {
+    if (strict) throw new Error('Unable to load evaluations: ' + error.message)
     console.error('fetchEvaluations error:', error.message)
     return { stats: { totalResponses: 0, averageRating: 0, recommendRate: 0 }, rows: [] }
   }
@@ -31,18 +35,20 @@ export async function fetchEvaluations(): Promise<{ stats: EvaluationStats; rows
   let regMap: Record<string, any> = {}
 
   if (regIds.length) {
-    const { data: regs } = await supabase
+    const { data: regs, error: registrationError } = await supabase
       .from('registration_details')
       .select('id, name, activity_id')
       .in('id', regIds)
+    if (strict && registrationError) throw new Error('Unable to load evaluation registrations: ' + registrationError.message)
     regMap = Object.fromEntries((regs || []).map((r: any) => [r.id, r]))
   }
 
   const activityIds = [...new Set(Object.values(regMap).map((r: any) => r.activity_id))]
-  let actMap: Record<string, string> = {}
+  let actMap: Record<string, { title: string; start_date: string; end_date: string }> = {}
   if (activityIds.length) {
-    const { data: acts } = await supabase.from('legacy_activities').select('id, title').in('id', activityIds)
-    actMap = Object.fromEntries((acts || []).map((a: any) => [a.id, a.title]))
+    const { data: acts, error: activityError } = await supabase.from('legacy_activities').select('id, title, start_date, end_date').in('id', activityIds)
+    if (strict && activityError) throw new Error('Unable to load evaluation activities: ' + activityError.message)
+    actMap = Object.fromEntries((acts || []).map((a: any) => [a.id, a]))
   }
 
   const rows: EvaluationRow[] = (data || []).map((e: any) => {
@@ -54,7 +60,10 @@ export async function fetchEvaluations(): Promise<{ stats: EvaluationStats; rows
       wouldRecommend: !!e.would_recommend,
       submittedAt: e.submitted_at,
       participantName: reg?.name || '—',
-      activityTitle: reg ? actMap[reg.activity_id] || '—' : '—',
+      activityId: reg?.activity_id || '',
+      activityStartDate: actMap[reg?.activity_id]?.start_date,
+      activityEndDate: actMap[reg?.activity_id]?.end_date,
+      activityTitle: reg ? actMap[reg.activity_id]?.title || '—' : '—',
     }
   })
 

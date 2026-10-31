@@ -1,3 +1,5 @@
+import ActivityDateFilter from '../../components/ActivityDateFilter'
+import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAdminParticipants } from '../../features/participants/participantService'
 import ParticipantModal from '../../features/participants/ParticipantModal'
@@ -22,6 +24,7 @@ function formatStatus(status: string) {
 }
 
 function AdminParticipants() {
+  const [period, setPeriod] = useState(currentYearPeriod)
   const [all, setAll] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -36,6 +39,7 @@ function AdminParticipants() {
       .channel(`participants-live-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => load())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_log' }, () => load())
       .subscribe()
 
@@ -54,7 +58,7 @@ function AdminParticipants() {
   const activityOptions = useMemo(() => {
     const seen = new Map<string, string>()
     all.forEach((p) => {
-      if (!seen.has(p.activityId)) seen.set(p.activityId, p.activityTitle)
+      if (p.activityId && !seen.has(p.activityId)) seen.set(p.activityId, p.activityTitle + ' (' + activityDateLabel(p.activityStartDate, p.activityEndDate) + ')')
     })
     return Array.from(seen.entries())
   }, [all])
@@ -66,9 +70,7 @@ function AdminParticipants() {
     return all.filter((p) => {
       let mQ = true
       if (q) {
-        mQ = isAgeQuery
-          ? String(p.age ?? '') === q
-          : p.name.toLowerCase().includes(q) ||
+        mQ = (isAgeQuery && String(p.age ?? '') === q) || p.name.toLowerCase().includes(q) ||
             p.barangay.toLowerCase().includes(q) ||
             p.ref.toLowerCase().includes(q) ||
             p.org.toLowerCase().includes(q) ||
@@ -79,11 +81,11 @@ function AdminParticipants() {
       }
       const mA = !activityFilter || String(p.activityId) === activityFilter
       const mS = !statusFilter || p.status === statusFilter
-      return mQ && mA && mS
+      return mQ && mA && mS && matchesDatePeriod(p.activityStartDate, p.activityEndDate, period)
     })
-  }, [all, search, activityFilter, statusFilter])
+  }, [all, search, activityFilter, statusFilter, period])
 
-  const countBy = (s: string) => all.filter((p) => p.status === s).length
+  const countBy = (s: string) => filtered.filter((p) => p.status === s).length
 
   return (
     <div className="p-4 md:p-8">
@@ -96,13 +98,15 @@ function AdminParticipants() {
           </>
         ) : (
           <>
-            <StatBox label="Total" value={all.length} barColor="var(--color-primary)" />
+            <StatBox label="Total" value={filtered.length} barColor="var(--color-primary)" />
             <StatBox label="Registered" value={countBy('registered')} barColor="var(--color-teal)" />
             <StatBox label="Attended" value={countBy('attended')} barColor="var(--color-info)" />
             <StatBox label="Inactive" value={countBy('inactive')} barColor="var(--color-muted)" />
           </>
         )}
       </div>
+
+      <ActivityDateFilter value={period} onChange={setPeriod} dates={all.map((p) => ({ start: p.activityStartDate, end: p.activityEndDate }))} />
 
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-[220px]">
@@ -169,7 +173,7 @@ function AdminParticipants() {
                       <EmptyState
                         icon={<Users size={22} />}
                         title="No participants found"
-                        subtitle={search || activityFilter || statusFilter ? 'Try adjusting your filters.' : 'Participants will appear here once youth register for activities.'}/>
+                        subtitle={search || activityFilter || statusFilter || period.year || period.month ? 'Try adjusting your filters.' : 'Participants will appear here once youth register for activities.'}/>
                     </td>
                   </tr>
                 ) : (
@@ -190,6 +194,7 @@ function AdminParticipants() {
                     ) : (
                       <>
                         <div className="font-medium">{p.activityTitle}</div>
+                        <div className="text-xs text-gray-400">{activityDateLabel(p.activityStartDate, p.activityEndDate)}</div>
                         <div className="text-xs text-gray-400">{p.program}</div>
                       </>
                     )}
@@ -234,7 +239,7 @@ function AdminParticipants() {
             <EmptyState
               icon={<Users size={22} />}
               title="No participants found"
-              subtitle={search || activityFilter || statusFilter ? 'Try adjusting your filters.' : 'Participants will appear here once youth register for activities.'}
+              subtitle={search || activityFilter || statusFilter || period.year || period.month ? 'Try adjusting your filters.' : 'Participants will appear here once youth register for activities.'}
             />
           </div>
         ) : (
@@ -264,6 +269,7 @@ function AdminParticipants() {
                 <div className="border-t border-gray-100 pt-2 flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="text-xs font-medium text-gray-800 truncate">{p.activityTitle}</div>
+                        <div className="text-xs text-gray-400">{activityDateLabel(p.activityStartDate, p.activityEndDate)}</div>
                     <div className="text-[11px] text-gray-400">
                       {new Date(p.registeredAt).toLocaleDateString('en-PH', {
                         year: 'numeric',

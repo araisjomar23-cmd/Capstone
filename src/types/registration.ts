@@ -13,6 +13,8 @@ export interface Registration {
   org: string
   activityId: string  
   activityTitle: string
+  activityStartDate?: string
+  activityEndDate?: string
   activityDate: string
   activityVenue: string
   program: string

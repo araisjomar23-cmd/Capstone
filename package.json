@@ -13,7 +13,8 @@
     "db:new": "supabase migration new",
     "db:status": "supabase migration list --linked",
     "db:push": "supabase db push --linked",
-    "db:baseline": "supabase migration repair 20261016000000 20261017 --status applied --linked"
+    "db:baseline": "supabase migration repair 20261016000000 20261017 --status applied --linked",
+    "test:filters": "node --test tests/filterAccuracy.test.cjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",

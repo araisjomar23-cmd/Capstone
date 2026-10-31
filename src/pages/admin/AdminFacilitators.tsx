@@ -7,6 +7,7 @@ import {
 import type { FacilitatorRow } from '../../features/facilitators/facilitatorService'
 import { Trash2 } from 'lucide-react'
 import { useToast } from '../../components/ToastProvider'
+import { useConfirmation } from '../../components/ConfirmationProvider'
 import { SkeletonTableRows } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { UserSquare2 } from 'lucide-react'
@@ -15,6 +16,7 @@ const emptyForm = { name: '', initials: '', email: '', password: '' }
 
 function AdminFacilitators() {
   const { showToast } = useToast()
+  const confirm = useConfirmation()
   const [list, setList] = useState<FacilitatorRow[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -73,7 +75,15 @@ load()
   }
 
   async function handleDelete(id: string) {
-  if (!confirm('Delete this facilitator? This cannot be undone.')) return
+  const facilitator = list.find((item) => item.id === id)
+  const approved = await confirm({
+    title: 'Delete facilitator?',
+    message: 'Delete ' + (facilitator?.name || 'this facilitator') + '? This cannot be undone.',
+    confirmLabel: 'Delete Facilitator',
+    cancelLabel: 'Cancel',
+    tone: 'danger',
+  })
+  if (!approved) return
   const ok = await deleteFacilitator(id)
   if (ok) {
     setList((prev) => prev.filter((f) => f.id !== id))

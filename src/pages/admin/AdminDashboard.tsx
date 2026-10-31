@@ -1,5 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Users, CheckCircle2, Pin, BarChart3, Star, Wallet, Coins, CircleDollarSign } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import DashboardControlPanel from '../../features/dashboard/DashboardControlPanel'
+import FiscalYearFilter from '../../features/dashboard/FiscalYearFilter'
+import { fiscalYearFor, fiscalYearLabel, type FiscalPeriod } from '../../lib/fiscalYear'
+import { Users, CheckCircle2, Star, CircleDollarSign } from 'lucide-react'
 import {
   PieChart,
   Pie,
@@ -18,7 +22,6 @@ import {
 import { useDashboardData } from '../../features/dashboard/useDashboardData'
 import { useToast } from '../../components/ToastProvider'
 import { SkeletonStatCard } from '../../components/Skeleton'
-import type { Activity } from '../../types/activity'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 const CHART_COLORS = [
@@ -30,48 +33,25 @@ const CHART_COLORS = [
   'var(--color-danger, #ef4444)',
 ]
 
-function activityYear(a: Activity): number | null {
-  const raw = a.startDate || a.date
-  if (!raw) return null
-  const year = new Date(raw).getFullYear()
-  return Number.isNaN(year) ? null : year
-}
-
 function AdminDashboard() {
   usePageTitle('PRIME Admin')
   const { showToast } = useToast()
-  const { data, loading, error, refresh } = useDashboardData()
-  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all')
+  const [period, setPeriod] = useState<FiscalPeriod>(() => {
+    return { startMonth: 1, year: fiscalYearFor(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }), 1) ?? new Date().getFullYear() }
+  })
+  const { data, activities, loading, error, refresh } = useDashboardData(period)
+  function changePeriod(next: FiscalPeriod) {
+    setPeriod({ ...next, startMonth: 1 })
+  }
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
-  const availableYears = useMemo(() => {
-    if (!data) return []
-    const years = new Set<number>()
-    data.acts.forEach((a) => {
-      const y = activityYear(a)
-      if (y) years.add(y)
-    })
-    return Array.from(years).sort((a, b) => b - a)
-  }, [data])
-
-  const filteredActivityRegistrations = useMemo(() => {
-    if (!data) return []
-    const filtered = data.acts.filter((a) => {
-      if (selectedYear === 'all') return true
-      return activityYear(a) === selectedYear
-    })
-    return filtered
-      .map((a) => ({
-        name: a.title,
-        registrations: data.liveCount[a.id] || 0,
-        slots: a.slots,
-      }))
-      .sort((a, b) => b.registrations - a.registrations)
-      .slice(0, 8)
-  }, [data, selectedYear])
-
-  if (loading) {
+  if (loading && !data) {
     return (
-      <div className="p-8">
+      <div className="w-full min-w-0 max-w-[1440px] mx-auto p-4 md:p-6 xl:p-8">
         <h1 className="text-2xl font-bold text-primary mb-1">Admin Dashboard</h1>
         <p className="text-sm text-gray-400 mb-6">Live overview of MEAL system activity</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -84,9 +64,9 @@ function AdminDashboard() {
     )
   }
 
-  if (error) {
+  if (error && !data) {
     return (
-      <div className="p-8">
+      <div className="w-full min-w-0 max-w-[1440px] mx-auto p-4 md:p-6 xl:p-8">
         <p className="text-red-600">{error}</p>
         <button
           onClick={() => {
@@ -103,82 +83,40 @@ function AdminDashboard() {
   if (!data) return null
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold text-primary mb-1">Admin Dashboard</h1>
-      <p className="text-sm text-gray-400 mb-6">Live overview of MEAL system activity</p>
+    <div className="w-full min-w-0 max-w-[1440px] mx-auto p-4 md:p-6 xl:p-8">
+      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-teal-700 mb-2">MEAL control panel</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-2">Monitor participation, activities, budgets, and feedback in one place.</p>
+        </div>
+      </header>
+      {error && <div role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error} Showing the last loaded data. <button type="button" onClick={() => void refresh()} className="underline font-semibold">Retry</button></div>}
+      <FiscalYearFilter value={period} onChange={changePeriod} activities={activities} today={new Date(now).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })} />
+      <h2 className="text-sm font-semibold text-gray-800 mb-3">Overall performance <span className="font-normal text-gray-500">/ {period.year === 'all' ? 'All fiscal years' : fiscalYearLabel(period.year, period.startMonth)}</span></h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          icon={<Users size={40} />}
-          barColor="var(--color-primary)"
-          label="Total Registrations"
-          value={data.totalReg}
-          sub={`↑ ${data.thisWeek} this week`}
-        />
-        <StatCard
-          icon={<CheckCircle2 size={40} />}
-          barColor="var(--color-teal)"
-          label="Total Attendance"
-          value={data.totalAtt}
-          sub={`↑ ${data.attRate}% attendance rate`}
-        />
-        <StatCard
-          icon={<Pin size={40} />}
-          barColor="var(--color-info)"
-          label="Active Activities"
-          value={data.activeActs}
-          sub={`${data.upcomingActs} upcoming · ↑ ${data.acts.length} total`}
-        />
-        <StatCard
-          icon={<BarChart3 size={40} />}
-          barColor="var(--color-accent)"
-          label="Fill Rate"
-          value={`${data.fillRate}%`}
-          sub={`${data.totalReg} of ${data.totalSlots} slots used`}
-          trend={data.remaining > 0 ? `↓ ${data.remaining}% slots remaining` : undefined}
-        />
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
+        <StatCard icon={<Users size={32} />} barColor="var(--color-primary)" label="Registrations" value={data.totalReg} sub={data.thisWeek + ' added this week'} />
+        <StatCard icon={<CheckCircle2 size={32} />} barColor="var(--color-teal)" label="Attendance" value={data.totalAtt} sub={data.attRate + '% of active registrations'} />
+        <StatCard icon={<CircleDollarSign size={32} />} barColor="var(--color-info)" label="Budget remaining" value={'PHP ' + (data.totalBudgetAllocated - data.totalBudgetSpent).toLocaleString()} sub={data.totalBudgetSpent > data.totalBudgetAllocated ? 'Spending exceeds the allocation' : 'Selected fiscal-year activities'} />
+        <StatCard icon={<Star size={32} />} barColor="var(--color-accent)" label="Satisfaction" value={data.evaluationStats.totalResponses ? data.evaluationStats.averageRating.toFixed(1) + ' / 5' : '--'} sub={data.evaluationStats.totalResponses + ' evaluation responses'} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={<Wallet size={34} />} barColor="var(--color-info)" label="Budget Allocated" value={`₱${data.totalBudgetAllocated.toLocaleString()}`} />
-        <StatCard icon={<Coins size={34} />} barColor="var(--color-danger)" label="Budget Spent" value={`₱${data.totalBudgetSpent.toLocaleString()}`} />
-        <StatCard icon={<CircleDollarSign size={34} />} barColor="var(--color-teal)" label="Budget Remaining" value={`₱${(data.totalBudgetAllocated - data.totalBudgetSpent).toLocaleString()}`} />
-        <StatCard icon={<Star size={34} />} barColor="var(--color-accent)" label="Average Satisfaction" value={`${data.evaluationStats.averageRating.toFixed(1)} / 5`} sub={`${data.evaluationStats.totalResponses} responses`} />
-      </div>
+      <DashboardControlPanel data={data} now={now} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <RegistrationStatusChart data={data.statusBreakdown} />
-        <ActivityRegistrationsChart
-          data={filteredActivityRegistrations}
-          headerRight={
-            <select
-              value={selectedYear}
-              onChange={(e) =>
-                setSelectedYear(e.target.value === 'all' ? 'all' : Number(e.target.value))
-              }
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 bg-white
-                focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="all">All Years</option>
-              {availableYears.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          }
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-4 mb-4">
+        <div className="min-w-0 space-y-4">
+          <AttendanceTrendChart data={data.attendanceTrend} />
+          <RegistrationStatusChart data={data.statusBreakdown} />
+        </div>
+        <div className="min-w-0 space-y-4">
+          <ActivityRegistrationsChart
+            data={data.activityRegistrations}
+          />
+          <BudgetOverviewChart data={data.budgetOverview} allocated={data.totalBudgetAllocated} spent={data.totalBudgetSpent} />
+        </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <AttendanceTrendChart data={data.attendanceTrend} />
-        <BudgetOverviewChart data={data.budgetOverview} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4">
-        <RecentEvaluationsFeed stats={data.evaluationStats} rows={data.recentEvaluations} />
-        <ActivitySatisfactionTable data={data.activitySatisfaction} />
-      </div>
+      <RecentEvaluationsFeed rows={data.recentEvaluations} />
     </div>
   )
 }
@@ -191,12 +129,12 @@ function RegistrationStatusChart({
   const isEmpty = data.length === 0 || data.every((d) => d.value === 0)
 
   return (
-    <div className="stat-card p-4">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5">
       <h2 className="text-sm font-semibold text-gray-600 mb-2">Attendees by Sectoral Group</h2>
       {isEmpty ? (
         <p className="text-sm text-gray-400 py-12 text-center">No registration data yet.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={220}>
           <PieChart>
             <Pie
               data={data}
@@ -204,8 +142,8 @@ function RegistrationStatusChart({
               nameKey="label"
               cx="50%"
               cy="50%"
-              innerRadius={60}
-              outerRadius={95}
+              innerRadius={48}
+              outerRadius={72}
               paddingAngle={2}
             >
               {data.map((entry, index) => (
@@ -213,7 +151,7 @@ function RegistrationStatusChart({
               ))}
             </Pie>
             <Tooltip />
-            <Legend verticalAlign="bottom" height={36} />
+            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
           </PieChart>
         </ResponsiveContainer>
       )}
@@ -223,24 +161,23 @@ function RegistrationStatusChart({
 
 function ActivityRegistrationsChart({
   data,
-  headerRight,
 }: {
   data: { name: string; registrations: number; slots: number }[]
-  headerRight?: React.ReactNode
 }) {
   const isEmpty = data.length === 0
 
   return (
-    <div className="stat-card p-4">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold text-gray-600">Registrations by Activity</h2>
-        {headerRight}
+
       </div>
+      <p className="text-xs text-gray-500 mb-3">Top 8 activities by registrations in the selected period.</p>
       {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center">No activities for this year.</p>
+        <p className="text-sm text-gray-400 py-12 text-center">No activities for this period. Try another fiscal year.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={data} margin={{ top: 8, right: 24, left: 0, bottom: 70 }}>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="name"
@@ -248,14 +185,14 @@ function ActivityRegistrationsChart({
               interval={0}
               angle={-35}
               textAnchor="end"
-              height={80}
+              height={54}
               tickFormatter={(name: any) => (String(name).length > 18 ? `${String(name).slice(0, 18)}…` : String(name))}
             />
             <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
             <Tooltip />
             <Legend verticalAlign="top" height={28} />
-            <Bar dataKey="registrations" name="Registrations" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="slots" name="Total Slots" fill="var(--color-info)" radius={[4, 4, 0, 0]} fillOpacity={0.35} />
+            <Bar maxBarSize={32} dataKey="registrations" name="Registrations" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+            <Bar maxBarSize={32} dataKey="slots" name="Total Slots" fill="var(--color-info)" radius={[4, 4, 0, 0]} fillOpacity={0.35} />
           </BarChart>
         </ResponsiveContainer>
       )}
@@ -264,20 +201,24 @@ function ActivityRegistrationsChart({
 }
 
 function BudgetOverviewChart({
-  data,
+  data, allocated, spent,
 }: {
   data: { name: string; allocated: number; spent: number }[]
+  allocated: number
+  spent: number
 }) {
   const isEmpty = data.length === 0
 
   return (
-    <div className="stat-card p-4">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5">
       <h2 className="text-sm font-semibold text-gray-600 mb-2">Budget: Allocated vs Spent</h2>
+      <p className="text-xs text-gray-500 mb-3">Allocated: PHP {allocated.toLocaleString()} <span className="mx-1">/</span> Spent: PHP {spent.toLocaleString()}</p>
+      <p className="text-xs text-gray-500 mb-3">Chart shows up to 8 activities with the largest allocations; totals include all selected activities.</p>
       {isEmpty ? (
         <p className="text-sm text-gray-400 py-12 text-center">No budget data yet.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={data} margin={{ top: 8, right: 24, left: 0, bottom: 70 }}>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="name"
@@ -285,7 +226,7 @@ function BudgetOverviewChart({
               interval={0}
               angle={-35}
               textAnchor="end"
-              height={80}
+              height={54}
               tickFormatter={(name: any) => (String(name).length > 18 ? `${String(name).slice(0, 18)}…` : String(name))}
             />
             <YAxis
@@ -295,8 +236,8 @@ function BudgetOverviewChart({
             />
             <Tooltip formatter={(v: any) => `₱${Number(v).toLocaleString()}`} />
             <Legend verticalAlign="top" height={28} />
-            <Bar dataKey="allocated" name="Allocated" fill="var(--color-info)" fillOpacity={0.35} radius={[4, 4, 0, 0]} />
-            <Bar dataKey="spent" name="Spent" fill="var(--color-accent)" radius={[4, 4, 0, 0]} />
+            <Bar maxBarSize={32} dataKey="allocated" name="Allocated" fill="var(--color-info)" fillOpacity={0.35} radius={[4, 4, 0, 0]} />
+            <Bar maxBarSize={32} dataKey="spent" name="Spent" fill="var(--color-accent)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}
@@ -308,13 +249,13 @@ function AttendanceTrendChart({ data }: { data: { date: string; registrations: n
   const isEmpty = data.every((d) => d.registrations === 0 && d.attendance === 0)
 
   return (
-    <div className="stat-card p-4">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5">
       <h2 className="text-sm font-semibold text-gray-600 mb-2">Registrations vs Attendance (Last 14 Days)</h2>
       {isEmpty ? (
         <p className="text-sm text-gray-400 py-12 text-center">No activity in the last 14 days.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={320}>
-          <LineChart data={data} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="date"
@@ -338,27 +279,17 @@ function AttendanceTrendChart({ data }: { data: { date: string; registrations: n
 }
 
 function RecentEvaluationsFeed({
-  stats,
   rows,
 }: {
-  stats: { totalResponses: number; averageRating: number; recommendRate: number }
   rows: { id: string; rating: number; feedback: string; submittedAt: string; participantName: string; activityTitle: string }[]
 }) {
   const isEmpty = rows.length === 0
 
   return (
-    <div className="stat-card p-4">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 className="text-sm font-semibold text-gray-600">Recent Evaluations</h2>
-        {stats.totalResponses > 0 && (
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            <span className="flex items-center gap-1">
-              <Star size={14} className="fill-yellow-400 text-yellow-400" />
-              {stats.averageRating.toFixed(1)} avg · {stats.totalResponses} responses
-            </span>
-            <span>{stats.recommendRate}% would recommend</span>
-          </div>
-        )}
+        <Link to="/admin/evaluations" className="text-xs font-semibold text-primary min-h-11 inline-flex items-center">View all evaluations</Link>
       </div>
       {isEmpty ? (
         <p className="text-sm text-gray-400 py-12 text-center">No evaluations submitted yet.</p>
@@ -393,45 +324,28 @@ function RecentEvaluationsFeed({
   )
 }
 
-function ActivitySatisfactionTable({ data }: { data: { name: string; responses: number; averageRating: number }[] }) {
-  return (
-    <div className="stat-card p-4 overflow-x-auto">
-      <h2 className="text-sm font-semibold text-gray-600 mb-3">Average Satisfaction by Activity</h2>
-      {!data.length ? <p className="py-6 text-center text-sm text-gray-400">No evaluation data yet.</p> : (
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-xs text-gray-400"><th className="py-2">Activity</th><th className="py-2">Responses</th><th className="py-2">Average / 5</th></tr></thead>
-          <tbody>{data.map((item) => <tr key={item.name} className="border-t border-gray-100"><td className="py-2">{item.name}</td><td className="py-2">{item.responses}</td><td className="py-2 font-semibold">{item.averageRating.toFixed(1)}</td></tr>)}</tbody>
-        </table>
-      )}
-    </div>
-  )
-}
-
 function StatCard({
   icon,
   barColor,
   label,
   value,
   sub,
-  trend,
 }: {
   icon: React.ReactNode
   barColor: string
   label: string
   value: string | number
   sub?: string
-  trend?: string
 }) {
   return (
-    <div className="stat-card">
+    <div className="stat-card min-w-0 !p-4">
       <div className="stat-accent-bar" style={{ background: barColor }} />
       <div className="stat-icon-watermark" style={{ color: barColor }}>
         {icon}
       </div>
       <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
+      <div className="stat-value break-words !text-2xl xl:!text-3xl">{value}</div>
       <div className="stat-sub">{sub}</div>
-      {trend && <div className="text-xs text-orange-500 font-semibold mt-1">{trend}</div>}
     </div>
   )
 }

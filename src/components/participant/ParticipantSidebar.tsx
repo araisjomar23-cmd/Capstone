@@ -19,6 +19,7 @@ export default function ParticipantSidebar({ open, onClose }: Props) {
   const { email } = useAuth()
 
   async function handleLogout() {
+    if (!window.confirm('Are you sure you want to log out?')) return
     await supabase.auth.signOut()
     navigate('/')
   }

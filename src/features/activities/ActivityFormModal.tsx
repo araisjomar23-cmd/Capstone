@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   fetchPrograms,
   fetchFacilitators,
@@ -10,6 +10,7 @@ import type { Program } from '../../types/program'
 import type { Facilitator } from '../../types/facilitator'
 import { useToast } from '../../components/ToastProvider'
 import DatePicker from '../../components/DatePicker'
+import { useConfirmation } from '../../components/ConfirmationProvider'
 
 interface Props {
   editingActivity: Activity | null
@@ -36,6 +37,8 @@ const emptyForm = {
 
 function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
   const { showToast } = useToast()
+  const confirm = useConfirmation()
+  const submitLock = useRef(false)
   const isEdit = !!editingActivity
   const [form, setForm] = useState(emptyForm)
   const [programs, setPrograms] = useState<Program[]>([])
@@ -112,9 +115,20 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!validate()) return
+    if (submitLock.current || !validate()) return
+    submitLock.current = true
 
     setSubmitting(true)
+    try {
+      if (isEdit) {
+        const approved = await confirm({
+          title: 'Save activity changes?',
+          message: 'Save the updated details for "' + form.title.trim() + '"?',
+          confirmLabel: 'Save Changes',
+          cancelLabel: 'Keep Editing',
+        })
+        if (!approved) return
+      }
     const result = await saveActivity(
       {
         title: form.title.trim(),
@@ -136,8 +150,6 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
       tagged,
       editingActivity?.id || null
     )
-    setSubmitting(false)
-
     if (result.ok) {
         showToast(isEdit ? 'Activity updated successfully.' : 'Activity created successfully.', 'success')
         onSaved()
@@ -145,6 +157,12 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
       } else {
         showToast('Failed to save: ' + result.error, 'error')
       }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save activity. Please try again.', 'error')
+    } finally {
+      submitLock.current = false
+      setSubmitting(false)
+    }
   }
 
   const inputClass = (field: string) =>

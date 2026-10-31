@@ -1,0 +1,216 @@
+const assert = require('node:assert/strict')
+const test = require('node:test')
+const fs = require('node:fs')
+const path = require('node:path')
+const ts = require('typescript')
+const React = require('react')
+const { renderToStaticMarkup } = require('react-dom/server')
+
+// Exercise the actual TypeScript helpers and page components without a live database.
+function load(relative, mocks = {}) {
+  const file = path.resolve(relative)
+  const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText
+  const module = { exports: {} }
+  new Function('require', 'module', 'exports', output)((name) => {
+    if (Object.hasOwn(mocks, name)) return mocks[name]
+    if (!name.startsWith('.')) return require(name)
+    const base = path.resolve(path.dirname(file), name)
+    const resolved = [base, base + '.ts', base + '.tsx'].find((candidate) => fs.existsSync(candidate))
+    return load(resolved, mocks)
+  }, module, module.exports)
+  return module.exports
+}
+const { matchesDatePeriod, activityDateLabel, currentYearPeriod } = load('src/lib/activityDatePeriod.ts')
+const { fiscalYearFor, fiscalYearRange } = load('src/lib/fiscalYear.ts')
+const { summarizeDashboard } = load('src/features/dashboard/dashboardSummary.ts')
+const { manilaDate } = load('src/lib/calendarDate.ts')
+const period = { year: '2026', month: '07' }
+const activities = [
+  { id: 'old', title: 'Previous workshop', programId: 'p1', programName: 'Program A', startDate: '2026-06-30', endDate: '2026-06-30', slots: 10, budgetAlloc: 100, budgetSpent: 20, status: 'closed', date: 'Jun 30, 2026' },
+  { id: 'new', title: 'Selected workshop', programId: 'p2', programName: 'Program B', startDate: '2026-07-01', endDate: '2026-07-02', slots: 20, budgetAlloc: 200, budgetSpent: 250, status: 'open', date: 'Jul 1, 2026' },
+]
+const participant = (id, activity, status = 'registered') => ({
+  id, activityId: activity.id, activityTitle: activity.title, activityStartDate: activity.startDate, activityEndDate: activity.endDate,
+  status, name: 'Person ' + id, age: 20, gender: 'Male', contact: '09123456789', barangay: 'Test barangay', ref: id,
+  org: '', program: activity.programName, registeredAt: '2026-07-01T00:00:00Z', attendedAt: null, attendanceHistory: [], sectoralGroup: 'None',
+})
+const participants = [participant('old-person', activities[0], 'attended'), participant('new-person', activities[1], 'completed'), participant('inactive-person', activities[1], 'inactive')]
+const evaluations = activities.map((a, index) => ({ id: a.id, activityId: a.id, activityStartDate: a.startDate, activityEndDate: a.endDate, activityTitle: a.title, participantName: 'Reviewer ' + a.id, rating: index ? 5 : 1, wouldRecommend: Boolean(index), feedback: 'Feedback ' + a.id, submittedAt: '2026-07-0' + (index + 1) + 'T00:00:00Z' }))
+
+function renderPage(name, states) {
+  let stateIndex = 0
+  const hooks = { ...React, useState: (initial) => React.useState(stateIndex < states.length ? states[stateIndex++] : initial) }
+  const service = {}
+  const mocks = {
+    react: hooks,
+    '../../lib/supabase': { supabase: {} },
+    '../../components/ToastProvider': { useToast: () => ({ showToast() {} }) },
+    '../../features/participants/participantService': service,
+    '../../features/activities/activityService': service,
+    '../../features/evaluations/evaluationService': service,
+    '../../features/budget/budgetService': service,
+    '../../features/participants/ParticipantModal': { default: () => null },
+    '../../features/activities/ActivityFormModal': { default: () => null },
+  }
+  const Component = load('src/pages/admin/' + name + '.tsx', mocks).default
+  return renderToStaticMarkup(React.createElement(Component))
+}
+
+test('month/year filters support each selector and combined inclusive boundaries', () => {
+  assert.equal(matchesDatePeriod('2026-07-01', undefined, period), true)
+  assert.equal(matchesDatePeriod('2026-06-30', '2026-07-01', period), true)
+  assert.equal(matchesDatePeriod('2026-06-30', undefined, period), false)
+  assert.equal(matchesDatePeriod('2025-07-01', undefined, period), false)
+  assert.equal(matchesDatePeriod('2025-07-01', undefined, { year: '', month: '07' }), true)
+  assert.equal(matchesDatePeriod('2026-12-31', undefined, { year: '2026', month: '' }), true)
+  assert.equal(matchesDatePeriod('2025-12-31', '2026-01-02', { year: '2026', month: '01' }), true)
+})
+test('invalid and undated records cannot leak into a selected period', () => {
+  for (const date of [undefined, '', '2026-02-30', '2026-13-01', 'invalid']) assert.equal(matchesDatePeriod(date, undefined, period), false)
+  assert.equal(matchesDatePeriod(undefined, undefined, { year: '', month: '' }), true)
+  assert.equal(matchesDatePeriod('2026-07-01', undefined, { year: '2026', month: '99' }), false)
+  assert.equal(activityDateLabel('invalid'), 'Activity date unavailable')
+})
+test('leap day and every fiscal start month use accurate year boundaries', () => {
+  assert.equal(matchesDatePeriod('2024-02-29', undefined, { year: '2024', month: '02' }), true)
+  assert.equal(fiscalYearFor('2025-02-29', 1), null)
+  for (let month = 1; month <= 12; month++) {
+    const start = '2026-' + String(month).padStart(2, '0') + '-01'
+    const previous = new Date(Date.parse(start + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10)
+    assert.equal(fiscalYearFor(start, month), 2026)
+    assert.equal(fiscalYearFor(previous, month), 2025)
+  }
+  assert.equal(fiscalYearRange(2026, 7), 'Jul 1, 2026 to Jun 30, 2027')
+})
+test('fiscal selection filters every dashboard summary and keeps same-title activities separate', () => {
+  const snapshot = { acts: activities, all: participants, evaluations }
+  const result = summarizeDashboard(snapshot, { year: 2026, startMonth: 7 }, new Date('2026-07-03T00:00:00Z'))
+  assert.deepEqual(result.acts.map((a) => a.id), ['new'])
+  assert.equal(result.totalReg, 1)
+  assert.equal(result.totalAtt, 1)
+  assert.equal(result.statusBreakdown[0].value, 1)
+  assert.equal(result.totalBudgetAllocated, 200)
+  assert.equal(result.totalBudgetSpent, 250)
+  assert.equal(result.activityRegistrations[0].registrations, 1)
+  assert.equal(result.budgetOverview.length, 1)
+  assert.equal(result.evaluationStats.averageRating, 5)
+  assert.equal(result.evaluationStats.recommendRate, 100)
+  assert.deepEqual(result.recentEvaluations.map((r) => r.id), ['new'])
+  const all = summarizeDashboard({ ...snapshot, evaluations: evaluations.map((e) => ({ ...e, activityTitle: 'Same title' })) }, { year: 'all', startMonth: 7 })
+  assert.equal(all.activitySatisfaction.length, 2)
+  assert.equal(all.totalBudgetAllocated, 300)
+})
+test('empty fiscal years return zero totals and no stale records', () => {
+  const result = summarizeDashboard({ acts: activities, all: participants, evaluations }, { year: 2020, startMonth: 7 })
+  assert.equal(result.totalReg, 0)
+  assert.equal(result.totalBudgetSpent, 0)
+  assert.equal(result.evaluationStats.totalResponses, 0)
+  assert.deepEqual(result.recentEvaluations, [])
+})
+test('attendance trends use Manila dates and deduplicate repeated check-ins per registration/day', () => {
+  assert.equal(manilaDate('2026-06-30T16:05:00Z'), '2026-07-01')
+  const row = { ...participants[1], registeredAt: '2026-06-30T16:05:00Z', attendedAt: '2026-06-30T16:10:00Z', attendanceHistory: [{ checkedInAt: '2026-06-30T16:10:00Z' }, { checkedInAt: '2026-06-30T16:20:00Z' }] }
+  const result = summarizeDashboard({ acts: activities, all: [row], evaluations: [] }, { year: 2026, startMonth: 7 }, new Date('2026-06-30T17:00:00Z'))
+  assert.deepEqual(result.attendanceTrend.at(-1), { date: '2026-07-01', registrations: 1, attendance: 1 })
+})
+test('Evaluations renders only feedback matching the date filter, with matching totals', () => {
+  const html = renderPage('AdminEvaluations', [period, evaluations, false])
+  assert.match(html, /Feedback new/)
+  assert.doesNotMatch(html, /Feedback old/)
+  assert.match(html, /Showing 1 of 2 evaluations/)
+})
+test('Participants combines date, activity, status and numeric contact search', () => {
+  const html = renderPage('AdminParticipants', [period, participants, false, '09123456789', 'new', 'completed', null])
+  assert.match(html, /Person new-person/)
+  assert.doesNotMatch(html, /Person old-person|Person inactive-person/)
+  assert.match(html, /Showing 1 of 3 participants/)
+})
+test('Participants supports age search and empty combined results', () => {
+  assert.match(renderPage('AdminParticipants', [period, participants, false, '20', '', 'completed', null]), /Showing 1 of 3 participants/)
+  assert.match(renderPage('AdminParticipants', [period, participants, false, '', 'old', 'completed', null]), /Showing 0 of 3 participants/)
+})
+test('Activities combines date, program and registration status filters', () => {
+  const html = renderPage('AdminActivities', [period, activities, false, 'p2', 'open', false, null, Date.parse('2026-07-01T00:00:00Z')])
+  assert.match(html, /Selected workshop/)
+  assert.doesNotMatch(html, /Previous workshop/)
+  assert.match(html, /Showing 1 of 2 activities/)
+})
+test('Budget cards and totals use the same filtered activities, preserving overspending', () => {
+  const data = { activities, entriesByActivity: {}, auditByActivity: {} }
+  const html = renderPage('AdminBudget', [period, data, false, '', null])
+  assert.match(html, /Selected workshop/)
+  assert.doesNotMatch(html, /Previous workshop/)
+  assert.match(html, /Showing 1 of 2 activities/)
+  assert.match(html, /-50/)
+  assert.match(html, /125%/)
+})
+
+ test('date filters default and reset to the current Manila year with all months', () => {
+  assert.deepEqual(currentYearPeriod(new Date('2026-12-31T15:59:59Z')), { year: '2026', month: '' })
+  assert.deepEqual(currentYearPeriod(new Date('2026-12-31T16:00:00Z')), { year: '2027', month: '' })
+})
+
+test('dashboard exposes only year and month controls and selects a numeric year', () => {
+  const Filter = load('src/features/dashboard/FiscalYearFilter.tsx').default
+  let next
+  const tree = Filter({ value: { year: 2026, startMonth: 1 }, activities, today: '2026-10-31', onChange: (value) => { next = value } })
+  const selects = []
+  function visit(node) {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) return node.forEach(visit)
+    if (node.type === 'select') selects.push(node)
+    visit(node.props?.children)
+  }
+  visit(tree)
+  selects[0].props.onChange({ target: { value: '2025' } })
+  assert.deepEqual(next, { year: 2025, startMonth: 1 })
+  assert.equal(selects.length, 2)
+  const html = renderToStaticMarkup(tree)
+  assert.doesNotMatch(html, /All years|All fiscal years|Fiscal year starts in|\(current\)/)
+})
+
+test('switching fiscal years updates summaries and switching back restores exact totals', () => {
+  const snapshot = { acts: activities, all: participants, evaluations }
+  const current = summarizeDashboard(snapshot, { year: 2026, startMonth: 7 })
+  const previous = summarizeDashboard(snapshot, { year: 2025, startMonth: 7 })
+  assert.equal(previous.totalBudgetAllocated, 100)
+  assert.equal(previous.totalBudgetSpent, 20)
+  assert.equal(previous.evaluationStats.averageRating, 1)
+  assert.equal(previous.acts[0].id, 'old')
+  const restored = summarizeDashboard(snapshot, { year: 2026, startMonth: 7 })
+  assert.deepEqual(restored, current)
+  assert.equal(snapshot.acts.length, 2)
+})
+
+test('dashboard Month control selects a month while preserving the fiscal year and start month', () => {
+  const Filter = load('src/features/dashboard/FiscalYearFilter.tsx').default
+  let next
+  const tree = Filter({ value: { year: 2026, startMonth: 7 }, activities, today: '2026-10-31', onChange: (value) => { next = value } })
+  const selects = []
+  function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === 'select') selects.push(node); visit(node.props?.children) }
+  visit(tree)
+  selects[1].props.onChange({ target: { value: '1' } })
+  assert.deepEqual(next, { year: 2026, startMonth: 7, month: 1 })
+  selects[1].props.onChange({ target: { value: '' } })
+  assert.deepEqual(next, { year: 2026, startMonth: 7, month: undefined })
+})
+test('dashboard month selection filters all summaries and maps January into the next calendar year', () => {
+  const { fiscalPeriodRange } = load('src/lib/fiscalYear.ts')
+  const extra = { ...activities[1], id: 'jan', startDate: '2027-01-10', endDate: '2027-01-10', budgetAlloc: 500, budgetSpent: 30 }
+  const snapshot = { acts: [...activities, extra], all: [...participants, participant('jan-person', extra)], evaluations }
+  const july = summarizeDashboard(snapshot, { year: 2026, startMonth: 7, month: 7 })
+  const january = summarizeDashboard(snapshot, { year: 2026, startMonth: 7, month: 1 })
+  assert.deepEqual(july.acts.map((a) => a.id), ['new'])
+  assert.equal(july.totalBudgetAllocated, 200)
+  assert.equal(july.totalReg, 1)
+  assert.equal(july.evaluationStats.averageRating, 5)
+  assert.deepEqual(january.acts.map((a) => a.id), ['jan'])
+  assert.equal(january.totalBudgetAllocated, 500)
+  assert.equal(january.totalReg, 1)
+  assert.equal(january.evaluationStats.totalResponses, 0)
+  assert.equal(fiscalPeriodRange({ year: 2026, startMonth: 7, month: 1 }), 'Jan 1, 2027 to Jan 31, 2027')
+  assert.equal(summarizeDashboard(snapshot, { year: 2026, startMonth: 7, month: 3 }).acts.length, 0)
+  assert.equal(summarizeDashboard(snapshot, { year: 2026, startMonth: 7 }).acts.length, 2)
+})

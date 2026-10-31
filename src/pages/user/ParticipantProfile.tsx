@@ -157,7 +157,9 @@ export default function ParticipantProfile() {
         </div>
 
         {!editing ? (
-          <button onClick={() => setEditing(true)} className="btn-primary inline-flex items-center gap-2">
+          <button onClick={() => {
+            if (window.confirm('Do you want to edit your profile?')) setEditing(true)
+          }} className="btn-primary inline-flex items-center gap-2">
             <Pencil size={15} /> Edit Profile
           </button>
         ) : (

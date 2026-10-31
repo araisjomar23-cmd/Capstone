@@ -51,6 +51,7 @@ function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   async function handleLogout() {
+    if (!window.confirm('Are you sure you want to log out?')) return
     await logoutAdmin()
     navigate('/admin/login')
   }

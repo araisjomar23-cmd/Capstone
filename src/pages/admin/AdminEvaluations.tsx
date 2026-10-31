@@ -1,7 +1,9 @@
+import ActivityDateFilter from '../../components/ActivityDateFilter'
+import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { useEffect, useState } from 'react'
 import { useMemo } from 'react'
 import { fetchEvaluations } from '../../features/evaluations/evaluationService'
-import type { EvaluationRow, EvaluationStats } from '../../features/evaluations/evaluationService'
+import type { EvaluationRow } from '../../features/evaluations/evaluationService'
 import { ThumbsUp, ThumbsDown } from 'lucide-react'
 import { Star } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState'
@@ -23,7 +25,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 function AdminEvaluations() {
-  const [stats, setStats] = useState<EvaluationStats>({ totalResponses: 0, averageRating: 0, recommendRate: 0 })
+  const [period, setPeriod] = useState(currentYearPeriod)
   const [rows, setRows] = useState<EvaluationRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -33,6 +35,9 @@ function AdminEvaluations() {
   const channel = supabase
     .channel(`evaluations-live-${Math.random().toString(36).slice(2)}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'evaluations' }, () => load())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => load())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => load())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => load())
     .subscribe()
 
   return () => {
@@ -42,28 +47,35 @@ function AdminEvaluations() {
 
   async function load() {
     setLoading(true)
-    const { stats: s, rows: r } = await fetchEvaluations()
-    setStats(s)
+    const { rows: r } = await fetchEvaluations()
     setRows(r)
     setLoading(false)
   }
 
+  const filtered = useMemo(() => rows.filter((r) => matchesDatePeriod(r.activityStartDate, r.activityEndDate, period)), [rows, period])
+  const stats = {
+    totalResponses: filtered.length,
+    averageRating: filtered.length ? filtered.reduce((sum, r) => sum + r.rating, 0) / filtered.length : 0,
+    recommendRate: filtered.length ? Math.round(filtered.filter((r) => r.wouldRecommend).length / filtered.length * 100) : 0,
+  }
   const activityStats = useMemo(() => {
-    const grouped = new Map<string, { count: number; ratingTotal: number }>()
-    for (const row of rows) {
-      const current = grouped.get(row.activityTitle) || { count: 0, ratingTotal: 0 }
+    const grouped = new Map<string, { title: string; date: string; count: number; ratingTotal: number }>()
+    for (const row of filtered) {
+      const current = grouped.get(row.activityId || row.id) || { title: row.activityTitle, date: activityDateLabel(row.activityStartDate, row.activityEndDate), count: 0, ratingTotal: 0 }
       current.count += 1
       current.ratingTotal += row.rating
-      grouped.set(row.activityTitle, current)
+      grouped.set(row.activityId || row.id, current)
     }
-    return [...grouped.entries()].map(([title, result]) => ({ title, responses: result.count, average: result.ratingTotal / result.count }))
+    return [...grouped.entries()].map(([id, result]) => ({ id, title: result.title, date: result.date, responses: result.count, average: result.ratingTotal / result.count }))
       .sort((a, b) => b.responses - a.responses)
-  }, [rows])
+  }, [filtered])
 
   return (
     <div className="p-4 md:p-8">
       <h1 className="text-2xl font-bold text-primary mb-6">Evaluations & Feedback</h1>
 
+      <ActivityDateFilter value={period} onChange={setPeriod} dates={rows.map((r) => ({ start: r.activityStartDate, end: r.activityEndDate }))} />
+      <p className="text-xs text-gray-500 mb-4">Showing {filtered.length} of {rows.length} evaluations.</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-xl shadow p-4 sm:p-5 border border-gray-100">
           <div className="text-sm text-gray-500">Total Responses</div>
@@ -86,7 +98,7 @@ function AdminEvaluations() {
         <div className="p-4 border-b border-gray-100 font-bold text-gray-900">Satisfaction by Activity</div>
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-gray-500"><th className="p-3">Activity</th><th className="p-3">Responses</th><th className="p-3">Average / 5</th></tr></thead>
-          <tbody>{activityStats.map((item) => <tr key={item.title} className="border-t border-gray-100"><td className="p-3">{item.title}</td><td className="p-3">{item.responses}</td><td className="p-3 font-semibold">{item.average.toFixed(1)}</td></tr>)}
+          <tbody>{activityStats.map((item) => <tr key={item.id} className="border-t border-gray-100"><td className="p-3">{item.title}<div className="text-xs text-gray-400">{item.date}</div></td><td className="p-3">{item.responses}</td><td className="p-3 font-semibold">{item.average.toFixed(1)}</td></tr>)}
             {!activityStats.length && <tr><td colSpan={3} className="p-4 text-center text-gray-400">No evaluation results yet.</td></tr>}
           </tbody>
         </table>
@@ -97,18 +109,19 @@ function AdminEvaluations() {
         <div className="divide-y divide-gray-50">
           {loading ? (
               <div className="text-center text-gray-400 py-10">Loading…</div>
-            ) : rows.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <EmptyState
                 icon={<MessageSquareText size={22} />}
-                title="No feedback submitted yet"
-                subtitle="Feedback will appear here once participants complete the evaluation form."/>
+                title="No feedback found"
+                subtitle="Try clearing the date filters, or wait for participants to submit evaluations."/>
             ) : (
-            rows.map((r) => (
+            filtered.map((r) => (
               <div key={r.id} className="p-4">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-1">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-gray-900 truncate">{r.participantName}</div>
                     <div className="text-xs text-gray-400 truncate">{r.activityTitle}</div>
+                    <div className="text-xs text-gray-400">{activityDateLabel(r.activityStartDate, r.activityEndDate)}</div>
                   </div>
                   <Stars rating={r.rating} />
                 </div>

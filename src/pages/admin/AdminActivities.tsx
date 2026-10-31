@@ -1,3 +1,5 @@
+import ActivityDateFilter from '../../components/ActivityDateFilter'
+import { currentYearPeriod, matchesDatePeriod } from '../../lib/activityDatePeriod'
 import { useEffect, useMemo, useState } from 'react'
 import type { Activity } from '../../types/activity'
 import ActivityFormModal from '../../features/activities/ActivityFormModal'
@@ -34,6 +36,7 @@ function formatTimeRange(startTime?: string, endTime?: string): string {
 }
 
 function AdminActivities() {
+  const [period, setPeriod] = useState(currentYearPeriod)
   const { showToast } = useToast()
   const [all, setAll] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,9 +84,9 @@ async function load() {
     return all.filter((a) => {
       const mP = !programFilter || String(a.programId) === programFilter
       const mS = !statusFilter || a.status === statusFilter
-      return mP && mS
+      return mP && mS && matchesDatePeriod(a.startDate, a.endDate, period)
     })
-  }, [all, programFilter, statusFilter])
+  }, [all, programFilter, statusFilter, period])
 
 async function handleToggle(a: Activity) {
   const wasClosed = a.status === 'closed'
@@ -102,6 +105,7 @@ async function handleToggle(a: Activity) {
 }
 
   function openEditForm(a: Activity) {
+
   setEditingActivity(a)
   setFormOpen(true)
 }
@@ -118,6 +122,8 @@ async function handleToggle(a: Activity) {
         <Plus size={16} /> Create New Activity
       </button>
     </div>
+
+      <ActivityDateFilter value={period} onChange={setPeriod} dates={all.map((a) => ({ start: a.startDate, end: a.endDate }))} />
 
       <div className="flex flex-wrap gap-3 mb-4">
         <select
@@ -177,7 +183,7 @@ async function handleToggle(a: Activity) {
                       <EmptyState
                         icon={<PinIcon size={22} />}
                         title="No activities found"
-                        subtitle={programFilter || statusFilter ? 'Try adjusting your filters.' : 'Click "Create New Activity" to get started.'}/>
+                        subtitle={programFilter || statusFilter || period.year || period.month ? 'Try adjusting your filters.' : 'Click "Create New Activity" to get started.'}/>
                     </td>
                   </tr>
                 ) : (
@@ -264,7 +270,7 @@ async function handleToggle(a: Activity) {
             <EmptyState
               icon={<PinIcon size={22} />}
               title="No activities found"
-              subtitle={programFilter || statusFilter ? 'Try adjusting your filters.' : 'Click "Create New Activity" to get started.'}
+              subtitle={programFilter || statusFilter || period.year || period.month ? 'Try adjusting your filters.' : 'Click "Create New Activity" to get started.'}
             />
           </div>
         ) : (

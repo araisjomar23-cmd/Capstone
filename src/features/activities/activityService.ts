@@ -16,7 +16,7 @@ export async function autoCloseExpiredActivities(): Promise<void> {
   if (error) throw new Error(`Unable to update expired activities: ${error.message}`)
 }
 
-export async function fetchActivities(): Promise<Activity[]> {
+export async function fetchActivities(strict = false): Promise<Activity[]> {
   const { data: acts, error: actsErr } = await supabase
     .from('legacy_activities')
     .select(`
@@ -31,13 +31,16 @@ export async function fetchActivities(): Promise<Activity[]> {
     .order('created_at', { ascending: false })
 
   if (actsErr) {
+    if (strict) throw new Error('Unable to load activities: ' + actsErr.message)
     console.error('fetchActivities error:', actsErr)
     return []
   }
 
-  const { data: budgetRows } = await supabase
+  const { data: budgetRows, error: budgetError } = await supabase
     .from('budget_entries')
     .select('activity_id, amount, entry_type')
+
+  if (strict && budgetError) throw new Error('Unable to load activity budgets: ' + budgetError.message)
 
   const budgetMap: Record<string, { allocated: number; spent: number }> = {}
   ;(budgetRows || []).forEach((b) => {
@@ -48,9 +51,11 @@ export async function fetchActivities(): Promise<Activity[]> {
     if (b.entry_type === 'expense') budgetMap[id].spent += amt
   })
 
-  const { data: regRows } = await supabase
+  const { data: regRows, error: registrationError } = await supabase
     .from('registrations')
     .select('activity_id, status')
+
+  if (strict && registrationError) throw new Error('Unable to load activity registrations: ' + registrationError.message)
 
   const regMap: Record<string, number> = {}
   ;(regRows || []).forEach((r) => {
