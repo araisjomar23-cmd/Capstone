@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getProvinces, getCities, getBarangays } from '../../features/public/region11Data'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useAuth } from '../../features/auth/AuthContext'
+import { AlertCircle } from 'lucide-react'
 
 const YOUTH_CLASSES = ['In-School Youth', 'Out-of-School Youth', 'Working Youth', 'Person with Disability (PWD Youth)']
 const SECTORAL_GROUPS = ['Indigenous People', 'LGBTQIA+', 'Solo Parent', 'Youth with Disability', 'None']
@@ -43,7 +44,7 @@ const emptyForm: FormState = {
 
 function calcAge(birthday: string): number {
   const today = new Date()
-  const b = new Date(birthday)
+  const b = new Date(`${birthday}T00:00:00`)
   let age = today.getFullYear() - b.getFullYear()
   const m = today.getMonth() - b.getMonth()
   if (m < 0 || (m === 0 && today.getDate() < b.getDate())) age--
@@ -61,6 +62,8 @@ export default function CompleteProfile() {
   const { refreshRole } = useAuth()
   const activityId = searchParams.get('activity')
   const requestedReturnTo = searchParams.get('returnTo')
+  const age = form.birthday ? calcAge(form.birthday) : null
+  const invalidAge = age !== null && (!Number.isInteger(age) || age < 13 || age > 30)
 
   const provinces = getProvinces()
   const cities = form.province ? getCities(form.province) : []
@@ -83,8 +86,8 @@ export default function CompleteProfile() {
     if (!form.birthday) return setError('Birthday is required.')
 
     const age = calcAge(form.birthday)
-    if (age < 15 || age > 30) {
-      return setError('PRIME serves youth aged 15–30. Please double-check your birthday.')
+    if (!Number.isInteger(age) || age < 13 || age > 30) {
+      return setError('Sorry, you are not eligible to participate. Participation is open only to individuals aged 13–30.')
     }
 
     if (!form.gender) return setError('Gender identity is required.')
@@ -163,9 +166,20 @@ export default function CompleteProfile() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Birthday</label>
                 <DatePicker value={form.birthday} onChange={(value) => setField('birthday', value)} className="input" aria-label="Birthday" />
+                <div aria-live="polite">
+                  {invalidAge ? (
+                    <div className="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">
+                      <AlertCircle size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-red-600" />
+                      <div>
+                        <p className="text-sm font-semibold">Age eligibility requirement</p>
+                        <p className="mt-1 text-xs leading-relaxed">Sorry, you are not eligible to participate. Participation is open only to individuals aged 13–30, so you cannot complete your participant profile.</p>
+                      </div>
+                    </div>
+                  ) : <p className="mt-1 text-xs text-gray-500">Participants must be 13–30 years old.</p>}
+                </div>
               </div>
 
-              <select value={form.gender} onChange={(e) => setField('gender', e.target.value)} className="input self-end">
+              <select value={form.gender} onChange={(e) => setField('gender', e.target.value)} className="input self-start md:mt-5">
                 <option value="">Select Gender Identity</option>
                 <option>Male</option>
                 <option>Female</option>
@@ -185,13 +199,13 @@ export default function CompleteProfile() {
               </select>
 
               <select value={form.city} disabled={!form.province}
-                onChange={(e) => setField('city', e.target.value)} className="input">
+                onChange={(e) => setField('city', e.target.value)} className={`input disabled:cursor-not-allowed [&>option]:text-ink ${!form.province ? '!text-gray-400' : ''}`}>
                 <option value="">Select City / Municipality</option>
                 {cities.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
 
               <select value={form.barangay} disabled={!form.city}
-                onChange={(e) => setField('barangay', e.target.value)} className="input">
+                onChange={(e) => setField('barangay', e.target.value)} className={`input disabled:cursor-not-allowed [&>option]:text-ink ${!form.city ? '!text-gray-400' : ''}`}>
                 <option value="">Select Barangay</option>
                 {barangays.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
@@ -217,11 +231,19 @@ export default function CompleteProfile() {
           </section>
         </div>
 
-        {error && <p className="text-sm text-red-500 mt-6">⚠️ {error}</p>}
+        {error && (
+          <div role="alert" className="mt-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">
+            <AlertCircle size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-red-600" />
+            <div>
+              <p className="text-sm font-semibold">Please check your profile</p>
+              <p className="mt-1 text-sm leading-relaxed">{error}</p>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={handleSaveProfile}
-          disabled={saving}
+          disabled={saving || age === null || invalidAge}
           className="mt-8 w-full btn-primary py-3 disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save Profile'}

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import cydoLogo from '../../assets/CYDO LOGO.jpg'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { AlertCircle } from 'lucide-react'
 
 const MIN_PASSWORD_LENGTH = 6
 
@@ -119,7 +120,9 @@ export default function ParticipantSignup() {
     setLoading(false)
 
     if (signupError) {
-      setError(signupError.message)
+      setError(/email.*(invalid|format)|invalid.*email/i.test(signupError.message)
+        ? 'Enter a valid email address, such as name@example.com.'
+        : signupError.message)
       return
     }
 
@@ -187,10 +190,13 @@ export default function ParticipantSignup() {
           />
 
           {error && (
-            <p role="alert" aria-live="polite" className="flex items-start gap-1.5 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              <span aria-hidden="true">⚠️</span>
-              <span>{error}</span>
-            </p>
+            <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">
+              <AlertCircle size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-red-600" />
+              <div>
+                <p className="text-sm font-semibold">Please check your details</p>
+                <p className="mt-1 text-sm leading-relaxed">{error}</p>
+              </div>
+            </div>
           )}
 
           <button
