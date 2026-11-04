@@ -51,24 +51,23 @@ function Field({ id, label, type, value, onChange, autoComplete, disabled, showT
 
   return (
     <div>
-      <label htmlFor={id} className="block mb-1.5 text-sm font-medium text-gray-700">
-        {label}
-      </label>
-      <div className="relative">
+      <div className="floating-label-field">
         <input
           id={id}
           name={id}
           type={inputType}
+          placeholder=" "
           value={value}
           onChange={(e) => onChange(e.target.value)}
           autoComplete={autoComplete}
           disabled={disabled}
           aria-invalid={error || undefined}
-          className={`w-full border rounded-lg px-3 py-2.5 pr-${showToggle ? '10' : '3'} transition-colors
+          className={`w-full border rounded-lg px-3 py-2.5 ${showToggle ? 'pr-10' : 'pr-3'} transition-colors
             focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary
             disabled:bg-gray-50 disabled:cursor-not-allowed
             ${error ? 'border-red-400' : 'border-gray-300'}`}
         />
+        <label htmlFor={id}>{label}</label>
         {showToggle && (
           <button
             type="button"

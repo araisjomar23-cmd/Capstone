@@ -87,6 +87,18 @@ select:focus-visible, textarea:focus-visible {
   font-size: 0.75rem;
   color: var(--color-primary);
 }
+.floating-label-with-icon > label {
+  left: 2.3rem;
+  background-color: #f9fafb;
+}
+.floating-label-with-icon > input:focus + label,
+.floating-label-with-icon > input:not(:placeholder-shown) + label {
+  background-color: #fff;
+}
+.floating-label-field > input:focus + label .floating-label-optional,
+.floating-label-field > input:not(:placeholder-shown) + label .floating-label-optional {
+  display: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .floating-label-field > label { transition: none; }
 }

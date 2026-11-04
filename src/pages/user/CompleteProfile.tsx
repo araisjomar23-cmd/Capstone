@@ -197,8 +197,8 @@ export default function CompleteProfile() {
                 <option>Others</option>
               </select>
 
-              <input placeholder="Contact Number (09XXXXXXXXX)" value={form.contact}
-                onChange={(e) => setField('contact', e.target.value)} className="input" />
+              <FloatingLabelInput label="Contact Number" type="tel" autoComplete="tel" value={form.contact}
+                onChange={(value) => setField('contact', value)} />
             </div>
           </section>
 
@@ -227,8 +227,8 @@ export default function CompleteProfile() {
           <section>
             <h2 className="text-xs font-bold uppercase tracking-wide text-gray-700 mb-3">Youth Info</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input placeholder="Organization (optional)" value={form.organization}
-                onChange={(e) => setField('organization', e.target.value)} className="input" />
+              <FloatingLabelInput label="Organization" optional autoComplete="organization" value={form.organization}
+                onChange={(value) => setField('organization', value)} />
 
               <select value={form.youthClass} onChange={(e) => setField('youthClass', e.target.value)} className="input">
                 <option value="">Select Youth Classification</option>

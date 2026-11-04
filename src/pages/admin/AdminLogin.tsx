@@ -172,39 +172,38 @@ function AdminLogin() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                Email Address
-              </label>
-              <div className="relative mt-1.5">
+              <div className="floating-label-field floating-label-with-icon">
                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="example@gmail.com"
+                  placeholder=" "
                   className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
                   autoComplete="email"
                 />
+                <label htmlFor="login-email">Email Address</label>
               </div>
             </div>
 
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                Password
-              </label>
-              <div className="relative mt-1.5">
+              <div className="floating-label-field floating-label-with-icon">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder=" "
                   className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
                   autoComplete="current-password"
                 />
+                <label htmlFor="login-password">Password</label>
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   tabIndex={-1}
                 >
