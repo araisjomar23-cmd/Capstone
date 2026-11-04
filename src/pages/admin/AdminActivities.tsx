@@ -3,7 +3,7 @@ import { currentYearPeriod, matchesDatePeriod } from '../../lib/activityDatePeri
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Activity } from '../../types/activity'
 import ActivityFormModal from '../../features/activities/ActivityFormModal'
-import { Plus, Eye, ChevronDown } from 'lucide-react'
+import { Plus, Eye } from 'lucide-react'
 import { fetchActivities, toggleActivityStatus, autoCloseExpiredActivities } from '../../features/activities/activityService'
 import { useToast } from '../../components/ToastProvider'
 import { SkeletonTableRows } from '../../components/Skeleton'
@@ -166,7 +166,6 @@ async function handleToggle(a: Activity) {
             <option value="">All Programs</option>
             {programOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
-          <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
         <div className="relative w-full sm:w-auto sm:min-w-[200px]">
           <select aria-label="Activity status" value={lifecycleFilter} onChange={(e) => setLifecycleFilter(e.target.value)} className="input appearance-none !pr-10 min-h-11">
@@ -176,7 +175,6 @@ async function handleToggle(a: Activity) {
             <option value="completed">Completed</option>
             <option value="closed">Closed</option>
           </select>
-          <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
       </div>
 

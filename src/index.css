@@ -60,7 +60,7 @@ select:focus-visible, textarea:focus-visible {
   border-radius: 0.75rem;
   padding: 0.68rem 0.85rem;
   font-size: 0.875rem;
-  background: #fff;
+  background-color: #fff;
   color: var(--color-ink);
   transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s;
 }
@@ -70,8 +70,8 @@ select:focus-visible, textarea:focus-visible {
   box-shadow: 0 0 0 4px rgb(23 98 61 / 9%);
 }
 
-/* Keep filter arrows visible when .input resets the background. */
-select.filter-select {
+/* Reserve room for dropdown arrows after the shared input padding. */
+select.input, select.filter-select {
   appearance: none;
   padding-right: 2.5rem;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317231d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

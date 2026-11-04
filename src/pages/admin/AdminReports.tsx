@@ -167,12 +167,12 @@ function AdminReports() {
 
         <div className="flex flex-wrap gap-3 mb-4 print:hidden">
           <label className="text-xs font-semibold text-gray-600">Month
-            <select value={insightMonth} onChange={(event) => setInsightMonth(Number(event.target.value))} className="ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800">
+            <select value={insightMonth} onChange={(event) => setInsightMonth(Number(event.target.value))} className="filter-select ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800">
               {Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{new Date(2000, month, 1).toLocaleString('en', { month: 'long' })}</option>)}
             </select>
           </label>
           <label className="text-xs font-semibold text-gray-600">Year
-            <select value={insightYear} onChange={(event) => setInsightYear(Number(event.target.value))} className="ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800">
+            <select value={insightYear} onChange={(event) => setInsightYear(Number(event.target.value))} className="filter-select ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800">
               {Array.from({ length: 11 }, (_, offset) => new Date().getFullYear() - 10 + offset).map((year) => <option key={year} value={year}>{year}</option>)}
             </select>
           </label>
