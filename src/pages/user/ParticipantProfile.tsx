@@ -207,6 +207,14 @@ export default function ParticipantProfile() {
                   <option value="">Select</option>
                   <option>Male</option>
                   <option>Female</option>
+                  <option>Lesbian</option>
+                  <option>Gay</option>
+                  <option>Bisexual</option>
+                  <option>Transgender</option>
+                  <option>Queer</option>
+                  <option>Intersex</option>
+                  <option>Asexual</option>
+                  <option>Others</option>
                 </select>
               </div>
             ) : (

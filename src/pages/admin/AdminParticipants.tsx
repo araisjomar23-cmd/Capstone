@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/EmptyState'
 import { Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { getYouthAgeGroup, YOUTH_AGE_GROUPS } from '../../lib/youthAgeGroups'
+import { manilaDate } from '../../lib/calendarDate'
 
 const PILL_STYLES: Record<string, string> = {
   absent: 'bg-red-50 text-red-700',
@@ -85,7 +86,9 @@ function AdminParticipants() {
       const mA = !activityFilter || String(p.activityId) === activityFilter
       const mS = !statusFilter || p.status === statusFilter
       const mAge = !ageGroupFilter || getYouthAgeGroup(p.age) === ageGroupFilter
-      return mQ && mA && mS && mAge && matchesDatePeriod(p.activityStartDate, p.activityEndDate, period)
+      const start = p.status === 'not_registered' ? manilaDate(p.registeredAt) ?? undefined : p.activityStartDate
+      const end = p.status === 'not_registered' ? start : p.activityEndDate
+      return mQ && mA && mS && mAge && matchesDatePeriod(start, end, period)
     })
   }, [all, search, activityFilter, statusFilter, ageGroupFilter, period])
 
@@ -110,7 +113,10 @@ function AdminParticipants() {
         )}
       </div>
 
-      <ActivityDateFilter value={period} onChange={setPeriod} dates={all.map((p) => ({ start: p.activityStartDate, end: p.activityEndDate }))} />
+      <ActivityDateFilter value={period} onChange={setPeriod} dates={all.map((p) => p.status === 'not_registered'
+        ? { start: manilaDate(p.registeredAt) ?? undefined, end: undefined }
+        : { start: p.activityStartDate, end: p.activityEndDate })} />
+      <p className="mb-3 text-xs text-gray-500">Participants without activity registrations are filtered by their profile creation date.</p>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-[220px]">

@@ -6,7 +6,7 @@ import { getProvinces, getCities, getBarangays } from '../../features/public/reg
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useAuth } from '../../features/auth/AuthContext'
 import { AlertCircle } from 'lucide-react'
-import { getYouthAgeGroup, YOUTH_AGE_GROUPS } from '../../lib/youthAgeGroups'
+import { getYouthAgeGroup } from '../../lib/youthAgeGroups'
 
 const YOUTH_CLASSES = ['In-School Youth', 'Out-of-School Youth', 'Working Youth', 'Person with Disability (PWD Youth)']
 const SECTORAL_GROUPS = ['Indigenous People', 'LGBTQIA+', 'Solo Parent', 'Youth with Disability', 'None']
@@ -176,13 +176,9 @@ export default function CompleteProfile() {
                         <p className="mt-1 text-xs leading-relaxed">Sorry, you are not eligible to participate. Participation is open only to individuals aged 15–30, so you cannot complete your participant profile.</p>
                       </div>
                     </div>
-                  ) : <p className="mt-1 text-xs text-gray-500">Participants must be 15–30 years old.</p>}
-                  <div className="mt-2 text-xs text-gray-500">
-                    <p className="font-semibold text-gray-600">AGE{age !== null && !invalidAge ? `: ${age} years · ${getYouthAgeGroup(age)}` : ':'}</p>
-                    <ul className="mt-1 space-y-1">
-                      {YOUTH_AGE_GROUPS.map((group) => <li key={group.label}>{group.label} ({group.min}yrs–{group.max}yrs)</li>)}
-                    </ul>
-                  </div>
+                  ) : <p className="mt-1 text-xs text-gray-500">{age === null
+                    ? 'Participants must be 15–30 years old.'
+                    : `${age} years old · ${getYouthAgeGroup(age)}`}</p>}
                 </div>
               </div>
 
@@ -190,6 +186,14 @@ export default function CompleteProfile() {
                 <option value="">Select Gender Identity</option>
                 <option>Male</option>
                 <option>Female</option>
+                <option>Lesbian</option>
+                <option>Gay</option>
+                <option>Bisexual</option>
+                <option>Transgender</option>
+                <option>Queer</option>
+                <option>Intersex</option>
+                <option>Asexual</option>
+                <option>Others</option>
               </select>
 
               <input placeholder="Contact Number (09XXXXXXXXX)" value={form.contact}

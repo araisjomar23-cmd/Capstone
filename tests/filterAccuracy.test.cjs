@@ -132,6 +132,18 @@ test('Participants supports age search and empty combined results', () => {
   assert.match(renderPage('AdminParticipants', [period, participants, false, '', 'old', 'completed', null]), /Showing 0 of 3 participants/)
 })
 
+test('profiles without activities appear by profile creation date and respect combined filters', () => {
+  const rows = [
+    { ...participants[1], id: 'profile:new', name: 'New profile', activityId: '', activityTitle: 'Not registered', status: 'not_registered', activityStartDate: undefined, activityEndDate: undefined, registeredAt: '2026-06-30T16:05:00Z' },
+    { ...participants[1], id: 'profile:old', name: 'Old profile', activityId: '', activityTitle: 'Not registered', status: 'not_registered', activityStartDate: undefined, activityEndDate: undefined, registeredAt: '2025-07-01T00:00:00Z' },
+  ]
+  const html = renderPage('AdminParticipants', [period, rows, false, '', '', 'not_registered', null, 'Core Youth'])
+  assert.match(html, /New profile/)
+  assert.doesNotMatch(html, /Old profile/)
+  assert.match(html, /Showing 1 of 2 participants/)
+  assert.match(renderPage('AdminParticipants', [period, rows, false, '', 'new', '', null, '']), /Showing 0 of 2 participants/)
+})
+
 test('participant age groups filter inclusive boundaries and combine with other filters', () => {
   const ages = [14, 15, 17, 18, 24, 25, 30, 31]
   const rows = ages.map((age) => ({ ...participants[1], id: `age-${age}`, name: `Person age-${age}`, age }))
