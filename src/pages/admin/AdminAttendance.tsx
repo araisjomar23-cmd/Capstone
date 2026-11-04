@@ -1,3 +1,4 @@
+import FinalizeAttendanceButton from '../../features/attendance/FinalizeAttendanceButton'
 import { useEffect, useState } from 'react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { fetchActivities } from '../../features/activities/activityService'
@@ -8,16 +9,8 @@ import type { MarkAttendanceResult } from '../../features/attendance/attendanceS
 import { ClipboardList, Download, ArrowLeft,QrCode, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { SkeletonCard } from '../../components/Skeleton'
 import { supabase } from '../../lib/supabase'
-import { getActivityLifecycleStatus } from '../../features/activities/activityLifecycle'
+import { ACTIVITY_STATUS_DISPLAY, getActivityDisplayStatus, isActivityVisibleInCatalog } from '../../features/activities/activityLifecycle'
 
-const PILL_STYLES: Record<string, string> = {
-  open: 'bg-green-100 text-green-700',
-  upcoming: 'bg-blue-100 text-blue-700',
-  full: 'bg-red-100 text-red-700',
-  closed: 'bg-gray-100 text-gray-600',
-  ongoing: 'bg-amber-100 text-amber-700',
-  completed: 'bg-teal-100 text-teal-700',
-}
 
 function AdminAttendance() {
   const [activities, setActivities] = useState<Activity[]>([])
@@ -29,7 +22,7 @@ function AdminAttendance() {
   const [scanResult, setScanResult] = useState<MarkAttendanceResult | null>(null)
   const [checking, setChecking] = useState(false)
   const [selectedQrActivityId, setSelectedQrActivityId] = useState<string | null>(null)
-  const [, setClockNow] = useState(() => Date.now())
+  const [clockNow, setClockNow] = useState(() => Date.now())
 
   useEffect(() => {
     const timer = window.setInterval(() => setClockNow(Date.now()), 60_000)
@@ -41,6 +34,7 @@ function AdminAttendance() {
 
     const channel = supabase
       .channel('attendance-log-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, async () => { setActivities(await fetchActivities()) })
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'attendance_log' },
@@ -64,7 +58,11 @@ function AdminAttendance() {
   }
 
   async function handleMark() {
-     if (checking || !selectedActivity || !refInput.trim()) return // Blocks empty clicks
+     if (checking || !selectedActivity || !refInput.trim()) return
+     if (!activities.some((a) => a.id === selectedActivity && isActivityVisibleInCatalog(a))) {
+       setScanResult({ status: 'error', title: 'Activity unavailable', body: 'Closed and completed activities cannot accept manual check-ins.' })
+       return
+     }
       setChecking(true)
       const result = await markAttendance(selectedActivity, refInput, dayNumber, 'manual')
       setScanResult(result)
@@ -90,7 +88,7 @@ function AdminAttendance() {
     a.click()
   }
 
-  const scannableActivities = activities.filter((a) => a.status !== 'closed')
+  const scannableActivities = activities.filter((a) => isActivityVisibleInCatalog(a, clockNow))
   const selectedQrActivity = selectedQrActivityId
     ? activities.find((a) => a.id === selectedQrActivityId) || null
     : null
@@ -121,7 +119,7 @@ function AdminAttendance() {
               <select
                 value={selectedActivity}
                 onChange={(e) => setSelectedActivity(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base mt-1"
+                className="filter-select w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base mt-1"
               >
                 <option value="">Choose an activity</option>
                 {scannableActivities.map((a) => (
@@ -159,7 +157,7 @@ function AdminAttendance() {
 
             <button
               onClick={handleMark}
-              disabled={checking || !selectedActivity || !refInput.trim()} // Fixed here
+              disabled={checking || !scannableActivities.some((a) => a.id === selectedActivity) || !refInput.trim()} // Fixed here
               className="w-full btn-primary flex items-center justify-center gap-2 py-3.5 text-base disabled:opacity-50"
             >
               <CheckCircle2 size={18} />
@@ -256,10 +254,10 @@ function AdminAttendance() {
               </div>
               <span
                 className={`px-2 py-1 rounded-full text-[10px] font-medium mt-2 ${
-                  PILL_STYLES[getActivityLifecycleStatus(a)] || 'bg-gray-100 text-gray-600'
+                  ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(a, clockNow)].cls
                 }`}
               >
-                {getActivityLifecycleStatus(a)}
+                {ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(a, clockNow)].label}
               </span>
             </button>
           ))}
@@ -286,12 +284,16 @@ function AdminAttendance() {
             </div>
             <span
               className={`px-3 py-1 rounded-full text-xs font-medium mt-2 mb-6 ${
-                PILL_STYLES[getActivityLifecycleStatus(selectedQrActivity)] || 'bg-gray-100 text-gray-600'
+                ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(selectedQrActivity, clockNow)].cls
               }`}
             >
-              {getActivityLifecycleStatus(selectedQrActivity)}
+              {ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(selectedQrActivity, clockNow)].label}
             </span>
 
+            <FinalizeAttendanceButton activity={selectedQrActivity} now={clockNow} onFinalized={() => void init()} />
+            {selectedQrActivity.attendanceFinalizedAt ? <p className="mt-4 text-sm text-gray-500">Evaluation and attendance submissions are closed.</p> : getActivityDisplayStatus(selectedQrActivity, clockNow) === 'closed' ? (
+              <p className="mt-4 text-sm text-gray-500">This activity was manually closed. Check-in is unavailable.</p>
+            ) : (
             <div className="grid grid-cols-1 gap-8 w-full max-w-3xl mt-4">
               <section className="flex flex-col items-center">
                 <h3 className="font-semibold text-gray-900 mb-2">Attendance & Evaluation QR</h3>
@@ -304,12 +306,13 @@ function AdminAttendance() {
                     bgColor="#ffffff"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2 mb-3">Display after the activity; participants submit the evaluation to record attendance.</p>
+                <p className="text-xs text-gray-500 mt-2 mb-3">Show this QR near the end or after the activity. Participants complete the evaluation, then attendance is recorded automatically.</p>
                 <button onClick={() => downloadQR(selectedQrActivity.id, selectedQrActivity.title)} className="text-primary text-sm font-semibold hover:underline">
                   <Download size={16} className="inline mr-1" /> Download QR
                 </button>
               </section>
             </div>
+            )}
           </div>
         </div>
       )}

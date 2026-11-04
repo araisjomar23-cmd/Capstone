@@ -131,8 +131,8 @@ test('Participants supports age search and empty combined results', () => {
   assert.match(renderPage('AdminParticipants', [period, participants, false, '20', '', 'completed', null]), /Showing 1 of 3 participants/)
   assert.match(renderPage('AdminParticipants', [period, participants, false, '', 'old', 'completed', null]), /Showing 0 of 3 participants/)
 })
-test('Activities combines date, program and registration status filters', () => {
-  const html = renderPage('AdminActivities', [period, activities, false, 'p2', 'open', false, null, Date.parse('2026-07-01T00:00:00Z')])
+test('Activities combines date, program and activity status filters', () => {
+  const html = renderPage('AdminActivities', [period, activities, false, 'p2', false, null, Date.parse('2026-07-01T00:00:00Z'), null, 'ongoing'])
   assert.match(html, /Selected workshop/)
   assert.doesNotMatch(html, /Previous workshop/)
   assert.match(html, /Showing 1 of 2 activities/)
@@ -213,4 +213,47 @@ test('dashboard month selection filters all summaries and maps January into the 
   assert.equal(fiscalPeriodRange({ year: 2026, startMonth: 7, month: 1 }), 'Jan 1, 2027 to Jan 31, 2027')
   assert.equal(summarizeDashboard(snapshot, { year: 2026, startMonth: 7, month: 3 }).acts.length, 0)
   assert.equal(summarizeDashboard(snapshot, { year: 2026, startMonth: 7 }).acts.length, 2)
+})
+
+test('admin Closed filter and badge reflect manual closure during an ongoing schedule', () => {
+  const rows = activities.map((a) => ({ ...a, status: 'closed' }))
+  const html = renderPage('AdminActivities', [period, rows, false, '', false, null, Date.parse('2026-07-01T12:00:00+08:00'), null, 'closed'])
+  assert.match(html, /Selected workshop/)
+  assert.doesNotMatch(html, /Previous workshop/)
+  assert.match(html, />Closed<\/span>/)
+  assert.match(html, /Showing 1 of 2 activities/)
+})
+
+test('saving an activity reveals it even when year, month, program and status filters previously excluded it', async () => {
+  const saved = { ...activities[1], id: 'saved', title: 'Newly saved activity', startDate: '2027-02-01', endDate: '2027-02-01' }
+  const states = [{ year: '2026', month: '07' }, [], false, 'p1', true, null, Date.now(), null, 'completed', null, false, '']
+  let index = 0
+  let strict
+  const Component = load('src/pages/admin/AdminActivities.tsx', {
+    react: { ...React, useState: (initial) => { const at = index++; if (!(at in states)) states[at] = typeof initial === 'function' ? initial() : initial; return [states[at], (next) => { states[at] = typeof next === 'function' ? next(states[at]) : next }] }, useEffect() {}, useMemo: (fn) => fn(), useRef: () => ({ current: 0 }) },
+    '../../features/activities/activityService': { autoCloseExpiredActivities: async () => {}, fetchActivities: async (value) => { strict = value; return [saved] } },
+    '../../features/activities/ActivityFormModal': { default: () => null },
+    '../../components/ToastProvider': { useToast: () => ({ showToast() {} }) },
+    '../../lib/supabase': { supabase: {} },
+  }).default
+  const tree = Component()
+  let onSaved
+  function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.props?.onSaved) onSaved = node.props.onSaved; visit(node.props?.children) }
+  visit(tree)
+  onSaved(saved)
+  await new Promise(setImmediate)
+  assert.deepEqual(states[0], { year: '2027', month: '02' })
+  assert.equal(states[3], '')
+  assert.equal(states[8], '')
+  assert.equal(strict, true)
+  assert.equal(states[1][0].id, 'saved')
+  assert.equal(matchesDatePeriod(saved.startDate, saved.endDate, states[0]), true)
+})
+
+test('Activities explains why a saved 2027 activity is hidden by the default 2026 filter', () => {
+  const future = { ...activities[1], id: 'future', title: 'FitForward: Step Into Strength', startDate: '2027-10-22', endDate: '2027-10-22', status: 'upcoming' }
+  const html = renderPage('AdminActivities', [{ year: '2026', month: '' }, [activities[0], future], false, '', false, null, Date.now(), null, '', null, false, ''])
+  assert.match(html, /1 activity is.*outside the selected date period/)
+  assert.match(html, /View 2027/)
+  assert.doesNotMatch(html, /FitForward: Step Into Strength/)
 })

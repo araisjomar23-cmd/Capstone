@@ -1,3 +1,5 @@
+import { getActivityDisplayStatus, type ActivityDisplayStatus } from '../activities/activityLifecycle'
+import { activityDateLabel } from '../../lib/activityDatePeriod'
 import { supabase } from '../../lib/supabase'
 
 export async function getMyFacilitatorId(userId: string): Promise<string | null> {
@@ -27,7 +29,7 @@ export interface FacActivityRow {
   date: string
   venue: string
   slots: number
-  status: string
+  status: ActivityDisplayStatus
 }
 
 export interface FacDashboardData {
@@ -44,7 +46,7 @@ export async function fetchFacilitatorDashboard(activityIds: string[]): Promise<
 
   const { data: acts } = await supabase
     .from('legacy_activities')
-    .select('id, title, date_text, venue, status, slots, programs(name)')
+    .select('id, title, date_text, start_date, end_date, start_time, end_time, manually_closed, venue, status, slots, programs(name)')
     .in('id', activityIds)
     .order('start_date', { ascending: true })
 
@@ -53,19 +55,20 @@ export async function fetchFacilitatorDashboard(activityIds: string[]): Promise<
     .select('id, status, activity_id')
     .in('activity_id', activityIds)
 
-  const totalParticipants = regs?.length || 0
+  const totalParticipants = (regs || []).filter((r: any) => r.status !== 'inactive').length
   const totalAttended = (regs || []).filter((r: any) => r.status === 'attended' || r.status === 'completed').length
-  const upcoming = (acts || []).filter((a: any) => a.status === 'open' || a.status === 'upcoming').length
+
 
   const activities: FacActivityRow[] = (acts || []).map((a: any) => ({
     id: a.id,
     title: a.title,
     program: a.programs?.name || '—',
-    date: a.date_text || '—',
+    date: activityDateLabel(a.start_date, a.end_date),
     venue: a.venue || '—',
     slots: a.slots,
-    status: a.status,
+    status: getActivityDisplayStatus({ status: a.status, manuallyClosed: a.manually_closed === true, startDate: a.start_date, endDate: a.end_date, startTime: a.start_time, endTime: a.end_time }),
   }))
 
+  const upcoming = activities.filter((activity) => activity.status === 'upcoming').length
   return { activities, totalParticipants, totalAttended, upcoming }
 }

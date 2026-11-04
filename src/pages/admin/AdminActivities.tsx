@@ -1,22 +1,18 @@
 import ActivityDateFilter from '../../components/ActivityDateFilter'
 import { currentYearPeriod, matchesDatePeriod } from '../../lib/activityDatePeriod'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Activity } from '../../types/activity'
 import ActivityFormModal from '../../features/activities/ActivityFormModal'
-import { Plus, Pencil, RotateCcw, XCircle } from 'lucide-react'
+import { Plus, Eye, ChevronDown } from 'lucide-react'
 import { fetchActivities, toggleActivityStatus, autoCloseExpiredActivities } from '../../features/activities/activityService'
 import { useToast } from '../../components/ToastProvider'
 import { SkeletonTableRows } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
 import { Pin as PinIcon } from 'lucide-react'
-import { getActivityLifecycleStatus, type ActivityLifecycleStatus } from '../../features/activities/activityLifecycle'
+import { getActivityLifecycleStatus, getActivityDisplayStatus, ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 
-const LIFECYCLE_PILL: Record<ActivityLifecycleStatus, { cls: string; label: string }> = {
-  upcoming: { cls: 'bg-blue-50 text-blue-700', label: 'Upcoming' },
-  ongoing: { cls: 'bg-amber-50 text-amber-700', label: 'Ongoing' },
-  completed: { cls: 'bg-teal-50 text-teal-700', label: 'Completed' },
-}
+const LIFECYCLE_PILL = ACTIVITY_STATUS_DISPLAY
 
 function barColor(pct: number) {
   if (pct >= 85) return 'bg-red-500'
@@ -41,10 +37,16 @@ function AdminActivities() {
   const [all, setAll] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [programFilter, setProgramFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [clockNow, setClockNow] = useState(() => Date.now())
+  const [repeatActivity, setRepeatActivity] = useState<Activity | null>(null)
+  const [lifecycleFilter, setLifecycleFilter] = useState('')
+  const [viewingActivityId, setViewingActivityId] = useState<string | null>(null)
+  const [toggling, setToggling] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const loadSequence = useRef(0)
+  const viewedActivity = all.find((activity) => activity.id === viewingActivityId) || null
 
   useEffect(() => {
     const timer = window.setInterval(() => setClockNow(Date.now()), 60_000)
@@ -65,11 +67,18 @@ function AdminActivities() {
 }, [])
 
 async function load() {
+  const sequence = ++loadSequence.current
   setLoading(true)
-  await autoCloseExpiredActivities()
-  const data = await fetchActivities()
-  setAll(data)
-  setLoading(false)
+  setLoadError('')
+  try {
+    await autoCloseExpiredActivities()
+    const data = await fetchActivities(true)
+    if (sequence === loadSequence.current) setAll(data)
+  } catch (error) {
+    if (sequence === loadSequence.current) setLoadError(error instanceof Error ? error.message : 'Unable to load activities. Please try again.')
+  } finally {
+    if (sequence === loadSequence.current) setLoading(false)
+  }
 }
 
   const programOptions = useMemo(() => {
@@ -83,36 +92,61 @@ async function load() {
   const filtered = useMemo(() => {
     return all.filter((a) => {
       const mP = !programFilter || String(a.programId) === programFilter
-      const mS = !statusFilter || a.status === statusFilter
-      return mP && mS && matchesDatePeriod(a.startDate, a.endDate, period)
+      return mP && (!lifecycleFilter || getActivityDisplayStatus(a, clockNow) === lifecycleFilter) && matchesDatePeriod(a.startDate, a.endDate, period)
     })
-  }, [all, programFilter, statusFilter, period])
+  }, [all, programFilter, period, lifecycleFilter, clockNow])
+
+  const outsidePeriod = all.filter((a) => !matchesDatePeriod(a.startDate, a.endDate, period))
+  const outsideYears = [...new Set(outsidePeriod.map((a) => a.startDate?.slice(0, 4)).filter((year) => year && /^\d{4}$/.test(year)))].sort()
 
 async function handleToggle(a: Activity) {
-  const wasClosed = a.status === 'closed'
-  const ok = await toggleActivityStatus(a.id, a.status, a.endDate)
-  if (ok) {
-    showToast(wasClosed ? 'Activity reopened.' : 'Activity closed.', 'success')
-    load()
-  } else {
-    showToast('Failed to update activity status.', 'error')
+  if (toggling) return
+  if (getActivityLifecycleStatus(a) === 'completed') {
+    setEditingActivity(null)
+    setRepeatActivity(a)
+    setFormOpen(true)
+    return
+  }
+  setToggling(true)
+  try {
+    const wasClosed = a.status === 'closed'
+    const ok = await toggleActivityStatus(a.id, a.status)
+    if (ok) {
+      showToast(wasClosed ? 'Activity reopened.' : 'Activity closed.', 'success')
+      await load()
+    } else {
+      showToast('Failed to update activity status.', 'error')
+    }
+  } catch {
+    showToast('Failed to update activity status. Please try again.', 'error')
+  } finally {
+    setToggling(false)
   }
 }
 
   function openCreateForm() {
+  setViewingActivityId(null)
+  setRepeatActivity(null)
   setEditingActivity(null)
   setFormOpen(true)
 }
 
   function openEditForm(a: Activity) {
 
+  setRepeatActivity(null)
   setEditingActivity(a)
   setFormOpen(true)
 }
 
-  function handleSaved() {
-  load()
-}
+  function handleSaved(saved?: { id: string; startDate: string; endDate: string }) {
+    if (saved) {
+      setPeriod((current) => matchesDatePeriod(saved.startDate, saved.endDate, current)
+        ? current : { year: saved.startDate.slice(0, 4), month: current.month ? saved.startDate.slice(5, 7) : '' })
+      setProgramFilter('')
+      setLifecycleFilter('')
+    }
+    void load()
+  }
 
   return (
     <div className="p-4 md:p-8">
@@ -123,32 +157,27 @@ async function handleToggle(a: Activity) {
       </button>
     </div>
 
+      {loadError && <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{loadError} <button type="button" onClick={() => void load()} className="ml-2 font-semibold underline">Retry</button></div>}
       <ActivityDateFilter value={period} onChange={setPeriod} dates={all.map((a) => ({ start: a.startDate, end: a.endDate }))} />
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <select
-          value={programFilter}
-          onChange={(e) => setProgramFilter(e.target.value)}
-          className="input !w-auto flex-1 sm:flex-none min-w-[140px]"
-        >
-          <option value="">All Programs</option>
-          {programOptions.map(([id, name]) => (
-            <option key={id} value={id}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
-        >
-          <option value="">Filter by Registration State</option>
-          <option value="open">Open</option>
-          <option value="upcoming">Upcoming</option>
-          <option value="full">Full</option>
-          <option value="closed">Closed</option>
-        </select>
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mb-4">
+        <div className="relative w-full sm:w-auto sm:min-w-[180px]">
+          <select aria-label="Program" value={programFilter} onChange={(e) => setProgramFilter(e.target.value)} className="input appearance-none !pr-10 min-h-11">
+            <option value="">All Programs</option>
+            {programOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+          <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        </div>
+        <div className="relative w-full sm:w-auto sm:min-w-[200px]">
+          <select aria-label="Activity status" value={lifecycleFilter} onChange={(e) => setLifecycleFilter(e.target.value)} className="input appearance-none !pr-10 min-h-11">
+            <option value="">All Activity Statuses</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="ongoing">Ongoing</option>
+            <option value="completed">Completed</option>
+            <option value="closed">Closed</option>
+          </select>
+          <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        </div>
       </div>
 
       <p className="text-xs text-gray-500 mb-2">
@@ -158,6 +187,13 @@ async function handleToggle(a: Activity) {
           ? `${all.length} ${all.length === 1 ? 'activity' : 'activities'}`
           : `Showing ${filtered.length} of ${all.length} activities`}
       </p>
+
+      {!loading && outsidePeriod.length > 0 && (
+        <div role="status" className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
+          <span>{outsidePeriod.length} {outsidePeriod.length === 1 ? 'activity is' : 'activities are'} outside the selected date period.</span>
+          {outsideYears.map((year) => <button type="button" key={year} onClick={() => { setPeriod({ year, month: '' }); setProgramFilter(''); setLifecycleFilter('') }} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 font-semibold hover:bg-blue-100">View {year}{year === period.year && period.month ? ' (all months)' : ''}</button>)}
+        </div>
+      )}
 
       {/* Desktop table view */}
       <div className="panel overflow-x-auto hidden md:block">
@@ -183,13 +219,13 @@ async function handleToggle(a: Activity) {
                       <EmptyState
                         icon={<PinIcon size={22} />}
                         title="No activities found"
-                        subtitle={programFilter || statusFilter || period.year || period.month ? 'Try adjusting your filters.' : 'Click "Create New Activity" to get started.'}/>
+                        subtitle={programFilter || lifecycleFilter || period.year || period.month ? 'Try adjusting your filters.' : 'Click "Create New Activity" to get started.'}/>
                     </td>
                   </tr>
                 ) : (
               filtered.map((a) => {
                 const pct = a.slots > 0 ? Math.min(100, Math.round((a.regCount / a.slots) * 100)) : 0
-                const lifecycle = LIFECYCLE_PILL[getActivityLifecycleStatus(a, clockNow)]
+                const lifecycle = LIFECYCLE_PILL[getActivityDisplayStatus(a, clockNow)]
                 const bPct = a.budgetAlloc > 0 ? Math.round((a.budgetSpent / a.budgetAlloc) * 100) : 0
 
                 return (
@@ -235,19 +271,9 @@ async function handleToggle(a: Activity) {
                       )}
                     </td>
                    <td className="px-4 py-3">
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => openEditForm(a)}
-                        className="inline-flex items-center gap-1 text-amber-600 text-xs font-semibold hover:underline">
-                        <Pencil size={12} /> Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggle(a)}
-                        className="inline-flex items-center gap-1 text-primary text-xs font-semibold hover:underline">
-                        {a.status === 'closed' ? <RotateCcw size={12} /> : <XCircle size={12} />}
-                        {a.status === 'closed' ? 'Reopen' : 'Close'}
-                      </button>
-                    </div>
+                    <button type="button" onClick={() => setViewingActivityId(a.id)} className="inline-flex items-center gap-1 text-primary text-xs font-semibold hover:underline min-h-9">
+                      <Eye size={14} /> View
+                    </button>
                   </td>
                   </tr>
                 )
@@ -270,7 +296,7 @@ async function handleToggle(a: Activity) {
             <EmptyState
               icon={<PinIcon size={22} />}
               title="No activities found"
-              subtitle={programFilter || statusFilter || period.year || period.month ? 'Try adjusting your filters.' : 'Click "Create New Activity" to get started.'}
+              subtitle={programFilter || lifecycleFilter || period.year || period.month ? 'Try adjusting your filters.' : 'Click "Create New Activity" to get started.'}
             />
           </div>
         ) : (
@@ -322,19 +348,9 @@ async function handleToggle(a: Activity) {
                     </div>
                   )}
 
-                  <div className="flex gap-2 border-t border-gray-100 pt-3">
-                    <button
-                      onClick={() => openEditForm(a)}
-                      className="flex-1 inline-flex items-center justify-center gap-1 text-amber-600 text-xs font-semibold border border-amber-200 rounded-lg py-2"
-                    >
-                      <Pencil size={12} /> Edit
-                    </button>
-                    <button
-                      onClick={() => handleToggle(a)}
-                      className="flex-1 inline-flex items-center justify-center gap-1 text-primary text-xs font-semibold border border-primary/20 rounded-lg py-2"
-                    >
-                      {a.status === 'closed' ? <RotateCcw size={12} /> : <XCircle size={12} />}
-                      {a.status === 'closed' ? 'Reopen' : 'Close'}
+                  <div className="border-t border-gray-100 pt-3">
+                    <button type="button" onClick={() => setViewingActivityId(a.id)} className="w-full inline-flex items-center justify-center gap-2 text-primary text-sm font-semibold border border-primary/20 rounded-lg min-h-11">
+                      <Eye size={16} /> View Activity
                     </button>
                   </div>
                 </div>
@@ -344,9 +360,21 @@ async function handleToggle(a: Activity) {
         )}
       </div>
 
+      {!formOpen && viewedActivity && (
+        <ActivityFormModal
+          viewOnly
+          editingActivity={viewedActivity}
+          onClose={() => setViewingActivityId(null)}
+          onEdit={() => openEditForm(viewedActivity)}
+          onToggle={() => void handleToggle(viewedActivity)}
+          toggling={toggling}
+          onSaved={handleSaved}
+        />
+      )}
       {formOpen && (
         <ActivityFormModal
           editingActivity={editingActivity}
+          repeatActivity={repeatActivity}
           onClose={() => setFormOpen(false)}
           onSaved={handleSaved}
         />

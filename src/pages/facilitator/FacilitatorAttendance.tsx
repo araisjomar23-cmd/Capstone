@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import FinalizeAttendanceButton from '../../features/attendance/FinalizeAttendanceButton'
+import { ACTIVITY_STATUS_DISPLAY, getActivityDisplayStatus, isActivityVisibleInCatalog } from '../../features/activities/activityLifecycle'
+import { useEffect, useRef, useState } from 'react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { QrCode, RefreshCw, CheckCircle2, Download, ClipboardList } from 'lucide-react'
 import { useMyActivityIds } from '../../features/facilitators/useMyActivityIds'
@@ -10,12 +12,6 @@ import { EmptyState } from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
 import QrCameraScanner from '../../components/QrCameraScanner'
 
-const PILL_STYLES: Record<string, string> = {
-  open: 'bg-green-100 text-green-700',
-  upcoming: 'bg-blue-100 text-blue-700',
-  full: 'bg-red-100 text-red-700',
-  closed: 'bg-gray-100 text-gray-600',
-}
 
 function FacilitatorAttendance() {
   const { activityIds, loading: idsLoading } = useMyActivityIds()
@@ -27,14 +23,19 @@ function FacilitatorAttendance() {
   const [attendanceMethod, setAttendanceMethod] = useState<'manual' | 'qr'>('manual')
   const [scanResult, setScanResult] = useState<MarkAttendanceResult | null>(null)
   const [checking, setChecking] = useState(false)
+  const [clockNow, setClockNow] = useState(() => Date.now())
+  const initRef = useRef(init)
+  useEffect(() => { initRef.current = init })
 
  useEffect(() => {
     if (!idsLoading) init()
   }, [idsLoading, activityIds])
 
   useEffect(() => {
+    const timer = window.setInterval(() => { setClockNow(Date.now()); void initRef.current() }, 60_000)
     const channel = supabase
       .channel(`facilitator-attendance-live-${Math.random().toString(36).slice(2)}`)
+.on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => { void initRef.current() })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_log' }, async () => {
         const logData = await loadTodayLog()
         setLog(logData)
@@ -42,6 +43,7 @@ function FacilitatorAttendance() {
       .subscribe()
 
     return () => {
+      window.clearInterval(timer)
       supabase.removeChannel(channel)
     }
   }, [])
@@ -54,6 +56,10 @@ function FacilitatorAttendance() {
 
   async function handleMark() {
     if (checking) return
+    if (!activities.some((a) => a.id === selectedActivity && isActivityVisibleInCatalog(a))) {
+      setScanResult({ status: 'error', title: 'Activity unavailable', body: 'Select an upcoming or ongoing activity. Closed and completed activities cannot accept check-ins.' })
+      return
+    }
     setChecking(true)
     const result = await markAttendance(selectedActivity, refInput, dayNumber, attendanceMethod)
     setScanResult(result)
@@ -67,7 +73,7 @@ function FacilitatorAttendance() {
   }
 
   async function handleQrScan(value: string) {
-    if (checking || !selectedActivity) return
+    if (checking || !selectedActivity || !activities.some((a) => a.id === selectedActivity && isActivityVisibleInCatalog(a))) return
     setRefInput(value)
     setAttendanceMethod('qr')
     setChecking(true)
@@ -97,7 +103,7 @@ function FacilitatorAttendance() {
     a.click()
   }
 
-  const scannableActivities = activities.filter((a) => a.status !== 'closed')
+  const scannableActivities = activities.filter((a) => isActivityVisibleInCatalog(a, clockNow))
 
   return (
     <div className="p-8">
@@ -107,15 +113,15 @@ function FacilitatorAttendance() {
         <div className="panel p-5">
           <h2 className="text-base font-bold text-gray-900 mb-4">Mark Attendance</h2>
           {scannableActivities.length === 0 ? (
-            <EmptyState icon={<ClipboardList size={22} />} title="No open activities" subtitle="You have no open/upcoming assigned activities to scan for right now." />
+            <EmptyState icon={<ClipboardList size={22} />} title="No active activities" subtitle="You have no upcoming or ongoing assigned activities available for check-in." />
           ) : (
             <div className="space-y-3 mb-4">
               <div>
                 <label className="text-xs font-semibold text-gray-600">Activity</label>
-                <select value={selectedActivity} onChange={(e) => setSelectedActivity(e.target.value)} className="input">
+                <select value={selectedActivity} onChange={(e) => setSelectedActivity(e.target.value)} className="filter-select input">
                   <option value="">Choose an activity</option>
                   {scannableActivities.map((a) => (
-                    <option key={a.id} value={a.id}>{a.title}</option>
+                    <option key={a.id} value={a.id}>{a.title} ({ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(a, clockNow)].label})</option>
                   ))}
                 </select>
               </div>
@@ -137,7 +143,7 @@ function FacilitatorAttendance() {
                   <input type="number" min={1} value={dayNumber} onChange={(e) => setDayNumber(Number(e.target.value) || 1)} className="input" />
                 </div>
               </div>
-              <button onClick={handleMark} disabled={checking} className="w-full btn-primary flex items-center justify-center gap-2 py-2.5 disabled:opacity-50">
+              <button onClick={handleMark} disabled={checking || !scannableActivities.some((a) => a.id === selectedActivity)} className="w-full btn-primary flex items-center justify-center gap-2 py-2.5 disabled:opacity-50">
                 <CheckCircle2 size={16} />
                 {checking ? 'Checking…' : 'Mark Attendance'}
               </button>
@@ -201,16 +207,17 @@ function FacilitatorAttendance() {
             <div key={a.id} className="panel p-4 flex flex-col items-center text-center">
               <div className="text-sm font-bold text-gray-900">{a.title}</div>
               <div className="text-xs text-gray-400 mb-3">{a.date} · {a.venue}</div>
-              <div className="p-2 bg-white">
+              {!a.attendanceFinalizedAt && getActivityDisplayStatus(a, clockNow) !== 'closed' && <div className="p-2 bg-white">
               <QRCodeCanvas id={`fac-qr-canvas-${a.id}`} value={`${window.location.origin}/checkin/${a.id}`} size={130} fgColor="#1a5c3a" bgColor="#ffffff" />
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Display after the activity; evaluation submission records attendance.</p>
-              <span className={`px-2 py-1 rounded-full text-[10px] font-medium mt-2 mb-3 ${PILL_STYLES[a.status] || 'bg-gray-100 text-gray-600'}`}>
-                {a.status}
+              </div>}
+              <p className="text-xs text-gray-500 mt-2">{a.attendanceFinalizedAt ? 'Attendance finalized. Further submissions are closed.' : getActivityDisplayStatus(a, clockNow) === 'closed' ? 'This activity was manually closed. Check-in is unavailable.' : 'Show near the end or after the activity. Participants must submit every required evaluation answer before attendance is recorded automatically.'}</p>
+              <span className={`px-2 py-1 rounded-full text-[10px] font-medium mt-2 mb-3 ${ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(a, clockNow)].cls}`}>
+                {ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(a, clockNow)].label}
               </span>
-              <button onClick={() => downloadQR(a.id, a.title)} className="text-primary text-xs font-semibold hover:underline">
+              <button disabled={!!a.attendanceFinalizedAt || getActivityDisplayStatus(a, clockNow) === 'closed'} onClick={() => downloadQR(a.id, a.title)} className="text-primary text-xs font-semibold hover:underline">
                 <Download size={14} className="inline mr-1" /> Download PNG
               </button>
+              <FinalizeAttendanceButton activity={a} now={clockNow} onFinalized={() => void init()} />
             </div>
           ))}
         </div>

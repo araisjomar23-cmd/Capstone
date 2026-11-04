@@ -1,3 +1,4 @@
+import { ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { useEffect, useState } from 'react'
 import ParticipantLayout from '../../layouts/ParticipantLayout'
 import { SkeletonCard } from '../../components/Skeleton'
@@ -43,6 +44,7 @@ export default function MyActivities() {
     void supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return
       channel = supabase.channel(`my-registrations-${data.user.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => { void loadRegistrations() })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations', filter: `user_uuid=eq.${data.user.id}` }, () => { void loadRegistrations() })
         .subscribe()
     })
@@ -153,12 +155,12 @@ export default function MyActivities() {
                     {reg.hasAttended && (
                       reg.hasEvaluation ? (
                         <p className="text-xs text-green-700 mt-2">Evaluation submitted. Thank you for your feedback.</p>
-                      ) : reg.activityStatus === 'completed' && reg.refCode ? (
+                      ) : reg.status !== 'absent' && reg.activityStatus === 'completed' && reg.refCode ? (
                         <Link to={`/evaluate/${reg.activityId}`} className="inline-flex mt-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white">
                           Complete activity evaluation
                         </Link>
                       ) : reg.activityStatus !== 'completed' ? (
-                        <p className="text-xs text-amber-700 mt-2">Evaluation opens after the activity has ended.</p>
+                        <p className="text-xs text-amber-700 mt-2">{reg.activityStatus === 'closed' ? 'This activity was manually closed.' : 'Evaluation opens after the activity has ended.'}</p>
                       ) : <p className="text-xs text-amber-700 mt-2">Evaluation link unavailable. Contact the activity facilitator.</p>
                     )}
                   </div>
@@ -175,8 +177,8 @@ export default function MyActivities() {
                       ) : <p className="max-w-40 text-center text-[11px] text-gray-500">Check-in is closed.</p>
                     )}
                     <div className="flex flex-col items-end gap-1">
-                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${reg.activityStatus === 'upcoming' ? 'bg-blue-50 text-blue-700' : reg.activityStatus === 'ongoing' ? 'bg-amber-50 text-amber-700' : 'bg-teal-50 text-teal-700'}`}>
-                        {reg.activityStatus === 'upcoming' ? 'Upcoming' : reg.activityStatus === 'ongoing' ? 'Ongoing' : 'Completed'}
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${ACTIVITY_STATUS_DISPLAY[reg.activityStatus].cls}`}>
+                        {ACTIVITY_STATUS_DISPLAY[reg.activityStatus].label}
                       </span>
                       <span
                       className={`text-xs font-semibold px-3 py-1.5 rounded-full ${

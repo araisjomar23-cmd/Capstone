@@ -32,14 +32,14 @@ export default function ActivityDateFilter({ value, onChange, dates, compact = f
       <div className="grid grid-cols-1 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-3">
         <label className={compact ? "block min-w-0 flex-1 text-xs font-medium text-gray-600" : "block min-w-0 sm:w-44 text-xs font-medium text-gray-600"}>
           Month
-          <select className="input mt-1.5 w-full min-h-11" value={value.month} onChange={(e) => onChange({ ...value, month: e.target.value })}>
+          <select className="filter-select input mt-1.5 w-full min-h-11" value={value.month} onChange={(e) => onChange({ ...value, month: e.target.value })}>
             <option value="">All months</option>
             {MONTHS.map((month, index) => <option key={month} value={String(index + 1).padStart(2, '0')}>{month}</option>)}
           </select>
         </label>
         <label className={compact ? "block min-w-0 flex-1 text-xs font-medium text-gray-600" : "block min-w-0 sm:w-36 text-xs font-medium text-gray-600"}>
           Year
-          <select className="input mt-1.5 w-full min-h-11" value={value.year} onChange={(e) => onChange({ ...value, year: e.target.value })}>
+          <select className="filter-select input mt-1.5 w-full min-h-11" value={value.year} onChange={(e) => onChange({ ...value, year: e.target.value })}>
 
             {[...years].sort().reverse().map((year) => <option key={year} value={year}>{year}</option>)}
           </select>

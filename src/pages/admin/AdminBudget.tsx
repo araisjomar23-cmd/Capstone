@@ -1,3 +1,4 @@
+import { ACTIVITY_STATUS_DISPLAY, getActivityDisplayStatus } from '../../features/activities/activityLifecycle'
 import ActivityDateFilter from '../../components/ActivityDateFilter'
 import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { useEffect, useState } from 'react'
@@ -30,6 +31,16 @@ function pctColor(pct: number) {
   if (pct >= 80) return 'text-red-500'
   if (pct >= 50) return 'text-amber-500'
   return 'text-primary'
+}
+
+function ActivityBudgetStatus({ activity }: { activity: Activity }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const status = ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(activity, now)]
+  return <span className={`inline-flex my-1 rounded-full px-2 py-1 text-xs font-medium ${status.cls}`}>{status.label}</span>
 }
 
 function AdminBudget() {
@@ -164,6 +175,7 @@ function ActivityBudgetSummaryCard({
       className="panel p-4 text-left hover:shadow-md hover:border-primary/30 transition-all"
     >
       <div className="text-base font-bold text-gray-900 truncate">{a.title}</div>
+      <ActivityBudgetStatus activity={a} />
       <div className="text-xs text-gray-400 mb-3 truncate">{a.programName}</div>
       <div className="text-xs text-gray-500 mb-3">{activityDateLabel(a.startDate, a.endDate)}</div>
 
@@ -218,6 +230,14 @@ function ActivityBudgetDetail({
   const [saving, setSaving] = useState(false)
   const [editingEntry, setEditingEntry] = useState<BudgetEntry | null>(null)
 
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const activityStatus = getActivityDisplayStatus(a, now)
+  const expenseRecordingClosed = activityStatus === 'closed' || activityStatus === 'completed'
+
   const alloc = a.budgetAlloc
   const spent = a.budgetSpent
   const left = Math.max(0, alloc - spent)
@@ -239,6 +259,10 @@ function ActivityBudgetDetail({
   }
 
   async function handleExpense() {
+    const currentStatus = getActivityDisplayStatus(a)
+    if (!editingEntry && (currentStatus === 'closed' || currentStatus === 'completed')) {
+      return showToast('Expenses cannot be recorded for closed or completed activities.', 'error')
+    }
     const amt = Number(amount)
     if (!Number.isFinite(amt) || amt <= 0) return showToast('Enter a valid positive amount.', 'error')
     if (!category) return showToast('Select a category.', 'error')
@@ -281,6 +305,7 @@ function ActivityBudgetDetail({
     return (
       <div className="panel p-4 md:p-5">
         <div className="text-base font-bold text-gray-900">{a.title}</div>
+      <ActivityBudgetStatus activity={a} />
         <div className="text-xs text-gray-400 mb-3">{a.programName}</div>
       <div className="text-xs text-gray-500 mb-3">{activityDateLabel(a.startDate, a.endDate)}</div>
         <div className="text-sm text-gray-400 mb-3">No budget allocated yet</div>
@@ -309,6 +334,7 @@ function ActivityBudgetDetail({
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-3">
         <div>
           <div className="text-base font-bold text-gray-900">{a.title}</div>
+      <ActivityBudgetStatus activity={a} />
           <div className="text-xs text-gray-400">{a.programName}</div>
       <div className="text-xs text-gray-500 mb-3">{activityDateLabel(a.startDate, a.endDate)}</div>
         </div>
@@ -454,6 +480,9 @@ function ActivityBudgetDetail({
         )}
       </section>
 
+      {expenseRecordingClosed && !editingEntry ? (
+        <p role="status" className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">This activity is {ACTIVITY_STATUS_DISPLAY[activityStatus].label.toLowerCase()}. New expenses cannot be recorded.</p>
+      ) : (
       <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
         <div className="text-[11px] font-bold uppercase text-gray-400 tracking-wide mb-2 flex items-center gap-1.5">
           <Coins size={12} /> {editingEntry ? 'Edit Expense' : 'Add Expense'}
@@ -498,6 +527,7 @@ function ActivityBudgetDetail({
         </button>
         {editingEntry && <button type="button" onClick={() => { setEditingEntry(null); setAmount(''); setCategory(''); setDescription('') }} className="w-full mt-2 text-sm text-gray-500">Cancel edit</button>}
       </div>
+      )}
     </div>
   )
 }

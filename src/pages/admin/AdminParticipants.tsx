@@ -11,6 +11,7 @@ import { Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const PILL_STYLES: Record<string, string> = {
+  absent: 'bg-red-50 text-red-700',
   registered: 'bg-green-100 text-green-700',
   attended: 'bg-blue-100 text-blue-700',
   completed: 'bg-teal-100 text-teal-700',
@@ -122,7 +123,7 @@ function AdminParticipants() {
         <select
           value={activityFilter}
           onChange={(e) => setActivityFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
+          className="filter-select border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
         >
           <option value="">All Activities</option>
           {activityOptions.map(([id, title]) => (
@@ -134,11 +135,12 @@ function AdminParticipants() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
+          className="filter-select border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
         >
           <option value="">All Statuses</option>
           <option value="registered">Registered</option>
           <option value="attended">Attended</option>
+          <option value="absent">Absent</option>
           <option value="completed">Completed</option>
           <option value="inactive">Inactive</option>
           <option value="not_registered">Unregistered</option>

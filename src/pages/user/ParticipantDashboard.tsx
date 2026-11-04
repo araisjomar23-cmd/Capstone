@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabase'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchPublicActivities } from '../../features/public/publicActivityService'
@@ -8,13 +9,8 @@ import { EmptyState } from '../../components/EmptyState'
 import { MapPin, Calendar, Clock3, Users, CalendarX } from 'lucide-react'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { fetchMyRegistrations } from '../../features/public/registrationService'
-import { getActivityLifecycleStatus, type ActivityLifecycleStatus } from '../../features/activities/activityLifecycle'
+import { getActivityDisplayStatus, ACTIVITY_STATUS_DISPLAY, isActivityVisibleInCatalog } from '../../features/activities/activityLifecycle'
 
-const LIFECYCLE_PILL: Record<ActivityLifecycleStatus, string> = {
-  upcoming: 'bg-blue-50 text-blue-700',
-  ongoing: 'bg-amber-50 text-amber-700',
-  completed: 'bg-teal-50 text-teal-700',
-}
 
 export default function ParticipantDashboard() {
   usePageTitle('PRIME')
@@ -44,13 +40,20 @@ export default function ParticipantDashboard() {
       }
     }
     loadActivities()
+    const channel = supabase.channel('browse-activities-' + Math.random().toString(36).slice(2))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => { void loadActivities() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => { void loadActivities() })
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
   }, [])
+
+  const visibleActivities = activities.filter((a) => isActivityVisibleInCatalog(a, clockNow))
 
   return (
     <ParticipantLayout>
       <h1 className="text-3xl font-bold mb-1">Browse Activities</h1>
       <p className="text-gray-500 mb-8 text-sm">
-        Explore what's open right now and register for a spot.
+        Browse upcoming and ongoing activities. Past activities remain in My Activities.
       </p>
 
       {loading ? (
@@ -59,7 +62,7 @@ export default function ParticipantDashboard() {
             <SkeletonCard key={i} lines={4} />
           ))}
         </div>
-      ) : activities.length === 0 ? (
+      ) : visibleActivities.length === 0 ? (
         <div className="panel">
           <EmptyState
             icon={<CalendarX size={22} />}
@@ -69,11 +72,11 @@ export default function ParticipantDashboard() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {activities.map((activity) => {
+          {visibleActivities.map((activity) => {
             const open = Math.max(0, activity.slots - activity.taken)
             const full = open <= 0
             const registered = registeredActivityIds.has(activity.id)
-            const lifecycle = getActivityLifecycleStatus(activity, clockNow)
+            const lifecycle = getActivityDisplayStatus(activity, clockNow)
             return (
               <div key={activity.id} className="panel overflow-hidden flex flex-col">
                 <div
@@ -106,8 +109,8 @@ export default function ParticipantDashboard() {
                         <Users size={14} /> {activity.taken}/{activity.slots} registered
                       </p>
                       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${LIFECYCLE_PILL[lifecycle]}`}>
-                          {lifecycle.charAt(0).toUpperCase() + lifecycle.slice(1)}
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${ACTIVITY_STATUS_DISPLAY[lifecycle].cls}`}>
+                          {ACTIVITY_STATUS_DISPLAY[lifecycle].label}
                         </span>
                         {registered && (
                           <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
@@ -122,7 +125,7 @@ export default function ParticipantDashboard() {
                     onClick={() => navigate(`/activities/${activity.id}`)}
                     className="mt-auto w-full btn-primary py-2.5 disabled:opacity-40"
                   >
-                    {registered ? 'View Activity' : full ? 'Activity Full · View Details' : 'View & Register'}
+                    {registered || lifecycle !== 'upcoming' || activity.status === 'closed' || full ? 'View Details' : 'View & Register'}
                   </button>
                 </div>
               </div>

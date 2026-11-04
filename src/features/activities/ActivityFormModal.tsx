@@ -1,3 +1,4 @@
+import { activityDescription } from './activityDescription'
 import { useEffect, useRef, useState } from 'react'
 import {
   fetchPrograms,
@@ -10,12 +11,19 @@ import type { Program } from '../../types/program'
 import type { Facilitator } from '../../types/facilitator'
 import { useToast } from '../../components/ToastProvider'
 import DatePicker from '../../components/DatePicker'
+import TimePicker from '../../components/TimePicker'
+import { getActivityLifecycleStatus, getActivityDisplayStatus, ACTIVITY_STATUS_DISPLAY } from './activityLifecycle'
 import { useConfirmation } from '../../components/ConfirmationProvider'
 
 interface Props {
   editingActivity: Activity | null
+  repeatActivity?: Activity | null
+  viewOnly?: boolean
+  onEdit?: () => void
+  onToggle?: () => void
+  toggling?: boolean
   onClose: () => void
-  onSaved: () => void
+  onSaved: (saved?: { id: string; startDate: string; endDate: string }) => void
 }
 
 const emptyForm = {
@@ -30,12 +38,11 @@ const emptyForm = {
   endTime: '',
   checkInEarlyAccessMinutes: '30',
   previewDesc: '',
-  fullDesc: '',
   budget: '',
   note: '',
 }
 
-function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
+function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = false, onEdit, onToggle, toggling = false, onClose, onSaved }: Props) {
   const { showToast } = useToast()
   const confirm = useConfirmation()
   const submitLock = useRef(false)
@@ -54,29 +61,29 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
       setPrograms(progs)
       setAllFacilitators(facs)
 
-      if (editingActivity) {
+      const source = editingActivity || repeatActivity
+      if (source) {
         setForm({
-          title: editingActivity.title,
-          programId: String(editingActivity.programId),
-          slots: String(editingActivity.slots),
-          colorBg: editingActivity.colorBg || '#1a5c3a',
-          venue: editingActivity.venue,
-          startDate: editingActivity.startDate || '',
-          endDate: editingActivity.endDate || '',
-          startTime: editingActivity.startTime || '',
-          endTime: editingActivity.endTime || '',
-          checkInEarlyAccessMinutes: String(editingActivity.checkInEarlyAccessMinutes ?? 30),
-          previewDesc: editingActivity.previewDesc,
-          fullDesc: editingActivity.fullDesc,
-          budget: editingActivity.budgetAlloc > 0 ? String(editingActivity.budgetAlloc) : '',
-          note: editingActivity.note,
+          title: source.title,
+          programId: String(source.programId),
+          slots: String(source.slots),
+          colorBg: source.colorBg || '#1a5c3a',
+          venue: source.venue,
+          startDate: repeatActivity ? '' : source.startDate || '',
+          endDate: repeatActivity ? '' : source.endDate || '',
+          startTime: source.startTime || '',
+          endTime: source.endTime || '',
+          checkInEarlyAccessMinutes: String(source.checkInEarlyAccessMinutes ?? 30),
+          previewDesc: activityDescription(source.previewDesc, source.fullDesc),
+          budget: !repeatActivity && source.budgetAlloc > 0 ? String(source.budgetAlloc) : '',
+          note: source.note,
         })
-        const existingFacs = await fetchActivityFacilitators(editingActivity.id)
+        const existingFacs = await fetchActivityFacilitators(source.id)
         setTagged(existingFacs)
       }
     }
     init()
-  }, [editingActivity])
+  }, [editingActivity, repeatActivity])
 
   function setField(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -101,11 +108,14 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
     if (!form.programId) errs.programId = 'Please select a program.'
     if (!form.slots || Number(form.slots) < 1) errs.slots = 'Slots must be at least 1.'
     if (!form.venue.trim()) errs.venue = 'Venue is required.'
-    if (!form.previewDesc.trim()) errs.previewDesc = 'Preview description is required.'
+    if (!form.previewDesc.trim()) errs.previewDesc = 'Description is required.'
     if (!form.startDate) errs.startDate = 'Start date is required.'
     if (!form.endDate) errs.endDate = 'End date is required.'
     if (!form.startTime) errs.startTime = 'Start time is required.'
     if (!form.endTime) errs.endTime = 'End time is required.'
+    if (form.startDate && form.endDate && form.endDate < form.startDate) errs.endDate = 'End date must be on or after the start date.'
+    if (form.startDate === form.endDate && form.startTime && form.endTime && form.endTime <= form.startTime) errs.endTime = 'End time must be after the start time.'
+    if (repeatActivity && getActivityLifecycleStatus(form) !== 'upcoming') errs.startDate = 'Choose a future start date and time for the new run.'
     if (!/^\d+$/.test(form.checkInEarlyAccessMinutes) || Number(form.checkInEarlyAccessMinutes) > 1440) {
       errs.checkInEarlyAccessMinutes = 'Enter a whole number from 0 to 1440.'
     }
@@ -115,16 +125,16 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (submitLock.current || !validate()) return
+    if (viewOnly || submitLock.current || !validate()) return
     submitLock.current = true
 
     setSubmitting(true)
     try {
-      if (isEdit) {
+      if (isEdit || repeatActivity) {
         const approved = await confirm({
-          title: 'Save activity changes?',
-          message: 'Save the updated details for "' + form.title.trim() + '"?',
-          confirmLabel: 'Save Changes',
+          title: repeatActivity ? 'Create a new activity run?' : 'Save activity changes?',
+          message: repeatActivity ? 'The completed activity and all its records will be kept. The new run starts with no registrations or expenses.' : 'Save the updated details for "' + form.title.trim() + '"?',
+          confirmLabel: repeatActivity ? 'Create New Run' : 'Save Changes',
           cancelLabel: 'Keep Editing',
         })
         if (!approved) return
@@ -142,17 +152,18 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
         status: editingActivity?.status,
         venue: form.venue.trim(),
         previewDesc: form.previewDesc.trim(),
-        fullDesc: form.fullDesc.trim(),
+        fullDesc: '',
         colorBg: form.colorBg,
         note: form.note.trim(),
         budget: Number(form.budget) || 0,
+        ...(repeatActivity ? { previousActivityId: repeatActivity.id, tags: repeatActivity.tags, outcomes: repeatActivity.outcomes, schedule: repeatActivity.schedule, bring: repeatActivity.bring } : {}),
       },
       tagged,
       editingActivity?.id || null
     )
     if (result.ok) {
         showToast(isEdit ? 'Activity updated successfully.' : 'Activity created successfully.', 'success')
-        onSaved()
+        onSaved(result.id ? { id: result.id, startDate: form.startDate, endDate: form.endDate } : undefined)
         onClose()
       } else {
         showToast('Failed to save: ' + result.error, 'error')
@@ -172,25 +183,31 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-label={viewOnly ? "Activity Details" : isEdit ? "Edit Activity" : "Create Activity"} className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-100 sticky top-0 bg-white z-10 flex justify-between items-start">
           <div>
             <h2 className="text-lg font-bold text-gray-900">
-              {isEdit ? 'Edit Activity' : 'Create New Activity'}
+              {viewOnly ? 'Activity Details' : isEdit ? 'Edit Activity' : repeatActivity ? 'Create New Activity Run' : 'Create New Activity'}
             </h2>
             <p className="text-sm text-gray-500">
-              {isEdit ? 'Update the activity details below' : 'Fill in the details to publish a new activity'}
+              {viewOnly ? 'Review activity details and manage this activity below.' : isEdit ? 'Update the activity details below' : repeatActivity ? 'Choose a new schedule. Past participants, attendance, budgets, and evaluations stay with the completed run.' : 'Fill in the details to publish a new activity'}
             </p>
+            {viewOnly && editingActivity && <div className="mt-3">
+              <span className={'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ' + ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(editingActivity)].cls}>{ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(editingActivity)].label}</span>
+              {getActivityDisplayStatus(editingActivity) === 'closed' && <p className="mt-2 text-xs text-gray-500">Closed by an administrator. The saved schedule and existing registrations are preserved.</p>}
+            </div>}
+
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
+          <button type="button" aria-label="Close activity dialog" disabled={submitting || toggling} onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
             ✕
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <fieldset disabled={viewOnly || submitting || toggling} className="contents">
           <div className="flex gap-3">
             <div className="flex-[2]">
-              <label className="text-xs font-semibold text-gray-600">Activity Title *</label>
+              <label className="text-xs font-semibold text-gray-600">Activity Title</label>
               <input
                 type="text"
                 value={form.title}
@@ -200,13 +217,13 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
               {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title}</p>}
             </div>
             <div className="flex-[1.5]">
-              <label className="text-xs font-semibold text-gray-600">Program *</label>
+              <label className="text-xs font-semibold text-gray-600">Program</label>
               <select
                 value={form.programId}
                 onChange={(e) => setField('programId', e.target.value)}
                 className={inputClass('programId')}
               >
-                <option value="">— Select —</option>
+                <option value="" disabled hidden>Select program</option>
                 {programs.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -217,24 +234,11 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
             </div>
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-gray-600">Check-in opens before start (minutes)</label>
-            <input
-              type="number"
-              min={0}
-              max={1440}
-              step={1}
-              value={form.checkInEarlyAccessMinutes}
-              onChange={(e) => setField('checkInEarlyAccessMinutes', e.target.value)}
-              className={inputClass('checkInEarlyAccessMinutes')}
-            />
-            <p className="text-xs text-gray-500 mt-1">Default: 30 minutes. Set 0 to open at the start time.</p>
-            {errors.checkInEarlyAccessMinutes && <p className="text-xs text-red-500 mt-1">{errors.checkInEarlyAccessMinutes}</p>}
-          </div>
+
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-600">Slots *</label>
+              <label className="text-xs font-semibold text-gray-600">Slots</label>
               <input
                 type="number"
                 min={1}
@@ -256,7 +260,7 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-600">Venue *</label>
+            <label className="text-xs font-semibold text-gray-600">Venue</label>
             <input
               type="text"
               value={form.venue}
@@ -268,12 +272,12 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-600">Start Date *</label>
+              <label className="text-xs font-semibold text-gray-600">Start Date</label>
               <DatePicker value={form.startDate} onChange={(value) => setField('startDate', value)} className={inputClass('startDate')} aria-label="Start date" />
               {errors.startDate && <p className="text-xs text-red-500 mt-1">{errors.startDate}</p>}
             </div>
             <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-600">End Date *</label>
+              <label className="text-xs font-semibold text-gray-600">End Date</label>
               <DatePicker value={form.endDate} onChange={(value) => setField('endDate', value)} className={inputClass('endDate')} aria-label="End date" />
               {errors.endDate && <p className="text-xs text-red-500 mt-1">{errors.endDate}</p>}
             </div>
@@ -281,48 +285,26 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-600">Start Time *</label>
-              <input
-                type="time"
-                value={form.startTime}
-                onChange={(e) => setField('startTime', e.target.value)}
-                className={inputClass('startTime')}
-              />
+              <label className="text-xs font-semibold text-gray-600">Start Time</label>
+              <TimePicker value={form.startTime} onChange={(value) => setField('startTime', value)} className={inputClass('startTime')} aria-label="Start time" />
               {errors.startTime && <p className="text-xs text-red-500 mt-1">{errors.startTime}</p>}
             </div>
             <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-600">End Time *</label>
-              <input
-                type="time"
-                value={form.endTime}
-                onChange={(e) => setField('endTime', e.target.value)}
-                className={inputClass('endTime')}
-              />
+              <label className="text-xs font-semibold text-gray-600">End Time</label>
+              <TimePicker value={form.endTime} onChange={(value) => setField('endTime', value)} className={inputClass('endTime')} aria-label="End time" />
               {errors.endTime && <p className="text-xs text-red-500 mt-1">{errors.endTime}</p>}
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-600">Preview Description *</label>
+            <label className="text-xs font-semibold text-gray-600">Description</label>
             <textarea
-              rows={3}
+              rows={5}
               value={form.previewDesc}
               onChange={(e) => setField('previewDesc', e.target.value)}
               className={inputClass('previewDesc')}
             />
             {errors.previewDesc && <p className="text-xs text-red-500 mt-1">{errors.previewDesc}</p>}
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-gray-600">
-              Full Description <span className="font-normal text-gray-400">(unlocked after registration)</span>
-            </label>
-            <textarea
-              rows={4}
-              value={form.fullDesc}
-              onChange={(e) => setField('fullDesc', e.target.value)}
-              className={inputClass('fullDesc')}
-            />
           </div>
 
           <div>
@@ -334,7 +316,7 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
                   onChange={(e) => setSelectedFacilitatorId(e.target.value)}
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 >
-                  <option value="">— Select a facilitator —</option>
+                  <option value="" disabled hidden>Select facilitator</option>
                   {allFacilitators.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name} ({f.initials})
@@ -401,22 +383,37 @@ function ActivityFormModal({ editingActivity, onClose, onSaved }: Props) {
             />
           </div>
 
-          <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+          </fieldset>
+          {viewOnly && editingActivity && (
+            <div className="grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-sm">
+              <div><span className="block text-xs text-gray-500">Registrations</span><span className="font-semibold">{editingActivity.regCount} / {editingActivity.slots}</span></div>
+              <div><span className="block text-xs text-gray-500">Budget spent</span><span className="font-semibold">PHP {editingActivity.budgetSpent.toLocaleString()}</span></div>
+            </div>
+          )}
+          {viewOnly ? (
+            <div className="flex flex-col sm:flex-row gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+              <button type="button" onClick={onEdit} disabled={toggling} className="btn-primary min-h-11 flex-1 disabled:opacity-50">Edit Activity</button>
+              <button type="button" onClick={onToggle} disabled={toggling} className="min-h-11 flex-1 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary disabled:opacity-50">
+                {toggling ? 'Updating...' : editingActivity && getActivityLifecycleStatus(editingActivity) === 'completed' ? 'Reopen as New Run' : editingActivity?.status === 'closed' ? 'Reopen Activity' : 'Close Activity'}
+              </button>
+            </div>
+          ) : <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
             <button
               type="submit"
               disabled={submitting}
               className="flex-1 bg-primary text-white rounded-lg py-2.5 font-medium disabled:opacity-50"
             >
-              {submitting ? (isEdit ? 'Saving…' : 'Publishing…') : isEdit ? 'Save Changes' : 'Publish Activity'}
+              {submitting ? (isEdit ? 'Saving…' : 'Publishing…') : isEdit ? 'Save Changes' : repeatActivity ? 'Create New Run' : 'Publish Activity'}
             </button>
             <button
               type="button"
               onClick={onClose}
+              disabled={submitting}
               className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-600 font-medium"
             >
               Cancel
             </button>
-          </div>
+          </div>}
         </form>
       </div>
     </div>

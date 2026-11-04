@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import { getActivityLifecycleStatus, type ActivityLifecycleStatus } from '../activities/activityLifecycle'
+import { getActivityLifecycleStatus, isActivityVisibleInCatalog, type ActivityLifecycleStatus } from '../activities/activityLifecycle'
 
 export interface PublicActivity {
   id: string
@@ -9,6 +9,7 @@ export interface PublicActivity {
   colorBg: string
   tags: string[]
   status: string
+  manuallyClosed?: boolean
   lifecycleStatus: ActivityLifecycleStatus
   slots: number
   taken: number
@@ -52,11 +53,10 @@ export async function fetchPublicActivities(): Promise<PublicActivity[]> {
     .from('legacy_activities')
     .select(`
   id, program_id, title, color_bg, tags,
-  status, slots, start_date, end_date, start_time, end_time, venue,
+  status, manually_closed, slots, start_date, end_date, start_time, end_time, venue,
   preview_desc, full_desc, outcomes, schedule, bring, note,
   programs ( id, name )
 `)
-    .not('status', 'eq', 'closed')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -83,6 +83,7 @@ export async function fetchPublicActivities(): Promise<PublicActivity[]> {
     colorBg: a.color_bg || '',
     tags: a.tags || [],
     status: a.status || 'open',
+    manuallyClosed: a.manually_closed === true,
     lifecycleStatus: getActivityLifecycleStatus({
       startDate: a.start_date,
       endDate: a.end_date,
@@ -104,5 +105,5 @@ export async function fetchPublicActivities(): Promise<PublicActivity[]> {
     schedule: a.schedule || [],
     bring: a.bring || [],
     note: a.note || '',
-  }))
+  })).filter((activity) => isActivityVisibleInCatalog(activity))
 }

@@ -1,10 +1,12 @@
+import type { ActivityDisplayStatus } from '../features/activities/activityLifecycle'
+
 export interface Registration {
   id: string
   ref: string
   registeredAt: string
   attendedAt: string | null
   notes: string
-  status: 'registered' | 'attended' | 'completed' | 'inactive' | 'not_registered'
+  status: 'registered' | 'attended' | 'completed' | 'inactive' | 'not_registered' | 'absent'
   name: string
   age: number | string
   gender: string
@@ -13,6 +15,7 @@ export interface Registration {
   org: string
   activityId: string  
   activityTitle: string
+  activityStatus?: ActivityDisplayStatus
   activityStartDate?: string
   activityEndDate?: string
   activityDate: string

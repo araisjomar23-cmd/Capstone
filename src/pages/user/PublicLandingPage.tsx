@@ -1,3 +1,5 @@
+import { activityDescription } from '../../features/activities/activityDescription'
+import { ACTIVITY_LIFECYCLE_DISPLAY, getActivityLifecycleStatus, isActivityVisibleInCatalog } from '../../features/activities/activityLifecycle'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
@@ -54,6 +56,11 @@ function PublicLandingPage() {
   const [loadError, setLoadError] = useState('')
   const [programFilter, setProgramFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [clockNow, setClockNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     load()
@@ -89,9 +96,9 @@ function PublicLandingPage() {
     return activities.filter((a) => {
       const mP = !programFilter || a.programName === programFilter
       const mQ = !q || a.title.toLowerCase().includes(q) || a.venue.toLowerCase().includes(q)
-      return mP && mQ
+      return mP && mQ && isActivityVisibleInCatalog(a, clockNow)
     })
-  }, [activities, programFilter, search])
+  }, [activities, programFilter, search, clockNow])
 
   const totalSlots = activities.reduce((s, a) => s + a.slots, 0)
   const totalTaken = activities.reduce((s, a) => s + a.taken, 0)
@@ -182,7 +189,7 @@ function PublicLandingPage() {
             <select
               value={programFilter}
               onChange={(e) => setProgramFilter(e.target.value)}
-              className="bg-white/[0.13] backdrop-blur-md border-none rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:bg-white/20"
+              className="filter-select filter-select-light bg-white/[0.13] backdrop-blur-md border-none rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:bg-white/20"
               style={{ colorScheme: 'dark' }}
             >
               <option value="" className="text-black">All Programs</option>
@@ -224,7 +231,8 @@ function PublicLandingPage() {
             {filtered.map((a) => {
               const open = Math.max(0, a.slots - a.taken)
               const isFull = open <= 0
-              const registrationClosed = a.lifecycleStatus !== 'upcoming'
+              const lifecycle = getActivityLifecycleStatus(a, clockNow)
+              const registrationClosed = lifecycle !== 'upcoming' || a.status === 'closed'
               const isUrgent = !isFull && a.slots > 0 && open / a.slots <= 0.15
 
               return (
@@ -245,13 +253,9 @@ function PublicLandingPage() {
                     <Sparkles size={44} className="relative z-10 text-white/90 drop-shadow-lg" />
 
                     <span
-                      className="absolute top-2.5 right-2.5 z-20 px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm"
-                      style={{
-                        background: a.lifecycleStatus === 'ongoing' ? 'rgba(212,240,224,.92)' : a.lifecycleStatus === 'upcoming' ? 'rgba(220,238,255,.92)' : 'rgba(253,232,200,.92)',
-                        color: a.lifecycleStatus === 'ongoing' ? '#1a5c3a' : a.lifecycleStatus === 'upcoming' ? '#1a4d7a' : '#9a5f0a',
-                      }}
+                      className={'absolute top-2.5 right-2.5 z-20 px-2.5 py-1 rounded-full text-[10px] font-bold ' + ACTIVITY_LIFECYCLE_DISPLAY[lifecycle].cls}
                     >
-                      {a.lifecycleStatus}
+                      {ACTIVITY_LIFECYCLE_DISPLAY[lifecycle].label}
                     </span>
 
                     {isUrgent && (
@@ -269,7 +273,7 @@ function PublicLandingPage() {
                       {a.time && <span className="inline-flex items-center gap-1"><Clock size={12} /> {a.time}</span>}
                       <span className="inline-flex items-center gap-1"><MapPin size={12} /> {a.venue}</span>
                     </div>
-                    <p className="text-sm text-gray-600 flex-1 mb-4 line-clamp-3">{a.previewDesc}</p>
+                    <p className="text-sm text-gray-600 flex-1 mb-4 line-clamp-3">{activityDescription(a.previewDesc, a.fullDesc)}</p>
 
                     <div className="mb-3">
                       <div className="flex justify-between items-center text-xs text-gray-500 mb-1">
@@ -289,10 +293,10 @@ function PublicLandingPage() {
                         e.stopPropagation()
                         setSelectedId(a.id)
                       }}
-                      disabled={isFull || registrationClosed}
+
                       className="w-full btn-primary flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {isFull ? 'Activity Full' : registrationClosed ? 'Registration Closed' : <>View & Register</>}
+                      {isFull || registrationClosed ? 'View Details' : 'View & Register'}
                     </button>
                   </div>
                 </div>

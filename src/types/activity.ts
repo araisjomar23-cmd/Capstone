@@ -6,6 +6,8 @@ export interface Activity {
   colorBg: string
   tags: string[]
   status: 'open' | 'full' | 'upcoming' | 'closed'
+  manuallyClosed?: boolean
+  attendanceFinalizedAt?: string | null
   slots: number
   taken: number
   regCount: number

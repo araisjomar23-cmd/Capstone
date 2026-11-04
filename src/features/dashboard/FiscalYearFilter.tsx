@@ -13,13 +13,13 @@ export default function FiscalYearFilter({ value, onChange, activities, today }:
   return <section aria-label="Dashboard fiscal year filter" className="panel !p-4 mb-5">
     <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
       <label className="block text-xs font-semibold text-gray-600 sm:w-44">Year
-        <select className="input mt-1.5 min-h-11" value={value.year} onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}>
+        <select className="filter-select input mt-1.5 min-h-11" value={value.year} onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}>
           {[...years].sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}
 
         </select>
       </label>
       <label className="block text-xs font-semibold text-gray-600 sm:w-44">Month
-        <select className="input mt-1.5 min-h-11" value={value.month || ''} onChange={(e) => onChange({ ...value, month: e.target.value ? Number(e.target.value) : undefined })}>
+        <select className="filter-select input mt-1.5 min-h-11" value={value.month || ''} onChange={(e) => onChange({ ...value, month: e.target.value ? Number(e.target.value) : undefined })}>
           <option value="">All months</option>
           {MONTHS.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
         </select>

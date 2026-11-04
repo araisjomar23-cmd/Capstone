@@ -96,6 +96,12 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
   const [done, setDone] = useState(false)
   const [recordingAttendance, setRecordingAttendance] = useState(false)
 
+  const [clockNow, setClockNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   useEffect(() => {
     if (!activityId && !requestedRefCode) return
     let active = true
@@ -105,18 +111,25 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
       const registration = result.data.find((item) => activityId
         ? item.activityId === activityId
         : item.refCode.toUpperCase() === requestedRefCode.toUpperCase())
-      if (!registration) { setEntryState('not-registered'); return }
+      if (!registration || registration.status === 'inactive') { setEntryState('not-registered'); return }
+      if (registration.status === 'absent') { setEntryState('error'); setEntryMessage('Attendance has been finalized. You were marked Absent for this activity.'); return }
+      if (registration.activityStatus === 'closed') { setEntryState('error'); setEntryMessage('This activity was manually closed. Evaluation and check-in are unavailable.'); return }
       setRefCode(registration.refCode)
       if (registration.hasEvaluation) {
         setEntryState(markAttendedOnSubmit && !registration.hasAttended ? 'evaluation-needs-attendance' : 'evaluated')
         return
       }
       if (!registration.hasAttended && !markAttendedOnSubmit) { setEntryState('not-attended'); return }
-      if (registration.activityStatus !== 'completed') { setEntryState('event-not-finished'); return }
+      if (registration.activityStatus !== 'completed' && (!markAttendedOnSubmit || !registration.checkInOpensAt || clockNow < new Date(registration.checkInOpensAt).getTime())) {
+        setEntryMessage(markAttendedOnSubmit && registration.checkInOpensAt
+          ? 'Evaluation and attendance open on ' + new Date(registration.checkInOpensAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) + '. Please scan the QR when your facilitator displays it.'
+          : 'Evaluation opens after the activity has ended.')
+        setEntryState('event-not-finished'); return
+      }
       setEntryState('ready')
     })
     return () => { active = false }
-  }, [activityId, requestedRefCode, markAttendedOnSubmit])
+  }, [activityId, requestedRefCode, markAttendedOnSubmit, clockNow])
 
   async function handleRecordAttendance() {
     if (!refCode || recordingAttendance) return
@@ -181,11 +194,11 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
     )
   }
 
-  if (activityId && entryState !== 'ready') {
+  if (entryState !== 'ready') {
     const message = entryState === 'checking' ? 'Checking your activity registration…'
       : entryState === 'not-registered' ? "You're not registered for this activity. Please register before submitting an evaluation."
       : entryState === 'not-attended' ? 'Evaluation opens after your attendance is recorded.'
-      : entryState === 'event-not-finished' ? 'Your attendance is recorded. Evaluation opens after the activity has ended.'
+      : entryState === 'event-not-finished' ? entryMessage || 'Evaluation opens near the end of the activity.'
       : entryState === 'evaluated' ? 'Thank you! Your evaluation has already been submitted.'
       : entryState === 'evaluation-needs-attendance' ? 'Your evaluation is already submitted. Record your attendance below to complete check-in.'
       : entryMessage

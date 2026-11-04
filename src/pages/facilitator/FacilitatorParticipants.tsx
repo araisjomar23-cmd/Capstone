@@ -1,3 +1,4 @@
+import { ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { Search, Users } from 'lucide-react'
 import { useMyActivityIds } from '../../features/facilitators/useMyActivityIds'
 import { fetchParticipants } from '../../features/participants/participantService'
@@ -8,6 +9,7 @@ import { supabase } from '../../lib/supabase'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const PILL_STYLES: Record<string, string> = {
+  absent: 'bg-red-50 text-red-700',
   registered: 'bg-green-100 text-green-700',
   attended: 'bg-blue-100 text-blue-700',
   completed: 'bg-teal-100 text-teal-700',
@@ -30,13 +32,16 @@ function FacilitatorParticipants() {
   })
 
   useEffect(() => {
+    const timer = window.setInterval(() => { void loadRef.current() }, 60_000)
     const channel = supabase
       .channel(`facilitator-participants-live-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => { void loadRef.current() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => loadRef.current())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_log' }, () => loadRef.current())
       .subscribe()
 
     return () => {
+      window.clearInterval(timer)
       supabase.removeChannel(channel)
     }
   }, [])
@@ -86,7 +91,7 @@ function FacilitatorParticipants() {
               <th className="text-left px-4 py-3">Age / Gender</th>
               <th className="text-left px-4 py-3">Contact</th>
               <th className="text-left px-4 py-3">Activity</th>
-              <th className="text-left px-4 py-3">Status</th>
+              <th className="text-left px-4 py-3">Registration Status</th>
               <th className="text-left px-4 py-3">Registered</th>
             </tr>
           </thead>
@@ -112,7 +117,7 @@ function FacilitatorParticipants() {
                   </td>
                   <td className="px-4 py-3">{p.age} / {p.gender}</td>
                   <td className="px-4 py-3">{p.contact}</td>
-                  <td className="px-4 py-3">{p.activityTitle}</td>
+                  <td className="px-4 py-3"><div>{p.activityTitle}</div>{p.activityStatus && <span className={"inline-flex mt-1 rounded-full px-2 py-1 text-xs font-medium " + ACTIVITY_STATUS_DISPLAY[p.activityStatus].cls}>{ACTIVITY_STATUS_DISPLAY[p.activityStatus].label}</span>}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${PILL_STYLES[p.status] || 'bg-gray-100 text-gray-600'}`}>
                       {p.status}

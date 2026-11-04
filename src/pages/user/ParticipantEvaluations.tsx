@@ -1,3 +1,4 @@
+import { ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle2, ClipboardList, Clock3 } from 'lucide-react'
@@ -27,6 +28,7 @@ export default function ParticipantEvaluations() {
     void supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return
       channel = supabase.channel(`participant-evaluations-${data.user.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => { void load() })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations', filter: `user_uuid=eq.${data.user.id}` }, () => { void load() })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_log' }, () => { void load() })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'evaluations' }, () => { void load() })
@@ -57,6 +59,8 @@ export default function ParticipantEvaluations() {
             const eligible = registration.hasAttended && registration.activityStatus === 'completed'
             const statusText = registration.hasEvaluation
               ? 'Evaluation submitted. Thank you for your feedback.'
+              : registration.activityStatus === 'closed'
+                ? 'This activity was manually closed. Evaluation is unavailable.'
               : !registration.hasAttended
                 ? 'Evaluation is locked until your attendance is recorded.'
                 : registration.activityStatus !== 'completed'
@@ -69,11 +73,12 @@ export default function ParticipantEvaluations() {
                   <span className="mt-1 text-primary"><ClipboardList size={20} /></span>
                   <div className="min-w-0">
                     <h2 className="font-bold text-gray-900 break-words">{registration.title}</h2>
+                    <span className={"inline-flex mt-2 rounded-full px-2 py-1 text-xs font-semibold " + ACTIVITY_STATUS_DISPLAY[registration.activityStatus].cls}>{ACTIVITY_STATUS_DISPLAY[registration.activityStatus].label}</span>
                     <p className="text-sm text-gray-500 mt-1">{statusText}</p>
-                    {!registration.hasAttended && !registration.hasEvaluation && (
+                    {registration.activityStatus !== 'closed' && !registration.hasAttended && !registration.hasEvaluation && (
                       <p className="text-xs text-gray-500 mt-1">Attend the activity and wait for staff to record your attendance before taking the evaluation.</p>
                     )}
-                    {registration.hasAttended && registration.activityStatus !== 'completed' && !registration.hasEvaluation && (
+                    {registration.hasAttended && registration.activityStatus !== 'closed' && registration.activityStatus !== 'completed' && !registration.hasEvaluation && (
                       <p className="text-xs text-gray-500 mt-1">The evaluation form will become available when this activity is complete.</p>
                     )}
                   </div>
@@ -84,7 +89,7 @@ export default function ParticipantEvaluations() {
                 ) : eligible ? (
                   <Link to={`/evaluate/${registration.activityId}`} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white">Open evaluation</Link>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600"><Clock3 size={16} /> Not available yet</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600"><Clock3 size={16} /> {registration.activityStatus === 'closed' ? 'Activity Closed' : 'Not available yet'}</span>
                 )}
               </article>
             )

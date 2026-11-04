@@ -1,4 +1,5 @@
 export const REGISTRATION_STATUS = {
+  ABSENT: 'absent',
   REGISTERED: 'registered',
   ATTENDED: 'attended',
   COMPLETED: 'completed',
@@ -10,6 +11,7 @@ export type RegistrationStatus =
   (typeof REGISTRATION_STATUS)[keyof typeof REGISTRATION_STATUS]
 
 export const STATUS_PILL_STYLES: Record<RegistrationStatus, string> = {
+  [REGISTRATION_STATUS.ABSENT]: 'bg-red-50 text-red-700',
   [REGISTRATION_STATUS.REGISTERED]: 'bg-green-100 text-green-700',
   [REGISTRATION_STATUS.ATTENDED]: 'bg-blue-100 text-blue-700',
   [REGISTRATION_STATUS.COMPLETED]: 'bg-teal-100 text-teal-700',

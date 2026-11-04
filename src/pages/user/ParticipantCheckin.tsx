@@ -13,6 +13,7 @@ const CHECK_IN_MESSAGES: Record<string, string> = {
   not_registered: 'You are not registered for this activity.',
   cancelled: 'Your registration for this activity was cancelled.',
   too_early: 'Check-in has not opened for this activity yet.',
+  closed: 'This activity was manually closed. Check-in is unavailable.',
   ended: 'The check-in window for this activity has ended.',
   already_checked_in: 'You are already checked in for this activity day.',
 }

@@ -1,14 +1,15 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays, CircleAlert, CheckCircle2 } from 'lucide-react'
 import type { DashboardData } from './useDashboardData'
-import { getActivityLifecycleStatus } from '../activities/activityLifecycle'
+import { getActivityLifecycleStatus, getActivityDisplayStatus } from '../activities/activityLifecycle'
 import { activityDateLabel } from '../../lib/activityDatePeriod'
 
 export default function DashboardControlPanel({ data, now }: { data: DashboardData; now: number }) {
   const scheduled = data.acts.filter((a) => a.startDate && a.endDate)
-  const ongoing = scheduled.filter((a) => getActivityLifecycleStatus(a, now) === 'ongoing')
-  const upcoming = scheduled.filter((a) => getActivityLifecycleStatus(a, now) === 'upcoming')
-  const completed = scheduled.filter((a) => getActivityLifecycleStatus(a, now) === 'completed')
+  const ongoing = scheduled.filter((a) => getActivityDisplayStatus(a, now) === 'ongoing')
+  const upcoming = scheduled.filter((a) => getActivityDisplayStatus(a, now) === 'upcoming')
+  const completed = scheduled.filter((a) => getActivityDisplayStatus(a, now) === 'completed')
+  const closed = scheduled.filter((a) => getActivityDisplayStatus(a, now) === 'closed')
   const nextActivities = [...ongoing, ...upcoming].sort((a, b) => a.startDate.localeCompare(b.startDate)).slice(0, 4)
   const overBudget = data.acts.filter((a) => a.budgetSpent > a.budgetAlloc)
   const noBudget = [...ongoing, ...upcoming].filter((a) => a.budgetAlloc === 0)
@@ -27,8 +28,8 @@ export default function DashboardControlPanel({ data, now }: { data: DashboardDa
             <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800"><CalendarDays size={18} className="text-primary" aria-hidden="true" />Activity overview</h2>
             <Link to="/admin/activities" className="inline-flex items-center gap-1 min-h-11 text-xs font-semibold text-primary">View all <ArrowRight size={14} aria-hidden="true" /></Link>
           </div>
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {[{ label: 'Ongoing', count: ongoing.length, color: 'bg-amber-50 text-amber-800' }, { label: 'Upcoming', count: upcoming.length, color: 'bg-blue-50 text-blue-700' }, { label: 'Completed', count: completed.length, color: 'bg-teal-50 text-teal-700' }].map((item) => (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            {[{ label: 'Closed', count: closed.length, color: 'bg-gray-100 text-gray-600' }, { label: 'Ongoing', count: ongoing.length, color: 'bg-amber-50 text-amber-800' }, { label: 'Upcoming', count: upcoming.length, color: 'bg-blue-50 text-blue-700' }, { label: 'Completed', count: completed.length, color: 'bg-teal-50 text-teal-700' }].map((item) => (
               <div key={item.label} className={'rounded-xl p-3 ' + item.color}><p className="text-xl font-bold">{item.count}</p><p className="text-[11px] sm:text-xs mt-1">{item.label}</p></div>
             ))}
           </div>

@@ -2,6 +2,7 @@ import type { Registration } from '../../types/registration'
 import { X } from 'lucide-react'
 
 const PILL_STYLES: Record<string, string> = {
+  absent: 'bg-red-50 text-red-700',
   registered: 'bg-green-100 text-green-700',
   attended: 'bg-blue-100 text-blue-700',
   completed: 'bg-teal-100 text-teal-700',

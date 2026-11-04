@@ -1,3 +1,5 @@
+import { activityDescription } from '../../features/activities/activityDescription'
+import { getActivityLifecycleStatus, getActivityDisplayStatus, ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { fetchActivityById, registerParticipant } from '../../features/public/registrationService'
@@ -19,6 +21,11 @@ function ActivityDetail() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [refCode, setRefCode] = useState('')
+  const [clockNow, setClockNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
 
   useEffect(() => {
@@ -132,8 +139,10 @@ function ActivityDetail() {
     )
   }
 
+  const activityStatus = activity ? getActivityDisplayStatus(activity, clockNow) : 'upcoming'
+  const lifecycle = activity ? getActivityLifecycleStatus(activity, clockNow) : 'upcoming'
   const open = Math.max(0, activity.slots - activity.taken)
-  const soldOut = open <= 0 || activity.status === 'full' || activity.status === 'closed' || activity.lifecycleStatus !== 'upcoming'
+  const soldOut = open <= 0 || activity.status === 'full' || activity.status === 'closed' || (lifecycle !== 'upcoming' || activity.status === 'closed')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -149,17 +158,12 @@ function ActivityDetail() {
             <div className="p-4 sm:p-6">
             <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-1.5">{activity.programName}</div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">{activity.title}</h1>
+              <span className={"inline-flex rounded-full px-2.5 py-1 text-xs font-semibold mb-3 " + ACTIVITY_STATUS_DISPLAY[activityStatus].cls}>{ACTIVITY_STATUS_DISPLAY[activityStatus].label}</span>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 mb-4">
               <span className="inline-flex items-center gap-1.5"><Calendar size={14} /> {activity.date}</span>
               <span className="inline-flex items-center gap-1.5"><MapPin size={14} /> {activity.venue}</span>
             </div>
-            <p className="text-sm text-gray-600 mb-4">{activity.previewDesc}</p>
-
-            {activity.fullDesc && !(role === 'participant' && alreadyRegistered) && (
-              <p className="text-sm text-gray-500 mb-4 italic">
-                Full details unlock after you register.
-              </p>
-            )}
+            <p className="whitespace-pre-wrap break-words text-sm text-gray-600 mb-4">{activityDescription(activity.previewDesc, activity.fullDesc)}</p>
 
             <div className="flex justify-between items-center text-sm text-gray-500 mb-5">
               <span>{open <= 0 ? 'Full' : `${open} slot${open === 1 ? '' : 's'} left`}</span>
@@ -176,8 +180,8 @@ function ActivityDetail() {
               >
               {alreadyRegistered
                 ? 'Registered'
-                : activity.lifecycleStatus !== 'upcoming'
-                ? 'Registration Closed'
+                : activityStatus === 'closed' || lifecycle !== 'upcoming'
+                ? (activityStatus === 'closed' ? 'Activity Closed' : lifecycle === 'completed' ? 'Activity Completed' : 'Registration Closed')
                 : soldOut
                 ? 'Activity Full'
                 : submitting

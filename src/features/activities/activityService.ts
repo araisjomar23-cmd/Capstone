@@ -21,7 +21,7 @@ export async function fetchActivities(strict = false): Promise<Activity[]> {
     .from('legacy_activities')
     .select(`
       id, program_id, title, color_bg, tags,
-      status, slots, taken,
+      status, manually_closed, attendance_finalized_at, slots, taken,
       start_date, end_date, start_time, end_time, checkin_early_access_minutes,
       venue, preview_desc, full_desc,
       outcomes, schedule, bring, note,
@@ -70,6 +70,8 @@ export async function fetchActivities(strict = false): Promise<Activity[]> {
     colorBg: a.color_bg || '',
     tags: a.tags || [],
     status: a.status || 'open',
+    manuallyClosed: a.manually_closed === true,
+    attendanceFinalizedAt: a.attendance_finalized_at,
     slots: a.slots || 0,
     taken: a.taken || 0,
     regCount: regMap[a.id] || 0,
@@ -95,25 +97,18 @@ export async function fetchActivities(strict = false): Promise<Activity[]> {
 
 export async function toggleActivityStatus(
   id: string,
-  currentStatus: string,
-  currentEndDate?: string
+  currentStatus: string
 ): Promise<boolean> {
   const isReopening = currentStatus === 'closed'
   const newStatus = isReopening ? 'open' : 'closed'
 
-  const now = new Date()
-  const todayDate = now.toISOString().slice(0, 10)
-  const nowTime = now.toTimeString().slice(0, 5)
-
-  const updatePayload: Record<string, any> = { status: newStatus }
-
+  // Completed activities are historical records. Create a new run through the form instead.
   if (isReopening) {
-    updatePayload.start_date = todayDate
-    updatePayload.start_time = nowTime
-    if (!currentEndDate || currentEndDate < todayDate) {
-      updatePayload.end_date = todayDate
-    }
+    const { data, error } = await supabase.from('legacy_activities')
+      .select('start_date, end_date, start_time, end_time').eq('id', id).single()
+    if (error || !data || getActivityLifecycleStatus({ startDate: data.start_date, endDate: data.end_date, startTime: data.start_time, endTime: data.end_time }) === 'completed') return false
   }
+  const updatePayload = { status: newStatus, manually_closed: !isReopening }
 
   const { error } = await supabase.from('legacy_activities').update(updatePayload).eq('id', id)
 
@@ -191,6 +186,11 @@ export interface ActivityFormPayload {
   colorBg: string
   note: string
   budget: number
+  previousActivityId?: string
+  tags?: string[]
+  outcomes?: string[]
+  schedule?: string[]
+  bring?: string[]
 }
 
 export async function saveActivity(
@@ -198,7 +198,13 @@ export async function saveActivity(
   facilitators: Facilitator[],
   editingId: string | null
 ): Promise<{ ok: boolean; error?: string; id?: string }> {
+  if (editingId && payload.previousActivityId) return { ok: false, error: 'A new run must be created as a separate activity.' }
   const dbPayload = {
+    ...(payload.previousActivityId ? { previous_activity_id: payload.previousActivityId } : {}),
+    ...(payload.tags ? { tags: payload.tags } : {}),
+    ...(payload.outcomes ? { outcomes: payload.outcomes } : {}),
+    ...(payload.schedule ? { schedule: payload.schedule } : {}),
+    ...(payload.bring ? { bring: payload.bring } : {}),
     title: payload.title,
     program_id: payload.programId,
     start_date: payload.startDate,

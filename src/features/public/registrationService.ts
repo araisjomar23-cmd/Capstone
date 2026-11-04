@@ -30,7 +30,7 @@ export async function fetchActivityById(id: string): Promise<PublicActivity | nu
     .from('legacy_activities')
     .select(`
       id, program_id, title, color_bg, tags,
-      status, slots, taken, start_date, end_date, start_time, end_time, venue,
+      status, manually_closed, slots, taken, start_date, end_date, start_time, end_time, venue,
       preview_desc, full_desc, outcomes, schedule, bring, note,
       programs ( id, name )
     `)
@@ -50,6 +50,7 @@ export async function fetchActivityById(id: string): Promise<PublicActivity | nu
     colorBg: data.color_bg || '',
     tags: data.tags || [],
     status: data.status || 'open',
+    manuallyClosed: data.manually_closed === true,
     lifecycleStatus: getActivityLifecycleStatus({
       startDate: data.start_date,
       endDate: data.end_date,
@@ -126,7 +127,7 @@ export interface MyRegistration {
   refCode: string
   hasEvaluation: boolean
   hasAttended: boolean
-  activityStatus: 'upcoming' | 'ongoing' | 'completed'
+  activityStatus: 'upcoming' | 'ongoing' | 'completed' | 'closed'
   checkInOpensAt: string
 }
 
@@ -147,7 +148,7 @@ interface MyEvaluationStatusRecord {
   activity_title: string
   evaluated: boolean
   attended: boolean
-  activity_status: 'upcoming' | 'ongoing' | 'completed'
+  activity_status: 'upcoming' | 'ongoing' | 'completed' | 'closed'
   checkin_opens_at: string
 }
 

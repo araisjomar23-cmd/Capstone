@@ -1,3 +1,4 @@
+import { ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { Pin, Users, CheckCircle2, Clock } from 'lucide-react'
 import { useMyActivityIds } from '../../features/facilitators/useMyActivityIds'
 import { fetchFacilitatorDashboard } from '../../features/facilitators/facilitatorPortalService'
@@ -7,12 +8,6 @@ import { EmptyState } from '../../components/EmptyState'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
-const STATUS_PILL: Record<string, string> = {
-  open: 'bg-green-100 text-green-700',
-  upcoming: 'bg-blue-100 text-blue-700',
-  full: 'bg-red-100 text-red-700',
-  closed: 'bg-gray-100 text-gray-600',
-}
 
 function FacilitatorDashboard() {
   const { activityIds, loading: idsLoading } = useMyActivityIds()
@@ -29,6 +24,7 @@ function FacilitatorDashboard() {
   })
 
   useEffect(() => {
+    const timer = window.setInterval(() => { void loadRef.current() }, 60_000)
     const channel = supabase
       .channel(`facilitator-dashboard-live-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => loadRef.current())
@@ -36,6 +32,7 @@ function FacilitatorDashboard() {
       .subscribe()
 
     return () => {
+      window.clearInterval(timer)
       supabase.removeChannel(channel)
     }
   }, [])
@@ -61,7 +58,7 @@ function FacilitatorDashboard() {
           <StatCard icon={<Pin size={40} />} barColor="var(--color-primary)" label="My Activities" value={data.activities.length} />
           <StatCard icon={<Users size={40} />} barColor="var(--color-info)" label="Total Participants" value={data.totalParticipants} />
           <StatCard icon={<CheckCircle2 size={40} />} barColor="var(--color-teal)" label="Attended" value={data.totalAttended} />
-          <StatCard icon={<Clock size={40} />} barColor="var(--color-accent)" label="Upcoming/Open" value={data.upcoming} />
+          <StatCard icon={<Clock size={40} />} barColor="var(--color-accent)" label="Upcoming" value={data.upcoming} />
         </div>
       )}
 
@@ -95,8 +92,8 @@ function FacilitatorDashboard() {
                   <td className="px-4 py-3 text-xs">{a.venue}</td>
                   <td className="px-4 py-3">{a.slots}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_PILL[a.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {a.status}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${ACTIVITY_STATUS_DISPLAY[a.status].cls}`}>
+                      {ACTIVITY_STATUS_DISPLAY[a.status].label}
                     </span>
                   </td>
                 </tr>

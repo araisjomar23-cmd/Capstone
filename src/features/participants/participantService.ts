@@ -1,3 +1,4 @@
+import { getActivityDisplayStatus } from '../activities/activityLifecycle'
 import { supabase } from '../../lib/supabase'
 import type { ParticipantAttendance, Registration } from '../../types/registration'
 
@@ -14,6 +15,10 @@ interface ProgramRecord {
 interface LegacyActivityRecord {
   id: string
   title: string | null
+  status: string | null
+  manually_closed: boolean | null
+  start_time: string | null
+  end_time: string | null
   start_date: string | null
   end_date: string | null
   date_text: string | null
@@ -48,7 +53,7 @@ export async function fetchParticipants(strict = false): Promise<Registration[]>
       name, age, gender_identity, contact, barangay, organization,
       status, registered_at, attended_at, notes, sectoral_group,
       legacy_activities (
-        id, title, start_date, end_date, date_text, venue,
+        id, title, start_date, end_date, start_time, end_time, status, manually_closed, date_text, venue,
         programs ( name )
       )
     `)
@@ -98,6 +103,7 @@ export async function fetchParticipants(strict = false): Promise<Registration[]>
       org: r.organization || '',
       activityId: activity?.id ?? r.activity_id,
       activityTitle: activity?.title ?? '—',
+      activityStatus: activity ? getActivityDisplayStatus({ status: activity.status || 'open', manuallyClosed: activity.manually_closed === true, startDate: activity.start_date || '', endDate: activity.end_date || '', startTime: activity.start_time, endTime: activity.end_time }) : undefined,
       activityStartDate: activity?.start_date || undefined,
       activityEndDate: activity?.end_date || undefined,
       activityDate: activity?.date_text ?? '—',
