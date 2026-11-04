@@ -24,8 +24,7 @@ interface ParticipantRow {
   sectoral_group: string | null
 }
 
-const YOUTH_CLASSES = ['In-School Youth', 'Out-of-School Youth', 'Working Youth', 'Person with Disability (PWD Youth)']
-const SECTORAL_GROUPS = ['Indigenous People', 'LGBTQIA+', 'Solo Parent', 'Youth with Disability', 'None']
+import { YOUTH_CLASSES, SECTORAL_GROUPS } from '../../features/participants/profileOptions'
 
 function calcAge(birthday: string): number {
   const today = new Date()
@@ -82,6 +81,7 @@ export default function ParticipantProfile() {
 
     if (!form.first_name.trim()) return setError('First name is required.')
     if (!form.last_name.trim()) return setError('Last name is required.')
+    if (!form.sectoral_group) return setError('Please select a Sectoral Group.')
     if (form.contact && !/^09\d{9}$/.test(form.contact)) {
       return setError('Contact must be a valid PH mobile number (09XXXXXXXXX).')
     }
@@ -275,6 +275,7 @@ export default function ParticipantProfile() {
                 <select className="input" value={form.youth_classification || ''}
                   onChange={(e) => setField('youth_classification', e.target.value)}>
                   <option value="">Select</option>
+                  {form.youth_classification && !YOUTH_CLASSES.includes(form.youth_classification) && <option value={form.youth_classification}>{form.youth_classification}</option>}
                   {YOUTH_CLASSES.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
@@ -285,9 +286,10 @@ export default function ParticipantProfile() {
             {editing ? (
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Sectoral Group</label>
-                <select className="input" value={form.sectoral_group || ''}
+                <select required className="input" value={form.sectoral_group || ''}
                   onChange={(e) => setField('sectoral_group', e.target.value)}>
                   <option value="">Select</option>
+                  {form.sectoral_group && !SECTORAL_GROUPS.includes(form.sectoral_group) && <option value={form.sectoral_group}>{form.sectoral_group}</option>}
                   {SECTORAL_GROUPS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>

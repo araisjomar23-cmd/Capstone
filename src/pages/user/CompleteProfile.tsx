@@ -8,8 +8,7 @@ import { useAuth } from '../../features/auth/AuthContext'
 import { AlertCircle } from 'lucide-react'
 import { getYouthAgeGroup } from '../../lib/youthAgeGroups'
 
-const YOUTH_CLASSES = ['In-School Youth', 'Out-of-School Youth', 'Working Youth', 'Person with Disability (PWD Youth)']
-const SECTORAL_GROUPS = ['Indigenous People', 'LGBTQIA+', 'Solo Parent', 'Youth with Disability', 'None']
+import { YOUTH_CLASSES, SECTORAL_GROUPS } from '../../features/participants/profileOptions'
 
 interface FormState {
   firstName: string
@@ -99,6 +98,7 @@ export default function CompleteProfile() {
     if (!form.city) return setError('City / Municipality is required.')
     if (!form.barangay) return setError('Barangay is required.')
     if (!form.youthClass) return setError('Please select a Youth Classification.')
+    if (!form.sectoral) return setError('Please select a Sectoral Group.')
 
     setSaving(true)
 
@@ -153,7 +153,7 @@ export default function CompleteProfile() {
 
         <div className="space-y-6">
           <section>
-            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Personal Info</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-700 mb-3">Personal Info</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input placeholder="First Name" value={form.firstName}
                 onChange={(e) => setField('firstName', e.target.value)} className="input" />
@@ -165,7 +165,7 @@ export default function CompleteProfile() {
                 onChange={(e) => setField('suffix', e.target.value)} className="input" />
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Birthday</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Birthday</label>
                 <DatePicker value={form.birthday} onChange={(value) => setField('birthday', value)} className="input" aria-label="Birthday" />
                 <div aria-live="polite">
                   {invalidAge ? (
@@ -202,7 +202,7 @@ export default function CompleteProfile() {
           </section>
 
           <section>
-            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Address</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-700 mb-3">Address</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <select value={form.province} onChange={(e) => setField('province', e.target.value)} className="input">
                 <option value="">Select Province</option>
@@ -224,7 +224,7 @@ export default function CompleteProfile() {
           </section>
 
           <section>
-            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Youth Info</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-700 mb-3">Youth Info</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input placeholder="Organization (optional)" value={form.organization}
                 onChange={(e) => setField('organization', e.target.value)} className="input" />
@@ -234,8 +234,8 @@ export default function CompleteProfile() {
                 {YOUTH_CLASSES.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
 
-              <select value={form.sectoral} onChange={(e) => setField('sectoral', e.target.value)} className="input md:col-span-2">
-                <option value="">Select Sectoral Group (optional)</option>
+              <select required value={form.sectoral} onChange={(e) => setField('sectoral', e.target.value)} className="input md:col-span-2">
+                <option value="">Select Sectoral Group</option>
                 {SECTORAL_GROUPS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
