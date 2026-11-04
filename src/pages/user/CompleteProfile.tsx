@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import DatePicker from '../../components/DatePicker'
+import FloatingLabelInput from '../../components/FloatingLabelInput'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getProvinces, getCities, getBarangays } from '../../features/public/region11Data'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -155,14 +156,14 @@ export default function CompleteProfile() {
           <section>
             <h2 className="text-xs font-bold uppercase tracking-wide text-gray-700 mb-3">Personal Info</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input placeholder="First Name" value={form.firstName}
-                onChange={(e) => setField('firstName', e.target.value)} className="input" />
-              <input placeholder="Middle Name" value={form.middleName}
-                onChange={(e) => setField('middleName', e.target.value)} className="input" />
-              <input placeholder="Last Name" value={form.lastName}
-                onChange={(e) => setField('lastName', e.target.value)} className="input" />
-              <input placeholder="Suffix (Jr., III, etc.)" value={form.suffix}
-                onChange={(e) => setField('suffix', e.target.value)} className="input" />
+              <FloatingLabelInput label="First Name" value={form.firstName} autoComplete="given-name"
+                onChange={(value) => setField('firstName', value)} />
+              <FloatingLabelInput label="Middle Name" value={form.middleName} autoComplete="additional-name"
+                onChange={(value) => setField('middleName', value)} />
+              <FloatingLabelInput label="Last Name" value={form.lastName} autoComplete="family-name"
+                onChange={(value) => setField('lastName', value)} />
+              <FloatingLabelInput label="Suffix (Jr., III, etc.)" value={form.suffix} autoComplete="honorific-suffix"
+                onChange={(value) => setField('suffix', value)} />
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Birthday</label>
