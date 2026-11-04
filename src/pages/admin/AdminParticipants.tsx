@@ -9,6 +9,7 @@ import { SkeletonStatCard, SkeletonTableRows } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { getYouthAgeGroup, YOUTH_AGE_GROUPS } from '../../lib/youthAgeGroups'
 
 const PILL_STYLES: Record<string, string> = {
   absent: 'bg-red-50 text-red-700',
@@ -32,6 +33,7 @@ function AdminParticipants() {
   const [activityFilter, setActivityFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selected, setSelected] = useState<Registration | null>(null)
+  const [ageGroupFilter, setAgeGroupFilter] = useState('')
 
  useEffect(() => {
     load()
@@ -82,9 +84,10 @@ function AdminParticipants() {
       }
       const mA = !activityFilter || String(p.activityId) === activityFilter
       const mS = !statusFilter || p.status === statusFilter
-      return mQ && mA && mS && matchesDatePeriod(p.activityStartDate, p.activityEndDate, period)
+      const mAge = !ageGroupFilter || getYouthAgeGroup(p.age) === ageGroupFilter
+      return mQ && mA && mS && mAge && matchesDatePeriod(p.activityStartDate, p.activityEndDate, period)
     })
-  }, [all, search, activityFilter, statusFilter, period])
+  }, [all, search, activityFilter, statusFilter, ageGroupFilter, period])
 
   const countBy = (s: string) => filtered.filter((p) => p.status === s).length
 
@@ -145,6 +148,11 @@ function AdminParticipants() {
           <option value="inactive">Inactive</option>
           <option value="not_registered">Unregistered</option>
         </select>
+        <select aria-label="Age group" value={ageGroupFilter} onChange={(e) => setAgeGroupFilter(e.target.value)}
+          className="filter-select border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[180px]">
+          <option value="">All Age Groups</option>
+          {YOUTH_AGE_GROUPS.map((group) => <option key={group.label} value={group.label}>{group.label} ({group.min}–{group.max} yrs)</option>)}
+        </select>
       </div>
 
       <p className="text-xs text-gray-500 mb-2">
@@ -185,7 +193,7 @@ function AdminParticipants() {
                     <div className="font-medium text-gray-900">{p.name}</div>
                     <div className="text-xs text-gray-400">{p.ref || p.email || '—'}</div>
                   </td>
-                  <td className="px-4 py-3">{p.age} / {p.gender}</td>
+                  <td className="px-4 py-3">{p.age} / {p.gender}<div className="text-xs text-gray-500">{getYouthAgeGroup(p.age)}</div></td>
                   <td className="px-4 py-3">{p.barangay}</td>
                   <td className="px-4 py-3">{p.contact}</td>
                   <td className="px-4 py-3">
@@ -263,7 +271,7 @@ function AdminParticipants() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-gray-600 mb-2">
-                  <div><span className="text-gray-400">Age/Gender: </span>{p.age} / {p.gender}</div>
+                  <div><span className="text-gray-400">Age/Gender: </span>{p.age} / {p.gender}<div className="text-gray-500">{getYouthAgeGroup(p.age)}</div></div>
                   <div><span className="text-gray-400">Barangay: </span>{p.barangay}</div>
                   <div className="col-span-2"><span className="text-gray-400">Contact: </span>{p.contact}</div>
                 </div>

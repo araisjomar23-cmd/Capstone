@@ -6,6 +6,7 @@ import { getProvinces, getCities, getBarangays } from '../../features/public/reg
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useAuth } from '../../features/auth/AuthContext'
 import { AlertCircle } from 'lucide-react'
+import { getYouthAgeGroup, YOUTH_AGE_GROUPS } from '../../lib/youthAgeGroups'
 
 const YOUTH_CLASSES = ['In-School Youth', 'Out-of-School Youth', 'Working Youth', 'Person with Disability (PWD Youth)']
 const SECTORAL_GROUPS = ['Indigenous People', 'LGBTQIA+', 'Solo Parent', 'Youth with Disability', 'None']
@@ -63,7 +64,7 @@ export default function CompleteProfile() {
   const activityId = searchParams.get('activity')
   const requestedReturnTo = searchParams.get('returnTo')
   const age = form.birthday ? calcAge(form.birthday) : null
-  const invalidAge = age !== null && (!Number.isInteger(age) || age < 13 || age > 30)
+  const invalidAge = age !== null && (!Number.isInteger(age) || age < 15 || age > 30)
 
   const provinces = getProvinces()
   const cities = form.province ? getCities(form.province) : []
@@ -86,8 +87,8 @@ export default function CompleteProfile() {
     if (!form.birthday) return setError('Birthday is required.')
 
     const age = calcAge(form.birthday)
-    if (!Number.isInteger(age) || age < 13 || age > 30) {
-      return setError('Sorry, you are not eligible to participate. Participation is open only to individuals aged 13–30.')
+    if (!Number.isInteger(age) || age < 15 || age > 30) {
+      return setError('Sorry, you are not eligible to participate. Participation is open only to individuals aged 15–30.')
     }
 
     if (!form.gender) return setError('Gender identity is required.')
@@ -172,10 +173,16 @@ export default function CompleteProfile() {
                       <AlertCircle size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-red-600" />
                       <div>
                         <p className="text-sm font-semibold">Age eligibility requirement</p>
-                        <p className="mt-1 text-xs leading-relaxed">Sorry, you are not eligible to participate. Participation is open only to individuals aged 13–30, so you cannot complete your participant profile.</p>
+                        <p className="mt-1 text-xs leading-relaxed">Sorry, you are not eligible to participate. Participation is open only to individuals aged 15–30, so you cannot complete your participant profile.</p>
                       </div>
                     </div>
-                  ) : <p className="mt-1 text-xs text-gray-500">Participants must be 13–30 years old.</p>}
+                  ) : <p className="mt-1 text-xs text-gray-500">Participants must be 15–30 years old.</p>}
+                  <div className="mt-2 text-xs text-gray-500">
+                    <p className="font-semibold text-gray-600">AGE{age !== null && !invalidAge ? `: ${age} years · ${getYouthAgeGroup(age)}` : ':'}</p>
+                    <ul className="mt-1 space-y-1">
+                      {YOUTH_AGE_GROUPS.map((group) => <li key={group.label}>{group.label} ({group.min}yrs–{group.max}yrs)</li>)}
+                    </ul>
+                  </div>
                 </div>
               </div>
 

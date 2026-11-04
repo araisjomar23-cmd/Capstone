@@ -131,6 +131,21 @@ test('Participants supports age search and empty combined results', () => {
   assert.match(renderPage('AdminParticipants', [period, participants, false, '20', '', 'completed', null]), /Showing 1 of 3 participants/)
   assert.match(renderPage('AdminParticipants', [period, participants, false, '', 'old', 'completed', null]), /Showing 0 of 3 participants/)
 })
+
+test('participant age groups filter inclusive boundaries and combine with other filters', () => {
+  const ages = [14, 15, 17, 18, 24, 25, 30, 31]
+  const rows = ages.map((age) => ({ ...participants[1], id: `age-${age}`, name: `Person age-${age}`, age }))
+  for (const [group, expected] of [['Child Youth', [15, 17]], ['Core Youth', [18, 24]], ['Adult Youth', [25, 30]]]) {
+    const html = renderPage('AdminParticipants', [period, rows, false, '', '', '', null, group])
+    assert.match(html, /Showing 2 of 8 participants/)
+    for (const age of ages) {
+      assert.equal(html.includes(`Person age-${age}`), expected.includes(age), `${group}: age ${age}`)
+    }
+    const empty = renderPage('AdminParticipants', [period, rows, false, 'no-match', '', '', null, group])
+    assert.match(empty, /Showing 0 of 8 participants/)
+  }
+  assert.match(renderPage('AdminParticipants', [period, rows, false, '', '', '', null, '']), /Showing 8 of 8 participants/)
+})
 test('Activities combines date, program and activity status filters', () => {
   const html = renderPage('AdminActivities', [period, activities, false, 'p2', false, null, Date.parse('2026-07-01T00:00:00Z'), null, 'ongoing'])
   assert.match(html, /Selected workshop/)

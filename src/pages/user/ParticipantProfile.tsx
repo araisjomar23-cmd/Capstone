@@ -87,8 +87,8 @@ export default function ParticipantProfile() {
     }
 
     const age = form.birthday ? calcAge(form.birthday) : form.age
-    if (age == null || !Number.isInteger(age) || age < 13 || age > 30) {
-      return setError('Participants must be 13–30 years old. Please double-check your birthday.')
+    if (age == null || !Number.isInteger(age) || age < 15 || age > 30) {
+      return setError('Participants must be 15–30 years old. Please double-check your birthday.')
     }
     setSaving(true)
 
