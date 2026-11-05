@@ -1,5 +1,8 @@
 import { ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
-import { Search, Users } from 'lucide-react'
+import { Search, Users, Printer } from 'lucide-react'
+import ActivityDateFilter from '../../components/ActivityDateFilter'
+import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
+import { printAttendance } from '../../features/participants/printAttendance'
 import { useMyActivityIds } from '../../features/facilitators/useMyActivityIds'
 import { fetchParticipants } from '../../features/participants/participantService'
 import type { Registration } from '../../types/registration'
@@ -21,6 +24,8 @@ function FacilitatorParticipants() {
   const [all, setAll] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [period, setPeriod] = useState(currentYearPeriod)
+  const [activityFilter, setActivityFilter] = useState('')
 
   useEffect(() => {
     if (!idsLoading) load()
@@ -53,20 +58,38 @@ function FacilitatorParticipants() {
     setLoading(false)
   }
 
+  const assigned = useMemo(() => all.filter(p => activityIds.includes(p.activityId)), [all, activityIds])
+  const activityOptions = useMemo(() => [...new Map(assigned.map(p => [p.activityId, `${p.activityTitle} (${activityDateLabel(p.activityStartDate, p.activityEndDate)})`])).entries()], [assigned])
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return all
-    return all.filter(
+    return assigned.filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
+        matchesDatePeriod(p.activityStartDate, p.activityEndDate, period) &&
+        (!activityFilter || p.activityId === activityFilter) &&
+        (!q || p.name.toLowerCase().includes(q) ||
         p.ref.toLowerCase().includes(q) ||
-        p.activityTitle.toLowerCase().includes(q)
-    )
-  }, [all, search])
+        p.activityTitle.toLowerCase().includes(q))
+    ).sort((a, b) => a.name.localeCompare(b.name, 'en-PH', { sensitivity: 'base' }))
+  }, [assigned, search, period, activityFilter])
+  const busy = loading || idsLoading
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <h1 className="text-2xl font-bold text-primary mb-6">My Participants</h1>
+      <ActivityDateFilter value={period} onChange={setPeriod} showHelp={false}
+        dates={assigned.map(p => ({ start: p.activityStartDate, end: p.activityEndDate }))}
+        actions={<button type="button" className="btn-primary min-h-11 inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={busy || !filtered.length}
+          onClick={() => { if (!busy && filtered.length) printAttendance(filtered, period) }}>
+          <Printer size={16} aria-hidden="true" /> Print attendance
+        </button>} />
+      <label className="block text-xs font-medium text-gray-600 mb-4 max-w-md">
+        Activity
+        <select className="input filter-select mt-1.5" value={activityFilter} onChange={e => setActivityFilter(e.target.value)}>
+          <option value="">All assigned activities</option>
+          {activityOptions.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+        </select>
+      </label>
 
       <div className="relative mb-4 max-w-md">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -80,7 +103,7 @@ function FacilitatorParticipants() {
       </div>
 
       <p className="text-xs text-gray-500 mb-2">
-        {loading ? 'Loading…' : `Showing ${filtered.length} of ${all.length} participants`}
+        {busy ? 'Loading…' : `Showing ${filtered.length} of ${assigned.length} participants`}
       </p>
 
       <div className="panel overflow-x-auto">
@@ -96,7 +119,7 @@ function FacilitatorParticipants() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {busy ? (
               <SkeletonTableRows cols={6} />
             ) : filtered.length === 0 ? (
               <tr>

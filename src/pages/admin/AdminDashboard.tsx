@@ -104,17 +104,13 @@ function AdminDashboard() {
 
       <DashboardControlPanel data={data} now={now} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-4 mb-4">
-        <div className="min-w-0 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 items-stretch gap-4 mb-4">
           <AttendanceTrendChart data={data.attendanceTrend} />
-          <RegistrationStatusChart data={data.statusBreakdown} />
-        </div>
-        <div className="min-w-0 space-y-4">
           <ActivityRegistrationsChart
             data={data.activityRegistrations}
           />
+          <RegistrationStatusChart data={data.statusBreakdown} />
           <BudgetOverviewChart data={data.budgetOverview} allocated={data.totalBudgetAllocated} spent={data.totalBudgetSpent} />
-        </div>
       </div>
       <RecentEvaluationsFeed rows={data.recentEvaluations} />
     </div>
@@ -129,12 +125,12 @@ function RegistrationStatusChart({
   const isEmpty = data.length === 0 || data.every((d) => d.value === 0)
 
   return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
       <h2 className="text-sm font-semibold text-gray-600 mb-2">Attendees by Sectoral Group</h2>
       {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center">No registration data yet.</p>
+        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No registration data yet.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={260}>
           <PieChart>
             <Pie
               data={data}
@@ -167,17 +163,17 @@ function ActivityRegistrationsChart({
   const isEmpty = data.length === 0
 
   return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold text-gray-600">Registrations by Activity</h2>
 
       </div>
       <p className="text-xs text-gray-500 mb-3">Top 8 activities by registrations in the selected period.</p>
       {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center">No activities for this period. Try another fiscal year.</p>
+        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No activities for this period. Try another fiscal year.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 12, bottom: 12 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="name"
@@ -185,8 +181,8 @@ function ActivityRegistrationsChart({
               interval={0}
               angle={-35}
               textAnchor="end"
-              height={54}
-              tickFormatter={(name: any) => (String(name).length > 18 ? `${String(name).slice(0, 18)}…` : String(name))}
+              height={78}
+              tickFormatter={(name: any) => (String(name).length > 16 ? `${String(name).slice(0, 16)}…` : String(name))}
             />
             <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
             <Tooltip />
@@ -210,15 +206,15 @@ function BudgetOverviewChart({
   const isEmpty = data.length === 0
 
   return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
       <h2 className="text-sm font-semibold text-gray-600 mb-2">Budget: Allocated vs Spent</h2>
       <p className="text-xs text-gray-500 mb-3">Allocated: PHP {allocated.toLocaleString()} <span className="mx-1">/</span> Spent: PHP {spent.toLocaleString()}</p>
       <p className="text-xs text-gray-500 mb-3">Chart shows up to 8 activities with the largest allocations; totals include all selected activities.</p>
       {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center">No budget data yet.</p>
+        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No budget data yet.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 12, bottom: 12 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="name"
@@ -226,13 +222,14 @@ function BudgetOverviewChart({
               interval={0}
               angle={-35}
               textAnchor="end"
-              height={54}
-              tickFormatter={(name: any) => (String(name).length > 18 ? `${String(name).slice(0, 18)}…` : String(name))}
+              height={78}
+              tickFormatter={(name: any) => (String(name).length > 16 ? `${String(name).slice(0, 16)}…` : String(name))}
             />
             <YAxis
               allowDecimals={false}
               tick={{ fontSize: 12 }}
-              tickFormatter={(v: any) => `₱${Number(v).toLocaleString()}`}
+              width={76}
+              tickFormatter={(v: any) => `₱${new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(v))}`}
             />
             <Tooltip formatter={(v: any) => `₱${Number(v).toLocaleString()}`} />
             <Legend verticalAlign="top" height={28} />
@@ -249,13 +246,13 @@ function AttendanceTrendChart({ data }: { data: { date: string; registrations: n
   const isEmpty = data.every((d) => d.registrations === 0 && d.attendance === 0)
 
   return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
       <h2 className="text-sm font-semibold text-gray-600 mb-2">Registrations vs Attendance (Last 14 Days)</h2>
       {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center">No activity in the last 14 days.</p>
+        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No activity in the last 14 days.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart data={data} margin={{ top: 8, right: 12, left: 12, bottom: 12 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="date"
@@ -286,13 +283,13 @@ function RecentEvaluationsFeed({
   const isEmpty = rows.length === 0
 
   return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5">
+    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 className="text-sm font-semibold text-gray-600">Recent Evaluations</h2>
         <Link to="/admin/evaluations" className="text-xs font-semibold text-primary min-h-11 inline-flex items-center">View all evaluations</Link>
       </div>
       {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center">No evaluations submitted yet.</p>
+        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No evaluations submitted yet.</p>
       ) : (
         <ul className="divide-y divide-gray-100">
           {rows.map((r) => (

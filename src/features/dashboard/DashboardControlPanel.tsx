@@ -22,7 +22,7 @@ export default function DashboardControlPanel({ data, now }: { data: DashboardDa
 
   return (
     <div className="space-y-4 mb-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 items-stretch gap-4">
         <section className="panel !p-4 sm:!p-5 min-w-0">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800"><CalendarDays size={18} className="text-primary" aria-hidden="true" />Activity overview</h2>

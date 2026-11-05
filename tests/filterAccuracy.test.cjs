@@ -139,6 +139,43 @@ test('organization attendance template preserves columns, separates events and s
   assert.equal(rows[0].id, 'z')
 })
 
+test('facilitator attendance printing uses assigned activities and selected period', () => {
+  function renderFacilitator(ids, selectedPeriod, activity = '') {
+    const states = [participants, false, '', selectedPeriod, activity]
+    let index = 0
+    const Component = load('src/pages/facilitator/FacilitatorParticipants.tsx', {
+      react: { ...React, useState: initial => React.useState(index < states.length ? states[index++] : initial) },
+      '../../features/facilitators/useMyActivityIds': { useMyActivityIds: () => ({ activityIds: ids, loading: false }) },
+      '../../features/participants/participantService': {},
+      '../../lib/supabase': { supabase: {} },
+    }).default
+    return renderToStaticMarkup(React.createElement(Component))
+  }
+  const html = renderFacilitator(['new'], period)
+  assert.match(html, /Print attendance/)
+  assert.match(html, /Showing 2 of 2 participants/)
+  assert.doesNotMatch(html, /Previous workshop/)
+  const empty = renderFacilitator(['new'], { year: '2027', month: '' })
+  assert.match(empty, /Showing 0 of 2 participants/)
+  assert.match(empty, /<button[^>]*disabled=""[^>]*>[^]*?Print attendance/)
+  assert.match(renderFacilitator([], period), /Showing 0 of 0 participants/)
+})
+
+test('shared attendance QR gallery renders compact activity cards for both portals', () => {
+  const Gallery = load('src/features/attendance/ActivityQrGallery.tsx', {
+    './FinalizeAttendanceButton': { default: () => null },
+  }).default
+  const html = renderToStaticMarkup(React.createElement(Gallery, { activities: [activities[1], activities[0]], now: Date.parse('2026-06-01T00:00:00Z'), onRefresh() {} }))
+  assert.ok(html.indexOf('Previous workshop') < html.indexOf('Selected workshop'), 'QR cards should show the earliest start date first')
+  assert.match(html, /Activity QR Codes/)
+  assert.match(html, /Selected workshop/)
+  assert.match(html, /<button/)
+  assert.doesNotMatch(html, /<canvas|Download PNG/)
+  for (const page of ['src/pages/admin/AdminAttendance.tsx', 'src/pages/facilitator/FacilitatorAttendance.tsx']) {
+    assert.match(fs.readFileSync(page, 'utf8'), /<ActivityQrGallery/)
+  }
+})
+
 test('attendance print is enabled for matching registrations and disabled for empty periods', () => {
   const available = renderPage('AdminParticipants', [period, participants, false, '', '', '', null, ''])
   assert.match(available, /Print attendance/)

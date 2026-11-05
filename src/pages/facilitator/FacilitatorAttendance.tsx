@@ -1,8 +1,7 @@
-import FinalizeAttendanceButton from '../../features/attendance/FinalizeAttendanceButton'
+import ActivityQrGallery from '../../features/attendance/ActivityQrGallery'
 import { ACTIVITY_STATUS_DISPLAY, getActivityDisplayStatus, isActivityVisibleInCatalog } from '../../features/activities/activityLifecycle'
 import { useEffect, useRef, useState } from 'react'
-import { QRCodeCanvas } from 'qrcode.react'
-import { QrCode, RefreshCw, CheckCircle2, Download, ClipboardList } from 'lucide-react'
+import { RefreshCw, CheckCircle2, ClipboardList } from 'lucide-react'
 import { useMyActivityIds } from '../../features/facilitators/useMyActivityIds'
 import { fetchActivities } from '../../features/activities/activityService'
 import { loadTodayLog, markAttendance } from '../../features/attendance/attendanceService'
@@ -94,23 +93,15 @@ function FacilitatorAttendance() {
     }
   }
 
-  function downloadQR(activityId: string, title: string) {
-    const canvas = document.getElementById(`fac-qr-canvas-${activityId}`) as HTMLCanvasElement | null
-    if (!canvas) return
-    const a = document.createElement('a')
-    a.href = canvas.toDataURL('image/png')
-    a.download = `QR_${title.replace(/\s+/g, '_')}.png`
-    a.click()
-  }
 
   const scannableActivities = activities.filter((a) => isActivityVisibleInCatalog(a, clockNow))
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <h1 className="text-2xl font-bold text-primary mb-6">Attendance & QR</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="panel p-5">
+        <div className="panel p-4 sm:p-5">
           <h2 className="text-base font-bold text-gray-900 mb-4">Mark Attendance</h2>
           {scannableActivities.length === 0 ? (
             <EmptyState icon={<ClipboardList size={22} />} title="No active activities" subtitle="You have no upcoming or ongoing assigned activities available for check-in." />
@@ -160,7 +151,7 @@ function FacilitatorAttendance() {
           )}
         </div>
 
-        <div className="panel p-5">
+        <div className="panel p-4 sm:p-5">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-base font-bold text-gray-900">
               Today's Log <span className="text-gray-400 font-normal text-sm">({log.filter((r) => activityIds.includes(r.activityId)).length})</span>
@@ -196,32 +187,8 @@ function FacilitatorAttendance() {
         </div>
       </div>
 
-      <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-        <QrCode size={20} /> Attendance & Evaluation QR Codes
-      </h2>
-      {activities.length === 0 ? (
-        <EmptyState icon={<QrCode size={22} />} title="No assigned activities" />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {activities.map((a) => (
-            <div key={a.id} className="panel p-4 flex flex-col items-center text-center">
-              <div className="text-sm font-bold text-gray-900">{a.title}</div>
-              <div className="text-xs text-gray-400 mb-3">{a.date} · {a.venue}</div>
-              {!a.attendanceFinalizedAt && getActivityDisplayStatus(a, clockNow) !== 'closed' && <div className="p-2 bg-white">
-              <QRCodeCanvas id={`fac-qr-canvas-${a.id}`} value={`${window.location.origin}/checkin/${a.id}`} size={130} fgColor="#1a5c3a" bgColor="#ffffff" />
-              </div>}
-              <p className="text-xs text-gray-500 mt-2">{a.attendanceFinalizedAt ? 'Attendance finalized. Further submissions are closed.' : getActivityDisplayStatus(a, clockNow) === 'closed' ? 'This activity was manually closed. Check-in is unavailable.' : 'Show near the end or after the activity. Participants must submit every required evaluation answer before attendance is recorded automatically.'}</p>
-              <span className={`px-2 py-1 rounded-full text-[10px] font-medium mt-2 mb-3 ${ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(a, clockNow)].cls}`}>
-                {ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(a, clockNow)].label}
-              </span>
-              <button disabled={!!a.attendanceFinalizedAt || getActivityDisplayStatus(a, clockNow) === 'closed'} onClick={() => downloadQR(a.id, a.title)} className="text-primary text-xs font-semibold hover:underline">
-                <Download size={14} className="inline mr-1" /> Download PNG
-              </button>
-              <FinalizeAttendanceButton activity={a} now={clockNow} onFinalized={() => void init()} />
-            </div>
-          ))}
-        </div>
-      )}
+      <ActivityQrGallery activities={activities.filter(a => activityIds.includes(a.id))} now={clockNow} onRefresh={() => void init()} />
+
     </div>
   )
 }

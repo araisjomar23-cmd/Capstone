@@ -315,6 +315,8 @@ function ActivityBudgetDetail({
             min={0}
             placeholder="Set allocated budget (₱)"
             value={allocInput}
+            step="0.01"
+            onWheel={(e) => e.currentTarget.blur()}
             onChange={(e) => setAllocInput(e.target.value)}
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
           />
@@ -505,6 +507,8 @@ function ActivityBudgetDetail({
             min={0}
             placeholder="Amount (₱)"
             value={amount}
+            step="0.01"
+            onWheel={(e) => e.currentTarget.blur()}
             onChange={(e) => setAmount(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
           />

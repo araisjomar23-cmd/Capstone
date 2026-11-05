@@ -368,6 +368,8 @@ function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = 
               type="number"
               min={0}
               value={form.budget}
+              step="0.01"
+              onWheel={(e) => e.currentTarget.blur()}
               onChange={(e) => setField('budget', e.target.value)}
               className={inputClass('budget')}
             />
