@@ -1,21 +1,25 @@
 import { activityDescription } from '../../features/activities/activityDescription'
 import { getActivityLifecycleStatus, getActivityDisplayStatus, ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { fetchActivityById, registerParticipant } from '../../features/public/registrationService'
 import type { PublicActivity } from '../../features/public/publicActivityService'
-import { CheckCircle2 } from 'lucide-react'
-import { ArrowLeft, MapPin, Calendar } from 'lucide-react'
+import RegistrationConfirmation from '../../features/public/RegistrationConfirmation'
+import ActivityDeliveryDetails from '../../features/public/ActivityDeliveryDetails'
+import ParticipantLoading from '../../components/participant/ParticipantLoading'
+import { ArrowLeft, MapPin, Calendar, Clock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../features/auth/AuthContext'
-import { QRCodeCanvas } from 'qrcode.react'
 import { fetchMyRegistrations } from '../../features/public/registrationService'
 
 function ActivityDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { role } = useAuth()
-  const backTo = role === 'participant' ? '/participant' : '/'
+  const fromMyActivities = role === 'participant' && location.state?.from === '/participant/my-activities'
+  const fromEvaluations = role === 'participant' && location.state?.from === '/participant/evaluations'
+  const backTo = role === 'participant' ? (fromMyActivities ? '/participant/my-activities' : fromEvaluations ? '/participant/evaluations' : '/participant') : '/'
   const [activity, setActivity] = useState<PublicActivity | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -29,7 +33,7 @@ function ActivityDetail() {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
 
   useEffect(() => {
-    if (id) load(id)
+    if (id) load(id, true)
   }, [id])
 
   useEffect(() => {
@@ -56,8 +60,8 @@ function ActivityDetail() {
     }
   }, [id])
 
-  async function load(activityId: string) {
-    setLoading(true)
+  async function load(activityId: string, initial = false) {
+    if (initial) setLoading(true)
     const data = await fetchActivityById(activityId)
     setActivity(data)
     setLoading(false)
@@ -97,7 +101,7 @@ function ActivityDetail() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading…</div>
+    return <div className="min-h-screen bg-gray-50 px-4 py-8"><div className="max-w-3xl mx-auto"><ParticipantLoading view="detail" /></div></div>
   }
 
   if (!activity) {
@@ -105,7 +109,7 @@ function ActivityDetail() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-gray-500">Activity not found.</p>
         <button onClick={() => navigate(backTo)} className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline">
-          <ArrowLeft size={14} /> Back to activities
+          <ArrowLeft size={14} /> {fromMyActivities ? 'Back to My Activities' : fromEvaluations ? 'Back to My Evaluations' : 'Back to activities'}
         </button>
       </div>
     )
@@ -114,26 +118,8 @@ function ActivityDetail() {
   if (refCode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-          <CheckCircle2 size={48} className="mx-auto mb-3 text-primary" />
-          <h1 className="text-xl font-bold text-gray-900 mb-1">You're Registered!</h1>
-          <p className="text-sm text-gray-500 mb-6">{activity.title}</p>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-            <div className="text-xs text-gray-500 mb-1">Your Reference Code</div>
-            <div className="text-2xl font-bold text-primary tracking-wider">{refCode}</div>
-          </div>
-          <div className="inline-flex p-3 bg-white border rounded-xl mb-4" aria-label="Attendance QR code">
-            <QRCodeCanvas value={refCode} size={176} level="M" />
-          </div>
-          <p className="text-xs text-gray-400 mb-6">
-            Save this code — you'll need it to check in / mark attendance on the activity day.
-          </p>
-          <button
-              onClick={() => navigate(backTo)}
-              className="w-full bg-primary text-white font-medium py-2.5 rounded-lg"
-            >
-            Back to Activities
-          </button>
+        <div className="bg-white rounded-2xl shadow-lg max-w-lg w-full text-center">
+          <RegistrationConfirmation activity={activity} refCode={refCode} onBrowse={() => navigate(backTo)} />
         </div>
       </div>
     )
@@ -148,7 +134,7 @@ function ActivityDetail() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
        <button onClick={() => navigate(backTo)} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary mb-4">
-          <ArrowLeft size={14} /> Back to activities
+          <ArrowLeft size={14} /> {fromMyActivities ? 'Back to My Activities' : fromEvaluations ? 'Back to My Evaluations' : 'Back to activities'}
        </button>
 
         <div className="panel overflow-hidden">
@@ -159,13 +145,16 @@ function ActivityDetail() {
             <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-1.5">{activity.programName}</div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">{activity.title}</h1>
               <span className={"inline-flex rounded-full px-2.5 py-1 text-xs font-semibold mb-3 " + ACTIVITY_STATUS_DISPLAY[activityStatus].cls}>{ACTIVITY_STATUS_DISPLAY[activityStatus].label}</span>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 mb-4">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-base font-medium text-gray-800 mb-5">
               <span className="inline-flex items-center gap-1.5"><Calendar size={14} /> {activity.date}</span>
+              {activity.time && <span className="inline-flex items-center gap-1.5"><Clock size={14} /> {activity.time}</span>}
               <span className="inline-flex items-center gap-1.5"><MapPin size={14} /> {activity.venue}</span>
             </div>
-            <p className="whitespace-pre-wrap break-words text-sm text-gray-600 mb-4">{activityDescription(activity.previewDesc, activity.fullDesc)}</p>
+            <ActivityDeliveryDetails activityId={activity.id} />
+            <h2 className="text-lg font-bold text-gray-900 mb-3">About this activity</h2>
+            <p className="whitespace-pre-wrap break-words text-base leading-7 text-gray-800 mb-6">{activityDescription(activity.previewDesc, activity.fullDesc)}</p>
 
-            <div className="flex justify-between items-center text-sm text-gray-500 mb-5">
+            <div className="flex justify-between items-center text-sm font-medium text-gray-700 mb-5">
               <span>{open <= 0 ? 'Full' : `${open} slot${open === 1 ? '' : 's'} left`}</span>
               <span>{activity.taken}/{activity.slots} registered</span>
             </div>

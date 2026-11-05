@@ -4,6 +4,8 @@ import ParticipantLayout from '../../layouts/ParticipantLayout'
 import { getProvinces, getCities, getBarangays } from '../../features/public/region11Data'
 import { User, Pencil, Save, X } from 'lucide-react'
 import DatePicker from '../../components/DatePicker'
+import ParticipantLoading from '../../components/participant/ParticipantLoading'
+import { useConfirmation } from '../../components/ConfirmationProvider'
 
 interface ParticipantRow {
   id: number
@@ -36,6 +38,7 @@ function calcAge(birthday: string): number {
 }
 
 export default function ParticipantProfile() {
+  const confirm = useConfirmation()
   const [row, setRow] = useState<ParticipantRow | null>(null)
   const [form, setForm] = useState<ParticipantRow | null>(null)
   const [loading, setLoading] = useState(true)
@@ -76,7 +79,7 @@ export default function ParticipantProfile() {
   }
 
   async function handleSave() {
-    if (!form) return
+    if (!form || saving) return
     setError('')
 
     if (!form.first_name.trim()) return setError('First name is required.')
@@ -91,6 +94,15 @@ export default function ParticipantProfile() {
       return setError('Participants must be 15–30 years old. Please double-check your birthday.')
     }
     setSaving(true)
+    const confirmed = await confirm({
+      title: 'Save profile changes?',
+      message: 'Your updated profile details will also appear in your activity registrations and participant records.',
+      confirmLabel: 'Save Changes',
+    })
+    if (!confirmed) {
+      setSaving(false)
+      return
+    }
 
     const { error: updateError } = await supabase
       .from('participants')
@@ -136,7 +148,7 @@ export default function ParticipantProfile() {
   if (loading) {
     return (
       <ParticipantLayout>
-        <p className="text-gray-400">Loading profile…</p>
+        <ParticipantLoading view="profile" />
       </ParticipantLayout>
     )
   }
@@ -160,9 +172,7 @@ export default function ParticipantProfile() {
         </div>
 
         {!editing ? (
-          <button onClick={() => {
-            if (window.confirm('Do you want to edit your profile?')) setEditing(true)
-          }} className="btn-primary inline-flex items-center gap-2">
+          <button onClick={() => setEditing(true)} className="btn-primary inline-flex items-center gap-2">
             <Pencil size={15} /> Edit Profile
           </button>
         ) : (

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, ClipboardList, Clock3 } from 'lucide-react'
 import ParticipantLayout from '../../layouts/ParticipantLayout'
 import { EmptyState } from '../../components/EmptyState'
-import { SkeletonCard } from '../../components/Skeleton'
+import ParticipantLoading from '../../components/participant/ParticipantLoading'
 import { fetchMyRegistrations, type MyRegistration } from '../../features/public/registrationService'
 import { supabase } from '../../lib/supabase'
 
@@ -43,12 +43,12 @@ export default function ParticipantEvaluations() {
   return (
     <ParticipantLayout>
       <h1 className="text-3xl font-bold mb-1">My Evaluations</h1>
-      <p className="text-gray-500 mb-8 text-sm">Your registered activities and when their evaluation forms become available.</p>
+      <p className="text-gray-700 mb-8 text-sm leading-relaxed">Review your evaluation status. On activity day, scan the Attendance &amp; Evaluation QR provided by your facilitator.</p>
 
       {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       {loading ? (
-        <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} lines={2} />)}</div>
+        <ParticipantLoading view="evaluations" />
       ) : registrations.length === 0 ? (
         <div className="panel">
           <EmptyState icon={<ClipboardList size={22} />} title="No registered activities" subtitle="Once you register for an activity, its evaluation status will appear here." />
@@ -56,41 +56,51 @@ export default function ParticipantEvaluations() {
       ) : (
         <div className="space-y-4">
           {registrations.map((registration) => {
-            const eligible = registration.hasAttended && registration.activityStatus === 'completed'
+            const cancelled = registration.status === 'inactive'
+            const eligible = !cancelled && registration.status !== 'absent' && registration.hasAttended && registration.activityStatus === 'completed'
             const statusText = registration.hasEvaluation
               ? 'Evaluation submitted. Thank you for your feedback.'
+              : cancelled
+                ? 'This registration was cancelled. Evaluation is unavailable.'
               : registration.activityStatus === 'closed'
                 ? 'This activity was manually closed. Evaluation is unavailable.'
               : !registration.hasAttended
-                ? 'Evaluation is locked until your attendance is recorded.'
+                ? registration.activityStatus === 'upcoming'
+                  ? 'Evaluation will be available after the activity ends.'
+                  : registration.activityStatus === 'ongoing'
+                    ? 'Follow your facilitator’s instructions for evaluation and attendance.'
+                    : 'No attendance is recorded for this activity. Contact your facilitator for assistance.'
                 : registration.activityStatus !== 'completed'
                   ? 'Attendance is recorded. The evaluation opens after the activity ends.'
                   : 'Your evaluation is ready.'
 
             return (
-              <article key={registration.id} className="panel flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0">
+              <article key={registration.id} className="panel !p-5 sm:!p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 min-w-0">
                 <div className="flex items-start gap-3 min-w-0">
-                  <span className="mt-1 text-primary"><ClipboardList size={20} /></span>
+                  <span className="shrink-0 rounded-xl bg-primary-light p-2.5 text-primary"><ClipboardList size={22} /></span>
                   <div className="min-w-0">
-                    <h2 className="font-bold text-gray-900 break-words">{registration.title}</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-gray-900 break-words leading-relaxed">{registration.title}</h2>
                     <span className={"inline-flex mt-2 rounded-full px-2 py-1 text-xs font-semibold " + ACTIVITY_STATUS_DISPLAY[registration.activityStatus].cls}>{ACTIVITY_STATUS_DISPLAY[registration.activityStatus].label}</span>
-                    <p className="text-sm text-gray-500 mt-1">{statusText}</p>
-                    {registration.activityStatus !== 'closed' && !registration.hasAttended && !registration.hasEvaluation && (
-                      <p className="text-xs text-gray-500 mt-1">Attend the activity and wait for staff to record your attendance before taking the evaluation.</p>
+                    <p className="text-sm text-gray-800 mt-3 leading-relaxed">{statusText}</p>
+                    {!cancelled && registration.activityStatus !== 'closed' && registration.activityStatus !== 'completed' && !registration.hasAttended && !registration.hasEvaluation && (
+                      <p className="text-sm text-gray-700 mt-1 leading-relaxed">Scan the activity’s Attendance &amp; Evaluation QR when provided, then complete the evaluation to record your attendance.</p>
                     )}
                     {registration.hasAttended && registration.activityStatus !== 'closed' && registration.activityStatus !== 'completed' && !registration.hasEvaluation && (
-                      <p className="text-xs text-gray-500 mt-1">The evaluation form will become available when this activity is complete.</p>
+                      <p className="text-sm text-gray-700 mt-1 leading-relaxed">The evaluation form will become available when this activity is complete.</p>
                     )}
                   </div>
                 </div>
 
+                <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
                 {registration.hasEvaluation ? (
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700"><CheckCircle2 size={16} /> Submitted</span>
                 ) : eligible ? (
                   <Link to={`/evaluate/${registration.activityId}`} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white">Open evaluation</Link>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600"><Clock3 size={16} /> {registration.activityStatus === 'closed' ? 'Activity Closed' : 'Not available yet'}</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700"><Clock3 size={16} /> {cancelled ? 'Registration cancelled' : registration.activityStatus === 'closed' ? 'Activity Closed' : registration.activityStatus === 'completed' ? 'Attendance not recorded' : 'Not available yet'}</span>
                 )}
+                  <Link to={`/activities/${registration.activityId}`} state={{ from: '/participant/evaluations' }} className="text-sm font-semibold text-primary hover:underline min-h-11 inline-flex items-center">View Activity Details</Link>
+                </div>
               </article>
             )
           })}

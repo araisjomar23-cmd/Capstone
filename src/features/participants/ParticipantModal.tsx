@@ -1,4 +1,5 @@
 import type { Registration } from '../../types/registration'
+import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 
 const PILL_STYLES: Record<string, string> = {
@@ -26,19 +27,44 @@ interface Props {
 }
 
 function ParticipantModal({ participant: p, onClose }: Props) {
-
-  const fields: [string, string][] = [
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeRef.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+      if (event.key === 'Tab') {
+        const buttons = dialogRef.current?.querySelectorAll<HTMLElement>('button, a[href], [tabindex="0"]')
+        if (!buttons?.length) return
+        const first = buttons[0], last = buttons[buttons.length - 1]
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => { document.body.style.overflow = overflow; window.removeEventListener('keydown', onKeyDown); previous?.focus() }
+  }, [onClose])
+  const personal: [string, string][] = [
     ['Full Name', p.name],
     ['Email', p.email || '—'],
     ['Age / Gender', `${p.age} / ${p.gender}`],
     ['Birthday', p.birthday || '—'],
+    ['Contact', p.contact],
+  ]
+  const address: [string, string][] = [
     ['Barangay', p.barangay],
     ['City / Municipality', p.cityMunicipality || '—'],
     ['Province', p.province || '—'],
-    ['Contact', p.contact],
+  ]
+  const youth: [string, string][] = [
     ['Organization', p.org || '—'],
     ['Youth Classification', p.youthClassification || '—'],
     ['Sectoral Group', p.sectoralGroup || '—'],
+  ]
+  const activity: [string, string][] = [
     ['Reference Code', p.ref || '—'],
     [p.status === 'not_registered' ? 'Account Created' : 'Registered At', fmt(p.registeredAt)],
     ['Attended At', fmt(p.attendedAt)],
@@ -46,7 +72,12 @@ function ParticipantModal({ participant: p, onClose }: Props) {
     ['Activity', p.status === 'not_registered' ? 'Unregistered' : p.activityTitle],
     ['Date', p.activityDate],
     ['Venue', p.activityVenue],
-    ['Notes', p.notes || '—'],
+  ]
+  const groups = [
+    { title: 'Personal information', fields: personal },
+    { title: 'Address', fields: address },
+    { title: 'Youth information', fields: youth },
+    { title: 'Activity registration', fields: activity },
   ]
 
   return (
@@ -55,33 +86,39 @@ function ParticipantModal({ participant: p, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="participant-details-title"
+        className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90dvh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-gray-100 flex justify-between items-start">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">{p.name}</h2>
-            <p className="text-sm text-gray-500">{p.status === 'not_registered' ? 'Unregistered' : `${p.activityTitle} · ${p.program}`}</p>
+        <div className="p-5 sm:px-8 sm:py-6 border-b border-gray-200 flex justify-between items-start gap-5 shrink-0">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-2">Participant details</p>
+            <h2 id="participant-details-title" className="text-xl sm:text-2xl font-bold text-gray-900 break-words">{p.name}</h2>
+            <span className={`inline-flex mt-3 px-3 py-1 rounded-full text-xs font-semibold ${PILL_STYLES[p.status] || 'bg-gray-100 text-gray-600'}`}>
+              {p.status === 'not_registered' ? 'Unregistered' : p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+            </span>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
+          <button ref={closeRef} type="button" aria-label="Close participant details" onClick={onClose} className="shrink-0 rounded-lg p-2 text-gray-600 hover:bg-gray-100">
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            {fields.map(([label, value]) => (
-              <div key={label} className="bg-gray-50 rounded-lg p-3">
-                <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold mb-1">
-                  {label}
-                </div>
-                <div className="text-sm font-semibold text-gray-800 break-all">{value}</div>
-              </div>
-            ))}
-          </div>
+        <div className="overflow-y-auto p-5 sm:p-8 space-y-7 min-h-0">
+          {groups.map(group => <section key={group.title}>
+            <h3 className="text-base font-bold text-gray-900 mb-4">{group.title}</h3>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5 rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
+              {group.fields.map(([label, value]) => <div key={label} className={`min-w-0 ${['Activity', 'Venue', 'Organization'].includes(label) ? 'sm:col-span-2 lg:col-span-3' : ''}`}>
+                <dt className="text-xs font-medium text-gray-600 mb-1.5">{label}</dt>
+                <dd className="text-sm font-semibold text-gray-900 leading-relaxed break-words [overflow-wrap:anywhere]">{value}</dd>
+              </div>)}
+            </dl>
+          </section>)}
 
           <div className="mb-4">
-            <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold mb-2">Attendance History</div>
+            <h3 className="text-base font-bold text-gray-900 mb-3">Attendance history</h3>
             {p.attendanceHistory.length ? (
               <ul className="space-y-1 text-sm text-gray-700">
                 {p.attendanceHistory.map((record, index) => (
@@ -90,16 +127,7 @@ function ParticipantModal({ participant: p, onClose }: Props) {
                   </li>
                 ))}
               </ul>
-            ) : <p className="text-sm text-gray-400">No check-ins recorded for this activity.</p>}
-          </div>
-
-          <div className="mb-4">
-            <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold mb-2">
-              Current Status
-            </div>
-            <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${PILL_STYLES[p.status] || 'bg-gray-100 text-gray-600'}`}>
-              {p.status === 'not_registered' ? 'UNREGISTERED' : p.status.toUpperCase()}
-            </span>
+            ) : <p className="text-sm text-gray-700">No check-ins recorded for this activity.</p>}
           </div>
 
         </div>

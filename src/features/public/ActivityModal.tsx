@@ -2,11 +2,12 @@ import { activityDescription } from '../activities/activityDescription'
 import { getActivityLifecycleStatus, getActivityDisplayStatus, ACTIVITY_STATUS_DISPLAY } from '../activities/activityLifecycle'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, MapPin, Calendar, Clock, CheckCircle2 } from 'lucide-react'
+import { X, MapPin, Calendar, Clock } from 'lucide-react'
 import { fetchActivityById, registerParticipant } from './registrationService'
 import type { PublicActivity } from './publicActivityService'
 import { supabase } from '../../lib/supabase'
-import { QRCodeCanvas } from 'qrcode.react'
+import RegistrationConfirmation from './RegistrationConfirmation'
+import ActivityDeliveryDetails from './ActivityDeliveryDetails'
 import { useAuth } from '../auth/AuthContext'
 
 interface Props {
@@ -101,24 +102,7 @@ function ActivityModal({ activityId, onClose }: Props) {
         ) : !activity ? (
           <div className="py-24 text-center text-gray-400">Activity not found.</div>
         ) : refCode ? (
-          <div className="p-8 text-center">
-            <CheckCircle2 size={48} className="mx-auto mb-3 text-primary" />
-            <h1 className="text-xl font-bold text-gray-900 mb-1">You're Registered!</h1>
-            <p className="text-sm text-gray-500 mb-6">{activity.title}</p>
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-              <div className="text-xs text-gray-500 mb-1">Your Reference Code</div>
-              <div className="text-2xl font-bold text-primary tracking-wider">{refCode}</div>
-            </div>
-            <div className="inline-flex p-3 bg-white border rounded-xl mb-4" aria-label="Attendance QR code">
-              <QRCodeCanvas value={refCode} size={176} level="M" />
-            </div>
-            <p className="text-xs text-gray-400 mb-6">
-              Save this code — you'll need it to check in / mark attendance on the activity day.
-            </p>
-            <button onClick={onClose} className="w-full btn-primary py-2.5">
-              Close
-            </button>
-          </div>
+          <RegistrationConfirmation activity={activity} refCode={refCode} onBrowse={onClose} />
         ) : (
           <>
             <div className="h-28 relative" style={{ backgroundColor: activity.colorBg || '#1a5c3a' }}>
@@ -128,12 +112,14 @@ function ActivityModal({ activityId, onClose }: Props) {
               <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-1.5">{activity.programName}</div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">{activity.title}</h1>
               <span className={"inline-flex rounded-full px-2.5 py-1 text-xs font-semibold mb-3 " + ACTIVITY_STATUS_DISPLAY[activityStatus].cls}>{ACTIVITY_STATUS_DISPLAY[activityStatus].label}</span>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mb-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-base font-medium text-gray-800 mb-5">
                 <span className="inline-flex items-center gap-1.5"><Calendar size={14} /> {activity.date}</span>
                 {activity.time && <span className="inline-flex items-center gap-1.5"><Clock size={14} /> {activity.time}</span>}
                 <span className="inline-flex items-center gap-1.5"><MapPin size={14} /> {activity.venue}</span>
               </div>
-              <p className="whitespace-pre-wrap break-words text-sm text-gray-600 mb-4">{activityDescription(activity.previewDesc, activity.fullDesc)}</p>
+              <ActivityDeliveryDetails activityId={activity.id} />
+              <h2 className="text-lg font-bold text-gray-900 mb-3">About this activity</h2>
+              <p className="whitespace-pre-wrap break-words text-base leading-7 text-gray-800 mb-6">{activityDescription(activity.previewDesc, activity.fullDesc)}</p>
 
               <div className="flex justify-between items-center text-sm text-gray-500 mb-5">
                 <span>{open <= 0 ? 'Full' : `${open} slot${open === 1 ? '' : 's'} left`}</span>

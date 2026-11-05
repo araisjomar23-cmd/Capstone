@@ -161,6 +161,57 @@ test('facilitator attendance printing uses assigned activities and selected peri
   assert.match(renderFacilitator([], period), /Showing 0 of 0 participants/)
 })
 
+test('registration confirmation explains activity QR flow and links to My Activities without a personal QR', () => {
+  const Confirmation = load('src/features/public/RegistrationConfirmation.tsx', {
+    'react-router-dom': { Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children) },
+  }).default
+  const html = renderToStaticMarkup(React.createElement(Confirmation, {
+    activity: { title: 'Youth workshop', date: 'Nov 16, 2026', time: '9:00 AM', venue: 'City Hall' },
+    refCode: 'PM-TEST123', onBrowse() {},
+  }))
+  for (const text of ['Registration successful', 'Youth workshop', 'Nov 16, 2026', '9:00 AM', 'City Hall', 'PM-TEST123', 'Keep this for staff assistance.', 'View My Activities', 'Browse More Activities']) assert.ok(html.includes(text), text)
+  assert.match(html, /href="\/participant\/my-activities"/)
+  assert.match(html, /complete the evaluation to record your attendance/)
+  assert.doesNotMatch(html, /<canvas/)
+})
+
+test('participant loading views provide accessible status and hide decorative skeletons', () => {
+  const Loading = load('src/components/participant/ParticipantLoading.tsx', { './ParticipantLoading.css': {} }).default
+  for (const view of ['catalog', 'registrations', 'evaluations', 'profile', 'detail', 'session']) {
+    const html = renderToStaticMarkup(React.createElement(Loading, { view }))
+    assert.match(html, /role="status"/)
+    assert.match(html, /aria-label="[^"]+"/)
+    assert.match(html, /aria-hidden="true"/)
+    assert.match(html, /participant-placeholder/)
+  }
+})
+
+test('admin participant rows use the edited account profile without changing attendance history', async () => {
+  const profile = { user_uuid: 'youth-1', first_name: 'Updated', middle_name: 'Middle', last_name: 'Person', age: 24, gender_identity: 'Female', contact: '09999999999', barangay: 'New barangay', organization: 'New organization', city_municipality: 'Panabo City', province: 'Davao del Norte' }
+  const records = {
+    participants: [profile],
+    registrations: [{ user_uuid: 'youth-1' }],
+    attendance_log: [{ registration_id: 'reg-1', checked_in_at: '2026-07-01T01:00:00Z', day_number: 1 }],
+    registration_details: [{ id: 'reg-1', user_uuid: 'youth-1', activity_id: 'new', ref_code: 'PM-KEEP', name: 'Old name', age: 20, gender_identity: 'Male', contact: 'Old contact', barangay: 'Old barangay', organization: 'Old organization', status: 'attended', registered_at: '2026-07-01T00:00:00Z', attended_at: '2026-07-01T01:00:00Z', legacy_activities: { id: 'new', title: 'Workshop', status: 'open', start_date: '2026-07-01', end_date: '2026-07-01' } }],
+  }
+  const { fetchAdminParticipants } = load('src/features/participants/participantService.ts', {
+    '../../lib/supabase': { supabase: { from(table) {
+      const query = { select() { return query }, order() { return query }, in() { return query }, then(resolve, reject) { return Promise.resolve({ data: records[table] || [], error: null }).then(resolve, reject) } }
+      return query
+    } } },
+  })
+  const [row] = await fetchAdminParticipants()
+  assert.equal(row.name, 'Updated Middle Person')
+  assert.equal(row.age, 24)
+  assert.equal(row.gender, 'Female')
+  assert.equal(row.contact, profile.contact)
+  assert.equal(row.barangay, profile.barangay)
+  assert.equal(row.org, profile.organization)
+  assert.equal(row.ref, 'PM-KEEP')
+  assert.equal(row.status, 'attended')
+  assert.equal(row.attendanceHistory.length, 1)
+})
+
 test('shared attendance QR gallery renders compact activity cards for both portals', () => {
   const Gallery = load('src/features/attendance/ActivityQrGallery.tsx', {
     './FinalizeAttendanceButton': { default: () => null },

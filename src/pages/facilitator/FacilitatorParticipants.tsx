@@ -42,6 +42,7 @@ function FacilitatorParticipants() {
       .channel(`facilitator-participants-live-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => { void loadRef.current() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => loadRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registration_details' }, () => loadRef.current())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_log' }, () => loadRef.current())
       .subscribe()
 

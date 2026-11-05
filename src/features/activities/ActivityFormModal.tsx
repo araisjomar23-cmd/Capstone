@@ -183,13 +183,13 @@ function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = 
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div role="dialog" aria-modal="true" aria-label={viewOnly ? "Activity Details" : isEdit ? "Edit Activity" : "Create Activity"} className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-100 sticky top-0 bg-white z-10 flex justify-between items-start">
+      <div role="dialog" aria-modal="true" aria-label={viewOnly ? "Activity Details" : isEdit ? "Edit Activity" : "Create Activity"} className="activity-form-dialog bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[92dvh] flex flex-col overflow-hidden">
+        <div className="p-5 sm:px-8 sm:py-6 border-b border-gray-200 bg-white z-10 flex justify-between items-start gap-5 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
               {viewOnly ? 'Activity Details' : isEdit ? 'Edit Activity' : repeatActivity ? 'Create New Activity Run' : 'Create New Activity'}
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-600 mt-2 leading-relaxed">
               {viewOnly ? 'Review activity details and manage this activity below.' : isEdit ? 'Update the activity details below' : repeatActivity ? 'Choose a new schedule. Past participants, attendance, budgets, and evaluations stay with the completed run.' : 'Fill in the details to publish a new activity'}
             </p>
             {viewOnly && editingActivity && <div className="mt-3">
@@ -203,8 +203,11 @@ function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <fieldset disabled={viewOnly || submitting || toggling} className="contents">
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+          <div className="overflow-y-auto p-5 sm:p-8 min-h-0 space-y-6">
+          <fieldset disabled={viewOnly || submitting || toggling} className="space-y-7 min-w-0">
+          <section className="space-y-5">
+          <h3 className="text-base font-bold text-primary border-b border-gray-200 pb-3">Activity information</h3>
           <div className="flex gap-3">
             <div className="flex-[2]">
               <label className="text-xs font-semibold text-gray-600">Activity Title</label>
@@ -259,6 +262,9 @@ function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = 
             </div>
           </div>
 
+          </section>
+          <section className="space-y-5">
+          <h3 className="text-base font-bold text-primary border-b border-gray-200 pb-3">Schedule &amp; location</h3>
           <div>
             <label className="text-xs font-semibold text-gray-600">Venue</label>
             <input
@@ -296,6 +302,9 @@ function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = 
             </div>
           </div>
 
+          </section>
+          <section className="space-y-5">
+          <h3 className="text-base font-bold text-primary border-b border-gray-200 pb-3">Activity description</h3>
           <div>
             <label className="text-xs font-semibold text-gray-600">Description</label>
             <textarea
@@ -307,6 +316,9 @@ function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = 
             {errors.previewDesc && <p className="text-xs text-red-500 mt-1">{errors.previewDesc}</p>}
           </div>
 
+          </section>
+          <section className="space-y-5">
+          <h3 className="text-base font-bold text-primary border-b border-gray-200 pb-3">Team &amp; budget</h3>
           <div>
             <label className="text-xs font-semibold text-gray-600">Facilitators</label>
             {allFacilitators.length > 0 ? (
@@ -375,16 +387,7 @@ function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = 
             />
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-gray-600">Internal Note</label>
-            <textarea
-              rows={2}
-              value={form.note}
-              onChange={(e) => setField('note', e.target.value)}
-              className={inputClass('note')}
-            />
-          </div>
-
+          </section>
           </fieldset>
           {viewOnly && editingActivity && (
             <div className="grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-sm">
@@ -392,14 +395,15 @@ function ActivityFormModal({ editingActivity, repeatActivity = null, viewOnly = 
               <div><span className="block text-xs text-gray-500">Budget spent</span><span className="font-semibold">PHP {editingActivity.budgetSpent.toLocaleString()}</span></div>
             </div>
           )}
+          </div>
           {viewOnly ? (
-            <div className="flex flex-col sm:flex-row gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+            <div className="flex flex-col sm:flex-row gap-3 border-t border-gray-200 p-5 sm:px-8 bg-white shrink-0">
               <button type="button" onClick={onEdit} disabled={toggling} className="btn-primary min-h-11 flex-1 disabled:opacity-50">Edit Activity</button>
               <button type="button" onClick={onToggle} disabled={toggling} className="min-h-11 flex-1 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary disabled:opacity-50">
                 {toggling ? 'Updating...' : editingActivity && getActivityLifecycleStatus(editingActivity) === 'completed' ? 'Reopen as New Run' : editingActivity?.status === 'closed' ? 'Reopen Activity' : 'Close Activity'}
               </button>
             </div>
-          ) : <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+          ) : <div className="flex flex-col-reverse sm:flex-row gap-3 border-t border-gray-200 p-5 sm:px-8 bg-white shrink-0">
             <button
               type="submit"
               disabled={submitting}

@@ -26,6 +26,33 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.activity-form-dialog fieldset label {
+  display: block;
+  margin-bottom: 8px;
+  color: #374b40;
+  font-size: 13px;
+  font-weight: 600;
+}
+.activity-form-dialog fieldset input:not([type="color"]),
+.activity-form-dialog fieldset select,
+.activity-form-dialog fieldset textarea {
+  min-height: 46px;
+  padding: 11px 13px;
+  font-size: 14px;
+  color: #17231d;
+  background-color: #fff;
+}
+.activity-form-dialog fieldset input[type="color"] { height: 46px; padding: 5px; }
+.activity-form-dialog fieldset textarea { min-height: 160px; line-height: 1.7; resize: vertical; }
+.activity-form-dialog fieldset section > .flex { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.activity-form-dialog fieldset section > .flex > div { min-width: 0; }
+.activity-form-dialog fieldset input:disabled,
+.activity-form-dialog fieldset select:disabled,
+.activity-form-dialog fieldset textarea:disabled { color: #273e30; opacity: 1; background-color: #f6f8f6; }
+@media (max-width: 639px) {
+  .activity-form-dialog fieldset section > .flex { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+}
+
 button, a, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }

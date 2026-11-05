@@ -1,10 +1,10 @@
 import { ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { useEffect, useState } from 'react'
 import ParticipantLayout from '../../layouts/ParticipantLayout'
-import { SkeletonCard } from '../../components/Skeleton'
+import ParticipantLoading from '../../components/participant/ParticipantLoading'
 import { EmptyState } from '../../components/EmptyState'
 import CancelRegistrationModal from '../../components/CancelRegistrationModal'
-import { Calendar, ClipboardList } from 'lucide-react'
+import { Calendar, ClipboardList, Eye } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { QRCodeCanvas } from 'qrcode.react'
@@ -25,7 +25,6 @@ import {
   type RegistrationStatus,
 } from '../../features/public/registrationConstants'
 
-const SKELETON_COUNT = 3
 
 export default function MyActivities() {
   const [registrations, setRegistrations] = useState<MyRegistration[]>([])
@@ -112,11 +111,7 @@ export default function MyActivities() {
       )}
 
       {loading ? (
-        <div className="space-y-4">
-          {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-            <SkeletonCard key={i} lines={2} />
-          ))}
-        </div>
+        <ParticipantLoading view="registrations" />
       ) : registrations.length === 0 ? (
         <div className="panel">
           <EmptyState
@@ -135,6 +130,11 @@ export default function MyActivities() {
                 <div className="p-4 sm:p-5 flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="min-w-0">
                     <h2 className="font-bold text-lg text-gray-900 break-words">{reg.title}</h2>
+                    <Link to={`/activities/${reg.activityId}`} state={{ from: '/participant/my-activities' }}
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline min-h-11"
+                      aria-label={`View activity details for ${reg.title}`}>
+                      <Eye size={16} aria-hidden="true" /> View Activity Details
+                    </Link>
                     <p className="text-sm text-gray-500 flex items-center gap-1.5 mt-1">
                       <Calendar size={13} />
                       Registered {fmtDate(reg.registeredAt)}
@@ -170,10 +170,11 @@ export default function MyActivities() {
                       reg.activityStatus === 'upcoming' ? (
                         <p className="max-w-40 text-left sm:text-center text-[11px] text-gray-500">Check-in opens on {formatActivityCheckInOpensAt(reg.checkInOpensAt)}</p>
                       ) : reg.activityStatus === 'ongoing' ? (
-                        <div className="text-center">
-                          <QRCodeCanvas value={reg.refCode} size={80} level="M" />
-                          <p className="text-[10px] text-gray-500 mt-1">Attendance QR</p>
-                        </div>
+                        <details className="text-center max-w-44">
+                          <summary className="cursor-pointer text-xs font-semibold text-primary">Staff check-in QR</summary>
+                          <div className="flex justify-center mt-3"><QRCodeCanvas value={reg.refCode} size={96} level="M" /></div>
+                          <p className="text-[11px] text-gray-500 mt-2">Show this only if staff request it for manual check-in.</p>
+                        </details>
                       ) : <p className="max-w-40 text-center text-[11px] text-gray-500">Check-in is closed.</p>
                     )}
                     <div className="flex flex-col items-end gap-1">

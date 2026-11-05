@@ -1,0 +1,5 @@
+.participant-placeholder { border-radius: 8px; background: linear-gradient(100deg, #e9efeb 25%, #f5f8f6 45%, #e9efeb 65%); background-size: 220% 100%; animation: participant-shimmer 1.8s ease-in-out infinite; }
+.participant-loading-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: #278365; box-shadow: 0 0 0 4px #27836512; animation: participant-pulse 1.8s ease-in-out infinite; }
+@keyframes participant-shimmer { from { background-position: 110% 0; } to { background-position: -110% 0; } }
+@keyframes participant-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .participant-placeholder, .participant-loading-dot { animation: none; } }

@@ -27,6 +27,12 @@ interface LegacyActivityRecord {
 }
 
 interface ParticipantRegistrationRow {
+  first_name: string | null
+  middle_name: string | null
+  last_name: string | null
+  suffix: string | null
+  city_municipality: string | null
+  province: string | null
   id: string
   user_uuid: string
   ref_code: string | null
@@ -51,6 +57,7 @@ export async function fetchParticipants(strict = false): Promise<Registration[]>
     .select(`
       id, user_uuid, ref_code, activity_id,
       name, age, gender_identity, contact, barangay, organization,
+      first_name, middle_name, last_name, suffix, city_municipality, province,
       status, registered_at, attended_at, notes, sectoral_group,
       legacy_activities (
         id, title, start_date, end_date, start_time, end_time, status, manually_closed, date_text, venue,
@@ -90,6 +97,12 @@ export async function fetchParticipants(strict = false): Promise<Registration[]>
     return {
       id: r.id,
       userUuid: r.user_uuid,
+      firstName: r.first_name || '',
+      middleName: r.middle_name || '',
+      lastName: r.last_name || '',
+      suffix: r.suffix || '',
+      cityMunicipality: r.city_municipality || '',
+      province: r.province || '',
       ref: r.ref_code || '',
       registeredAt: r.registered_at,
       attendedAt: r.attended_at,
@@ -135,6 +148,11 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
     const profile = registration.userUuid ? profileByUser.get(registration.userUuid) : undefined
     return profile ? {
       ...registration,
+      name: [profile.first_name, profile.middle_name, profile.last_name, profile.suffix].filter(Boolean).join(' ') || registration.name,
+      age: profile.age ?? '—',
+      gender: profile.gender_identity || '—',
+      contact: profile.contact || '—',
+      barangay: profile.barangay || '—',
       org: profile.organization || '',
       firstName: profile.first_name || '',
       middleName: profile.middle_name || '',

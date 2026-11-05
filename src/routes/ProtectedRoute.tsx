@@ -1,6 +1,7 @@
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from '../features/auth/AuthContext'
+import ParticipantLoading from '../components/participant/ParticipantLoading'
 
 interface Props {
   children: ReactNode
@@ -14,7 +15,9 @@ function ProtectedRoute({ children, allowedRoles, loginPath = '/admin/login', ro
   const { loading, userId, role } = useAuth()
   const location = useLocation() 
 
-  if (loading) return <div className="p-8 text-gray-500">Checking session…</div>
+  if (loading) return location.pathname.startsWith('/participant')
+    ? <div className="min-h-screen bg-gray-50 p-6 sm:p-10"><div className="max-w-lg mx-auto pt-16"><ParticipantLoading view="session" /></div></div>
+    : <div className="p-8 text-gray-500">Checking session…</div>
 
   if (!userId) {
 
