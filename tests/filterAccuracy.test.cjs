@@ -8,6 +8,7 @@ const { renderToStaticMarkup } = require('react-dom/server')
 
 // Exercise the actual TypeScript helpers and page components without a live database.
 function load(relative, mocks = {}) {
+  if (/\.(jpeg|png)$/.test(relative)) return { default: relative }
   const file = path.resolve(relative)
   const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX },
@@ -121,15 +122,46 @@ test('Evaluations renders only feedback matching the date filter, with matching 
   assert.doesNotMatch(html, /Feedback old/)
   assert.match(html, /Showing 1 of 2 evaluations/)
 })
+test('organization attendance template preserves columns, separates events and sorts by surname', () => {
+  const { attendanceName } = load('src/features/participants/printAttendance.ts')
+  assert.deepEqual(attendanceName({ name: 'Erica Gonzales Luridan' }), { first: 'Erica', middle: 'G.', last: 'Luridan' })
+  assert.deepEqual(attendanceName({ name: 'Juan Dela Cruz Jr.' }), { first: 'Juan', middle: '', last: 'Dela Cruz Jr.' })
+  assert.deepEqual(attendanceName({ name: 'Maria Anne Santos Reyes', firstName: 'Maria Anne', middleName: 'Santos', lastName: 'Reyes' }), { first: 'Maria Anne', middle: 'S.', last: 'Reyes' })
+  const { ATTENDANCE_COLUMNS, attendanceTemplateRows } = load('src/features/participants/printAttendance.ts')
+  assert.deepEqual(ATTENDANCE_COLUMNS, ['NO', 'LAST NAME', 'FIRST NAME', 'M.I', 'AGE', 'SEX AT BIRTH', 'ADDRESS/OFFICE', 'SIGNATURE'])
+  const rows = [
+    { ...participant('z', activities[0]), lastName: 'Zulu', firstName: 'Ana' },
+    { ...participant('b', activities[1]), lastName: 'Bravo', firstName: 'Ben' },
+    { ...participant('a', activities[0]), lastName: 'alvarez', firstName: 'Zoe' },
+    { ...participant('profile', activities[0], 'not_registered'), activityId: '' },
+  ]
+  assert.deepEqual(attendanceTemplateRows(rows).map(group => group.map(row => row.id)), [['a', 'z'], ['b']])
+  assert.equal(rows[0].id, 'z')
+})
+
+test('attendance print is enabled for matching registrations and disabled for empty periods', () => {
+  const available = renderPage('AdminParticipants', [period, participants, false, '', '', '', null, ''])
+  assert.match(available, /Print attendance/)
+  assert.doesNotMatch(available, /<button[^>]*disabled=""[^>]*>[^]*?Print attendance/)
+  const empty = renderPage('AdminParticipants', [{ year: '2027', month: '' }, participants, false, '', '', '', null, ''])
+  assert.match(empty, /<button[^>]*disabled=""[^>]*>[^]*?Print attendance/)
+})
+
 test('Participants combines date, activity, status and numeric contact search', () => {
   const html = renderPage('AdminParticipants', [period, participants, false, '09123456789', 'new', 'completed', null])
   assert.match(html, /Person new-person/)
   assert.doesNotMatch(html, /Person old-person|Person inactive-person/)
-  assert.match(html, /Showing 1 of 3 participants/)
+  assert.match(html, /Showing 1 of 2 participants/)
 })
 test('Participants supports age search and empty combined results', () => {
-  assert.match(renderPage('AdminParticipants', [period, participants, false, '20', '', 'completed', null]), /Showing 1 of 3 participants/)
-  assert.match(renderPage('AdminParticipants', [period, participants, false, '', 'old', 'completed', null]), /Showing 0 of 3 participants/)
+  assert.match(renderPage('AdminParticipants', [period, participants, false, '20', '', 'completed', null]), /Showing 1 of 2 participants/)
+  assert.match(renderPage('AdminParticipants', [period, participants, false, '', 'old', 'completed', null]), /Showing 0 of 2 participants/)
+})
+
+test('participant total follows the selected month and year', () => {
+  assert.match(renderPage('AdminParticipants', [{ year: '2026', month: '11' }, participants, false, '', '', '', null, '']), /Showing 0 of 0 participants/)
+  assert.match(renderPage('AdminParticipants', [{ year: '2026', month: '07' }, participants, false, '', '', '', null, '']), /Showing 2 of 2 participants/)
+  assert.match(renderPage('AdminParticipants', [{ year: '2027', month: '' }, participants, false, '', '', '', null, '']), /Showing 0 of 0 participants/)
 })
 
 test('profiles without activities appear by profile creation date and respect combined filters', () => {
@@ -140,8 +172,8 @@ test('profiles without activities appear by profile creation date and respect co
   const html = renderPage('AdminParticipants', [period, rows, false, '', '', 'not_registered', null, 'Core Youth'])
   assert.match(html, /New profile/)
   assert.doesNotMatch(html, /Old profile/)
-  assert.match(html, /Showing 1 of 2 participants/)
-  assert.match(renderPage('AdminParticipants', [period, rows, false, '', 'new', '', null, '']), /Showing 0 of 2 participants/)
+  assert.match(html, /Showing 1 of 1 participants/)
+  assert.match(renderPage('AdminParticipants', [period, rows, false, '', 'new', '', null, '']), /Showing 0 of 1 participants/)
 })
 
 test('participant age groups filter inclusive boundaries and combine with other filters', () => {

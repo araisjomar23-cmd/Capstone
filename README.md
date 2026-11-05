@@ -80,6 +80,10 @@ The app requires a configured Supabase URL and public key. Promote the designate
 
 ## Verification checklist
 
+### Attendance template remark
+
+The organization's attendance template includes a **Sex at birth** column. This field is currently missing from participant account forms and stored participant data, so the printed column remains blank for manual completion. Gender identity is not used as a substitute.
+
 1. Check migration history and preview pending SQL before applying migrations to the linked Supabase project.
 2. Promote a designated superadmin account, then create a facilitator account and assign it to an activity.
 3. Create an activity and verify that its public listing and detail page show the correct schedule, venue, and capacity.

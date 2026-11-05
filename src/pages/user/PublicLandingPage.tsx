@@ -1,13 +1,13 @@
 import { activityDescription } from '../../features/activities/activityDescription'
 import { ACTIVITY_LIFECYCLE_DISPLAY, getActivityLifecycleStatus, isActivityVisibleInCatalog } from '../../features/activities/activityLifecycle'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Search, MapPin, Calendar, Sparkles, Zap, Clock,
   UserPlus, ClipboardCheck, MessageCircle,
   HeartPulse, GraduationCap, Briefcase, HandHeart, Shield,
   Landmark, Vote, Leaf, Plane, Sprout,
-  Mail, Phone,
+  Mail, Phone, ArrowRight, ArrowUpRight,
 } from 'lucide-react'
 import { fetchPublicActivities } from '../../features/public/publicActivityService'
 import type { PublicActivity } from '../../features/public/publicActivityService'
@@ -15,6 +15,7 @@ import ActivityModal from '../../features/public/ActivityModal'
 import { autoCloseExpiredActivities } from '../../features/activities/activityService'
 import { supabase } from '../../lib/supabase'
 import logo from '../../assets/CYDO LOGO.jpg'
+import './PublicLandingPage.css'
 
 const PROGRAMS = [
   { name: 'Health', icon: HeartPulse },
@@ -48,6 +49,16 @@ function fmtShort(n: number) {
 }
 
 function PublicLandingPage() {
+  const headerRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const header = headerRef.current
+    if (!header) return
+    const observer = new ResizeObserver(() => {
+      header.parentElement?.style.setProperty('--landing-header-height', `${header.getBoundingClientRect().height}px`)
+    })
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [activities, setActivities] = useState<PublicActivity[]>([])
@@ -105,9 +116,50 @@ function PublicLandingPage() {
   const programCount = new Set(activities.map((a) => a.programId)).size
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-paper)' }}>
-      {/* Hero */}
-      <div className="relative overflow-hidden text-white" style={{ background: 'var(--color-primary)' }}>
+    <div className="public-landing min-h-screen" style={{ background: 'var(--color-paper)' }}>
+      <header ref={headerRef} className="landing-header bg-white border-b border-primary/10">
+        <nav aria-label="Main navigation" className="max-w-5xl mx-auto px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+          <a href="#" className="flex items-center gap-3" aria-label="PRIME home">
+            <img src={logo} alt="CYDO" className="w-11 h-11 rounded-full object-contain" />
+            <div><div className="font-display text-xl font-extrabold text-primary">PRIME<span className="text-accent">.</span></div><p className="text-[10px] text-gray-500">Panabo City Youth Development Office</p></div>
+          </a>
+          <div className="landing-nav-links flex gap-6 text-sm font-semibold text-gray-600">
+            <a href="#activities-section" className="hover:text-primary">Activities</a>
+            <a href="#how-it-works" className="hover:text-primary">How it works</a>
+            <a href="#programs" className="hover:text-primary">Our programs</a>
+          </div>
+          <div className="flex items-center gap-4 text-sm font-bold">
+            <button onClick={() => navigate('/admin/login')} className="text-primary">Log in</button>
+            <button onClick={() => navigate('/signup')} className="rounded-full bg-primary px-5 py-2.5 text-white inline-flex items-center gap-2">Get started <ArrowUpRight size={16} /></button>
+          </div>
+        </nav>
+      </header>
+      <section className="landing-hero">
+        <div className="landing-hero-grid">
+          <div className="min-w-0">
+            <p className="landing-eyebrow"><span /> CITY YOUTH DEVELOPMENT OFFICE · PANABO</p>
+            <h1 className="landing-title">A space to grow.<br />A chance to <span>make a difference.</span></h1>
+            <p className="text-gray-600 leading-relaxed mt-6 max-w-lg">Find your community, build new skills, and be part of something bigger. Discover youth development opportunities across Panabo City.</p>
+            <div className="flex flex-wrap gap-3 mt-8">
+              <a href="#activities-section" className="bg-primary hover:bg-primary-dark text-white rounded-full px-6 py-3.5 text-sm font-bold inline-flex items-center gap-3">Explore activities <ArrowRight size={17} /></a>
+              <button onClick={() => navigate('/signup')} className="border border-primary/25 text-primary rounded-full px-6 py-3.5 text-sm font-bold hover:bg-white">Join the community</button>
+            </div>
+            <p className="text-xs text-gray-500 mt-5">An initiative of the City Government of Panabo.</p>
+          </div>
+          <div className="landing-opportunities">
+            <div className="landing-panel-heading"><span className="landing-panel-icon"><Sprout size={23} /></span><span>YOUR NEXT CHAPTER STARTS HERE</span><ArrowUpRight size={20} /></div>
+            <h2>Small steps.<br /><span>Lasting impact.</span></h2>
+            <p>Opportunities to learn, connect, and contribute to your community.</p>
+            <div className="landing-opportunity-list">
+              {[{ title: 'Learn something new', desc: 'Build skills for your future', icon: GraduationCap, program: 'Education' }, { title: 'Find your people', desc: 'Connect through shared purpose', icon: HandHeart, program: 'Social Inclusion and Equity' }, { title: 'Lead positive change', desc: 'Take an active role in your city', icon: Leaf, program: 'Active Citizenship' }].map(({ title, desc, icon: Icon, program }) => <button key={title} onClick={() => { setProgramFilter(program); document.getElementById('activities-section')?.scrollIntoView({ behavior: 'smooth' }) }} className="landing-opportunity"><span className="landing-opportunity-icon"><Icon size={21} /></span><span><strong>{title}</strong><small>{desc}</small></span><ArrowUpRight size={17} /></button>)}
+            </div>
+            <div className="landing-panel-footer"><span /> Ten focus areas. A world of possibilities.</div>
+          </div>
+        </div>
+        <div className="landing-trust-strip"><span>YOUTH DEVELOPMENT, WITH PURPOSE</span><span><GraduationCap size={17} /> Build your skills</span><span><HandHeart size={17} /> Connect with your community</span><span><Sprout size={17} /> Shape your future</span></div>
+      </section>
+      {/* Activity discovery */}
+      <div id="activities-section" className="relative overflow-hidden text-white scroll-mt-6" style={{ background: 'var(--color-primary)' }}>
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -124,31 +176,10 @@ function PublicLandingPage() {
           }}
         />
 
-        <div className="relative max-w-5xl mx-auto px-6 pt-6 flex items-center justify-between">
-          <div className="font-display text-lg font-extrabold tracking-tight">
-            CYDO <span className="text-accent">MEAL</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/admin/login')}
-              className="text-sm font-semibold text-white/80 hover:text-white transition-colors"
-            >
-              Log In
-            </button>
-            <button
-              onClick={() => navigate('/signup')}
-              className="text-sm font-semibold bg-accent text-primary-dark px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
-            >
-              Sign Up
-            </button>
-          </div>
-        </div>
-
         <div className="relative max-w-5xl mx-auto px-6 pt-10 pb-2">
 
-          <h1 className="font-display text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight mb-3">
-            CYDO <span className="text-accent">MEAL</span> System
-          </h1>
+          <p className="text-accent text-[11px] font-bold uppercase tracking-[0.16em] mb-3">Find your next opportunity</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight mb-3">Show up. Get involved.</h2>
           <p className="text-white/70 max-w-md leading-relaxed mb-7">
             Browse and register for youth development activities happening across Panabo City.
           </p>
@@ -180,6 +211,7 @@ function PublicLandingPage() {
               <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50" />
               <input
                 type="text"
+                aria-label="Search activities or venues"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search activities or venues..."
@@ -187,6 +219,7 @@ function PublicLandingPage() {
               />
             </div>
             <select
+              aria-label="Filter activities by program"
               value={programFilter}
               onChange={(e) => setProgramFilter(e.target.value)}
               className="filter-select filter-select-light bg-white/[0.13] backdrop-blur-md border-none rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:bg-white/20"
@@ -212,7 +245,7 @@ function PublicLandingPage() {
       </div>
 
       {/* Cards */}
-      <div id="activities-section" className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-6 py-8">
         <p className="text-sm text-gray-500 mb-5">
           {loading ? 'Loading…' : loadError ? 'Activities could not be loaded' : `${filtered.length} ${filtered.length === 1 ? 'activity' : 'activities'} found`}
         </p>
@@ -334,7 +367,7 @@ function PublicLandingPage() {
       </div>
 
       {/* How It Works */}
-      <div style={{ background: 'var(--color-primary-light)' }}>
+      <div id="how-it-works" style={{ background: 'var(--color-primary-light)' }}>
         <div className="max-w-5xl mx-auto px-6 py-14">
           <div className="text-center max-w-2xl mx-auto mb-10">
             <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-2">How It Works</div>
@@ -364,7 +397,7 @@ function PublicLandingPage() {
       </div>
 
       {/* Programs showcase */}
-      <div className="max-w-5xl mx-auto px-6 py-14">
+      <div id="programs" className="max-w-5xl mx-auto px-6 py-14">
         <div className="text-center max-w-2xl mx-auto mb-10">
           <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-2">Our Programs</div>
           <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-gray-900">
@@ -394,6 +427,12 @@ function PublicLandingPage() {
         </div>
       </div>
 
+      <section className="max-w-5xl mx-auto px-6 py-8">
+        <div className="rounded-3xl bg-primary-light p-8 sm:p-12 flex flex-wrap items-center justify-between gap-6">
+          <div><p className="text-primary uppercase text-[11px] tracking-[0.16em] font-bold mb-3">Your community is waiting</p><h2 className="font-display text-3xl font-extrabold text-primary-dark">Be part of what comes next.</h2><p className="text-sm text-gray-600 mt-3">Create your account and take your first step with CYDO.</p></div>
+          <button onClick={() => navigate('/signup')} className="bg-primary text-white rounded-full px-6 py-3.5 text-sm font-bold inline-flex items-center gap-3">Create an account <ArrowRight size={18} /></button>
+        </div>
+      </section>
       {/* Footer */}
       <footer className="text-white mt-8" style={{ background: 'var(--color-primary-dark, #0f4429)' }}>
         <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-3 gap-10">

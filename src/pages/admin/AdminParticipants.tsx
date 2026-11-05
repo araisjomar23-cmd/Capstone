@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchAdminParticipants } from '../../features/participants/participantService'
 import ParticipantModal from '../../features/participants/ParticipantModal'
 import type { Registration } from '../../types/registration'
-import { Search, Eye, ChevronRight } from 'lucide-react'
+import { Search, Eye, ChevronRight, Printer } from 'lucide-react'
+import { printAttendance } from '../../features/participants/printAttendance'
 import { SkeletonStatCard, SkeletonTableRows } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { Users } from 'lucide-react'
@@ -67,11 +68,17 @@ function AdminParticipants() {
     return Array.from(seen.entries())
   }, [all])
 
+  const participantsInPeriod = useMemo(() => all.filter((p) => {
+    const start = p.status === 'not_registered' ? manilaDate(p.registeredAt) ?? undefined : p.activityStartDate
+    const end = p.status === 'not_registered' ? start : p.activityEndDate
+    return matchesDatePeriod(start, end, period)
+  }), [all, period])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const isAgeQuery = /^\d+$/.test(q)
 
-    return all.filter((p) => {
+    return participantsInPeriod.filter((p) => {
       let mQ = true
       if (q) {
         mQ = (isAgeQuery && String(p.age ?? '') === q) || p.name.toLowerCase().includes(q) ||
@@ -86,13 +93,17 @@ function AdminParticipants() {
       const mA = !activityFilter || String(p.activityId) === activityFilter
       const mS = !statusFilter || p.status === statusFilter
       const mAge = !ageGroupFilter || getYouthAgeGroup(p.age) === ageGroupFilter
-      const start = p.status === 'not_registered' ? manilaDate(p.registeredAt) ?? undefined : p.activityStartDate
-      const end = p.status === 'not_registered' ? start : p.activityEndDate
-      return mQ && mA && mS && mAge && matchesDatePeriod(start, end, period)
-    })
-  }, [all, search, activityFilter, statusFilter, ageGroupFilter, period])
+      return mQ && mA && mS && mAge
+    }).sort((a, b) => a.name.trim().localeCompare(b.name.trim(), 'en-PH', { sensitivity: 'base' }))
+  }, [participantsInPeriod, search, activityFilter, statusFilter, ageGroupFilter])
 
   const countBy = (s: string) => filtered.filter((p) => p.status === s).length
+  const attendanceRows = filtered.filter((p) => p.status !== 'not_registered' && p.activityId)
+
+  function handlePrintAttendance() {
+    if (loading || !attendanceRows.length) return
+    printAttendance(attendanceRows, period)
+  }
 
   return (
     <div className="p-4 md:p-8">
@@ -113,10 +124,13 @@ function AdminParticipants() {
         )}
       </div>
 
-      <ActivityDateFilter value={period} onChange={setPeriod} dates={all.map((p) => p.status === 'not_registered'
+      <ActivityDateFilter showHelp={false} value={period} onChange={setPeriod} dates={all.map((p) => p.status === 'not_registered'
         ? { start: manilaDate(p.registeredAt) ?? undefined, end: undefined }
-        : { start: p.activityStartDate, end: p.activityEndDate })} />
-      <p className="mb-3 text-xs text-gray-500">Participants without activity registrations are filtered by their profile creation date.</p>
+        : { start: p.activityStartDate, end: p.activityEndDate })}
+        actions={<button type="button" onClick={handlePrintAttendance} disabled={loading || !attendanceRows.length}
+          className="btn-primary min-h-11 inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <Printer size={16} aria-hidden="true" /> Print attendance
+        </button>} />
 
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-[220px]">
@@ -162,7 +176,7 @@ function AdminParticipants() {
       </div>
 
       <p className="text-xs text-gray-500 mb-2">
-        {loading ? 'Loading…' : `Showing ${filtered.length} of ${all.length} participants`}
+        {loading ? 'Loading…' : `Showing ${filtered.length} of ${participantsInPeriod.length} participants`}
       </p>
 
       {/* Desktop table view */}

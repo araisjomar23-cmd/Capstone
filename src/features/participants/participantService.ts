@@ -135,6 +135,11 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
     const profile = registration.userUuid ? profileByUser.get(registration.userUuid) : undefined
     return profile ? {
       ...registration,
+      org: profile.organization || '',
+      firstName: profile.first_name || '',
+      middleName: profile.middle_name || '',
+      lastName: profile.last_name || '',
+      suffix: profile.suffix || '',
       email: profile.email || '',
       birthday: profile.birthday,
       cityMunicipality: profile.city_municipality || '',
@@ -167,6 +172,10 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
       notes: '',
       status: 'not_registered',
       name: [profile.first_name, profile.middle_name, profile.last_name, profile.suffix].filter(Boolean).join(' ') || profile.email || 'Participant',
+      firstName: profile.first_name || '',
+      middleName: profile.middle_name || '',
+      lastName: profile.last_name || '',
+      suffix: profile.suffix || '',
       age: profile.age ?? '—',
       gender: profile.gender_identity || '—',
       contact: profile.contact || '—',

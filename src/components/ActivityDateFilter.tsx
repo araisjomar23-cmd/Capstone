@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { CalendarDays, RotateCcw } from 'lucide-react'
 import { currentYearPeriod, type DatePeriod } from '../lib/activityDatePeriod'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-export default function ActivityDateFilter({ value, onChange, dates, compact = false }: {
+export default function ActivityDateFilter({ value, onChange, dates, compact = false, actions, showHelp = true }: {
+  showHelp?: boolean
+  actions?: ReactNode
   compact?: boolean
   value: DatePeriod
   onChange: (value: DatePeriod) => void
@@ -47,9 +49,10 @@ export default function ActivityDateFilter({ value, onChange, dates, compact = f
         {active && <button type="button" className="col-span-full sm:col-auto min-h-11 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-primary" onClick={() => onChange(currentYearPeriod())}>
           <RotateCcw size={14} aria-hidden="true" /> Reset filters
         </button>}
+        {actions && <div className="col-span-full sm:ml-auto">{actions}</div>}
       </div>
-      <p role="status" className="text-xs font-medium text-primary mt-3">{summary}</p>
-      {!compact && <p className="text-xs text-gray-500 mt-1 leading-relaxed">Choose a month, a year, or both to find records by activity date.</p>}
+      {showHelp && <p role="status" className="text-xs font-medium text-primary mt-3">{summary}</p>}
+      {showHelp && !compact && <p className="text-xs text-gray-500 mt-1 leading-relaxed">Choose a month, a year, or both to find records by activity date.</p>}
     </section>
   )
 }

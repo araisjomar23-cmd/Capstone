@@ -8,6 +8,10 @@ export interface Registration {
   notes: string
   status: 'registered' | 'attended' | 'completed' | 'inactive' | 'not_registered' | 'absent'
   name: string
+  firstName?: string
+  middleName?: string
+  lastName?: string
+  suffix?: string
   age: number | string
   gender: string
   contact: string
