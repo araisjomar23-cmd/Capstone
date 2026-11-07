@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { loginAdmin, getAdminRole } from '../../features/auth/authService'
-import { Mail, Lock, Eye, EyeOff, CalendarCheck2, Users, Wallet, Check } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, CalendarCheck2, Users, Wallet, Check, ArrowLeft } from 'lucide-react'
 import logo from '../../assets/CYDO LOGO.jpg'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { supabase } from '../../lib/supabase'
@@ -167,6 +167,9 @@ function AdminLogin() {
 
         {/* Right form panel */}
         <div className="flex flex-col justify-center px-8 py-10 sm:px-12">
+          <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline min-h-11 mb-4">
+            <ArrowLeft size={16} aria-hidden="true" /> Back to home
+          </Link>
           <h1 className="text-3xl font-extrabold text-gray-900 mb-1">Welcome Back</h1>
           <p className="text-sm text-gray-500 mb-8">Sign in to your account</p>
 

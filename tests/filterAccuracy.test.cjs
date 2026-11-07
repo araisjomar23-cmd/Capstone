@@ -222,9 +222,33 @@ test('shared attendance QR gallery renders compact activity cards for both porta
   assert.match(html, /Selected workshop/)
   assert.match(html, /<button/)
   assert.doesNotMatch(html, /<canvas|Download PNG/)
+  const finalizedHtml = renderToStaticMarkup(React.createElement(Gallery, { activities: [{ ...activities[0], attendanceFinalizedAt: '2026-07-01T10:00:00Z' }, activities[1]], now: Date.parse('2026-07-02T00:00:00Z'), onRefresh() {} }))
+  assert.doesNotMatch(finalizedHtml, /Previous workshop/)
+  assert.match(finalizedHtml, /Selected workshop/)
+  const closedHtml = renderToStaticMarkup(React.createElement(Gallery, { activities: [{ ...activities[0], status: 'closed', manuallyClosed: true }, activities[1]], now: Date.parse('2026-06-01T00:00:00Z'), onRefresh() {} }))
+  assert.doesNotMatch(closedHtml, /Previous workshop/)
+  assert.match(closedHtml, /Selected workshop/)
   for (const page of ['src/pages/admin/AdminAttendance.tsx', 'src/pages/facilitator/FacilitatorAttendance.tsx']) {
     assert.match(fs.readFileSync(page, 'utf8'), /<ActivityQrGallery/)
   }
+})
+
+test('submitted feedback remains available after activity attendance is finalized', async () => {
+  const records = {
+    evaluations: [{ id: 'feedback-kept', registration_id: 'reg-1', rating: 5, feedback: 'Keep this submitted feedback', would_recommend: true, submitted_at: '2026-07-01T10:00:00Z' }],
+    registration_details: [{ id: 'reg-1', name: 'Participant', activity_id: 'finalized-activity', status: 'completed' }],
+    legacy_activities: [{ id: 'finalized-activity', title: 'Finalized workshop', start_date: '2026-07-01', end_date: '2026-07-01', attendance_finalized_at: '2026-07-02T00:00:00Z' }],
+  }
+  const { fetchEvaluations } = load('src/features/evaluations/evaluationService.ts', {
+    '../../lib/supabase': { supabase: { from(table) {
+      const query = { select() { return query }, order() { return query }, in() { return query }, then(resolve, reject) { return Promise.resolve({ data: records[table], error: null }).then(resolve, reject) } }
+      return query
+    } } },
+  })
+  const result = await fetchEvaluations(true)
+  assert.equal(result.rows[0].feedback, 'Keep this submitted feedback')
+  assert.equal(result.rows[0].activityTitle, 'Finalized workshop')
+  assert.equal(result.stats.totalResponses, 1)
 })
 
 test('attendance print is enabled for matching registrations and disabled for empty periods', () => {

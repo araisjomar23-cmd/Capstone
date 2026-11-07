@@ -5,7 +5,8 @@ import { loadTodayLog, markAttendance } from '../../features/attendance/attendan
 import type { Activity } from '../../types/activity'
 import type { AttendanceLogRow } from '../../features/attendance/attendanceService'
 import type { MarkAttendanceResult } from '../../features/attendance/attendanceService'
-import { ClipboardList, RefreshCw, CheckCircle2 } from 'lucide-react'
+import { ClipboardList, CheckCircle2 } from 'lucide-react'
+import RefreshLogButton from '../../features/attendance/RefreshLogButton'
 import { SkeletonCard } from '../../components/Skeleton'
 import { supabase } from '../../lib/supabase'
 import { isActivityVisibleInCatalog } from '../../features/activities/activityLifecycle'
@@ -165,17 +166,12 @@ if (initialLoading) {
           )}
         </div>
 
-        <div className="panel p-4 sm:p-5">
+        <div className="panel p-4 sm:p-5 relative min-h-64">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-base font-bold text-gray-900">
               Today's Log <span className="text-gray-400 font-normal text-sm">({log.length})</span>
             </h2>
-            <button
-              onClick={async () => setLog(await loadTodayLog())}
-              className="inline-flex items-center gap-1 text-primary text-xs font-semibold hover:underline">
-
-              <RefreshCw size={12} /> Refresh
-            </button>
+            <RefreshLogButton onRefresh={async () => setLog(await loadTodayLog())} />
           </div>
 
           <div className="max-h-96 overflow-y-auto">

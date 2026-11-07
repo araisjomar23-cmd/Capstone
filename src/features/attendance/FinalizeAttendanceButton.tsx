@@ -24,7 +24,7 @@ export default function FinalizeAttendanceButton({ activity, now, onFinalized }:
     try {
       if (!await confirm({
         title: 'Finalize attendance?',
-        message: `Finalize attendance for "${activity.title}"? Remaining registered participants without attendance will be marked Absent. Existing attendance and cancelled registrations will be kept. Further evaluation and attendance submissions will be blocked. Check that everyone has finished submitting first.`,
+        message: `Finalize attendance for "${activity.title}"? Remaining registered participants without attendance will be marked Absent. The activity QR will be removed from the QR list, and further evaluation and attendance submissions will be blocked. Existing attendance, cancelled registrations, and submitted feedback will be preserved. Check that everyone has finished submitting first.`,
         confirmLabel: 'Finalize Attendance',
         cancelLabel: 'Keep Open',
       })) return

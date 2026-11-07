@@ -1,7 +1,8 @@
 import ActivityQrGallery from '../../features/attendance/ActivityQrGallery'
 import { ACTIVITY_STATUS_DISPLAY, getActivityDisplayStatus, isActivityVisibleInCatalog } from '../../features/activities/activityLifecycle'
 import { useEffect, useRef, useState } from 'react'
-import { RefreshCw, CheckCircle2, ClipboardList } from 'lucide-react'
+import { CheckCircle2, ClipboardList } from 'lucide-react'
+import RefreshLogButton from '../../features/attendance/RefreshLogButton'
 import { useMyActivityIds } from '../../features/facilitators/useMyActivityIds'
 import { fetchActivities } from '../../features/activities/activityService'
 import { loadTodayLog, markAttendance } from '../../features/attendance/attendanceService'
@@ -151,14 +152,12 @@ function FacilitatorAttendance() {
           )}
         </div>
 
-        <div className="panel p-4 sm:p-5">
+        <div className="panel p-4 sm:p-5 relative min-h-64">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-base font-bold text-gray-900">
               Today's Log <span className="text-gray-400 font-normal text-sm">({log.filter((r) => activityIds.includes(r.activityId)).length})</span>
             </h2>
-            <button onClick={async () => setLog(await loadTodayLog())} className="inline-flex items-center gap-1 text-primary text-xs font-semibold hover:underline">
-              <RefreshCw size={12} /> Refresh
-            </button>
+            <RefreshLogButton onRefresh={async () => setLog((await loadTodayLog()).filter(row => activityIds.includes(row.activityId)))} />
           </div>
           <div className="max-h-96 overflow-y-auto">
             {log.filter((r) => activityIds.includes(r.activityId)).length === 0 ? (

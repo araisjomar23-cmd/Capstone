@@ -260,8 +260,17 @@ function PublicLandingPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center text-gray-400 py-16">No activities found.</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filtered.map((a) => {
+          <div className="space-y-9">
+            {[...new Set(filtered.map(activity => activity.programName))].sort().map(program => {
+              const programActivities = filtered.filter(activity => activity.programName === program)
+              return <section key={program} aria-label={`${program} activities`}>
+                <div className="flex items-center gap-3 mb-4 border-b border-primary/10 pb-3">
+                  <span className="w-1 h-6 rounded-full bg-primary" aria-hidden="true" />
+                  <h2 className="text-lg font-bold text-primary">{program}</h2>
+                  <span className="rounded-full bg-primary-light text-primary px-2.5 py-1 text-xs font-semibold whitespace-nowrap">{programActivities.length} {programActivities.length === 1 ? 'activity' : 'activities'}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {programActivities.map((a) => {
               const open = Math.max(0, a.slots - a.taken)
               const isFull = open <= 0
               const lifecycle = getActivityLifecycleStatus(a, clockNow)
@@ -334,6 +343,9 @@ function PublicLandingPage() {
                   </div>
                 </div>
               )
+            })}
+                </div>
+              </section>
             })}
           </div>
         )}
