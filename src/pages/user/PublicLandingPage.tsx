@@ -16,6 +16,7 @@ import { autoCloseExpiredActivities } from '../../features/activities/activitySe
 import { supabase } from '../../lib/supabase'
 import logo from '../../assets/CYDO LOGO.jpg'
 import LandingHero from './LandingHero'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import './PublicLandingPage.css'
 
 const PROGRAMS = [
@@ -50,6 +51,7 @@ function fmtShort(n: number) {
 }
 
 function PublicLandingPage() {
+  usePageTitle('PCYDO PRIME')
   const headerRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const header = headerRef.current
