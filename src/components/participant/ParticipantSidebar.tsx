@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   CalendarDays,
@@ -6,7 +6,7 @@ import {
   User,
   X,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { useLogout } from '../../features/auth/useLogout'
 import { useAuth } from '../../features/auth/AuthContext'
 
 interface Props {
@@ -15,14 +15,8 @@ interface Props {
 }
 
 export default function ParticipantSidebar({ open, onClose }: Props) {
-  const navigate = useNavigate()
+  const { logout: handleLogout, loggingOut } = useLogout('/')
   const { email } = useAuth()
-
-  async function handleLogout() {
-    if (!window.confirm('Are you sure you want to log out?')) return
-    await supabase.auth.signOut()
-    navigate('/')
-  }
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `portal-nav-link flex items-center gap-3 mx-2 my-0.5 px-4 py-2.5 text-sm rounded-xl transition-colors ${
@@ -96,9 +90,10 @@ export default function ParticipantSidebar({ open, onClose }: Props) {
           </div>
           <button
             onClick={handleLogout}
-            className="mt-3 w-full text-xs font-medium text-red-500 border border-red-200 rounded-lg py-2 hover:bg-red-50"
+            disabled={loggingOut}
+            className="mt-3 w-full text-xs font-medium text-red-500 border border-red-200 rounded-lg py-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-wait"
           >
-            Logout
+            {loggingOut ? 'Logging out…' : 'Logout'}
           </button>
         </div>
       </aside>

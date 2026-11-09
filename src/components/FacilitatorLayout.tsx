@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { LayoutDashboard, ClipboardList, Users, Menu, X } from 'lucide-react'
-import { logoutAdmin } from '../features/auth/authService'
+import { useLogout } from '../features/auth/useLogout'
 import { useAuth } from '../features/auth/AuthContext'
 
 const navItems = [
@@ -11,15 +11,9 @@ const navItems = [
 ]
 
 function FacilitatorLayout() {
-  const navigate = useNavigate()
+  const { logout: handleLogout, loggingOut } = useLogout('/admin/login')
   const { email } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  async function handleLogout() {
-    if (!window.confirm('Are you sure you want to log out?')) return
-    await logoutAdmin()
-    navigate('/admin/login')
-  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -73,9 +67,10 @@ function FacilitatorLayout() {
           </div>
           <button
             onClick={handleLogout}
-            className="mt-3 w-full text-xs font-medium text-red-500 border border-red-200 rounded-lg py-2 hover:bg-red-50"
+            disabled={loggingOut}
+            className="mt-3 w-full text-xs font-medium text-red-500 border border-red-200 rounded-lg py-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-wait"
           >
-            Logout
+            {loggingOut ? 'Logging out…' : 'Logout'}
           </button>
         </div>
       </aside>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { logoutAdmin } from '../features/auth/authService'
+import { NavLink, Outlet } from 'react-router-dom'
+import { useLogout } from '../features/auth/useLogout'
 import { useAuth } from '../features/auth/AuthContext'
 import logo from '../assets/CYDO LOGO.jpg'
 import {
@@ -46,15 +46,9 @@ const navItems = [
 ]
 
 function AdminLayout() {
-  const navigate = useNavigate()
+  const { logout: handleLogout, loggingOut } = useLogout('/admin/login')
   const { email, role } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  async function handleLogout() {
-    if (!window.confirm('Are you sure you want to log out?')) return
-    await logoutAdmin()
-    navigate('/admin/login')
-  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -136,9 +130,10 @@ function AdminLayout() {
           </div>
           <button
             onClick={handleLogout}
-            className="mt-3 w-full text-xs font-medium text-red-500 border border-red-200 rounded-lg py-2 hover:bg-red-50"
+            disabled={loggingOut}
+            className="mt-3 w-full text-xs font-medium text-red-500 border border-red-200 rounded-lg py-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-wait"
           >
-            Logout
+            {loggingOut ? 'Logging out…' : 'Logout'}
           </button>
         </div>
       </aside>
