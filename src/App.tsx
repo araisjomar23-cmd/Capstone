@@ -4,6 +4,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminParticipants from './pages/admin/AdminParticipants'
 import AdminActivities from './pages/admin/AdminActivities'
 import AdminLogin from './pages/admin/AdminLogin'
+import PasswordRecovery from './pages/user/PasswordRecovery'
 import ProtectedRoute from './routes/ProtectedRoute'
 import AdminLayout from './components/AdminLayout'
 import AdminFacilitators from './pages/admin/AdminFacilitators'
@@ -32,6 +33,8 @@ function App() {
       <Route path="/activities/:id" element={<ActivityDetail />} />
       <Route path="/signup" element={<ParticipantSignup />} />
       <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/forgot-password" element={<PasswordRecovery mode="request" />} />
+      <Route path="/reset-password" element={<PasswordRecovery mode="reset" />} />
       <Route path="/feedback" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/admin/login" roleMismatchMessage="Evaluation is for participant accounts"><SubmitEvaluation /></ProtectedRoute>} />
       <Route path="/evaluate/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/signup" roleMismatchMessage="Evaluation is for participant accounts"><SubmitEvaluation /></ProtectedRoute>} />
       <Route path="/checkin/:activityId" element={<ProtectedRoute allowedRoles={['participant']} loginPath="/signup" roleMismatchMessage="Evaluation is for participant accounts"><SubmitEvaluation markAttendedOnSubmit /></ProtectedRoute>} />

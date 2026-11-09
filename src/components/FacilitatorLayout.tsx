@@ -42,9 +42,10 @@ function FacilitatorLayout() {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3">
-          {navItems.map((item) => (
+          {navItems.map((item, index) => (
             <NavLink
               key={item.to}
+              data-brand={['green', 'gold', 'teal'][index]}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>

@@ -138,7 +138,7 @@ function ActivityDetail() {
        </button>
 
         <div className="panel overflow-hidden">
-          <div className="h-28 relative" style={{ backgroundColor: activity.colorBg || '#1a5c3a' }}>
+          <div className="h-28 relative" style={{ backgroundColor: activity.colorBg || '#0756a0' }}>
             <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 80% 30%, white 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
           </div>
             <div className="p-4 sm:p-6">

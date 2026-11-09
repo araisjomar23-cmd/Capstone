@@ -62,22 +62,22 @@ export default function ParticipantSidebar({ open, onClose }: Props) {
         <nav className="flex-1 overflow-y-auto py-3">
           <div className="mb-4">
             <div className="px-5 text-[10px] font-bold uppercase tracking-widest text-gray-300 mb-1.5 mt-3">My PRIME</div>
-          <NavLink to="/participant" end className={navClass} onClick={onClose}>
+          <NavLink data-brand="blue" to="/participant" end className={navClass} onClick={onClose}>
             <LayoutDashboard size={18} />
             Dashboard
           </NavLink>
 
-          <NavLink to="/participant/my-activities" className={navClass} onClick={onClose}>
+          <NavLink data-brand="teal" to="/participant/my-activities" className={navClass} onClick={onClose}>
             <CalendarDays size={18} />
             My Activities
           </NavLink>
 
-          <NavLink to="/participant/evaluations" className={navClass} onClick={onClose}>
+          <NavLink data-brand="gold" to="/participant/evaluations" className={navClass} onClick={onClose}>
             <ClipboardList size={18} />
             My Evaluations
           </NavLink>
 
-          <NavLink to="/participant/profile" className={navClass} onClick={onClose}>
+          <NavLink data-brand="green" to="/participant/profile" className={navClass} onClick={onClose}>
             <User size={18} />
             Profile
           </NavLink>

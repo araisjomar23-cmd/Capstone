@@ -117,7 +117,7 @@ export default function ActivityQrGallery({ activities, now: clockNow, onRefresh
                     id={`visible-checkin-qr-canvas-${selectedQrActivity.id}`}
                     value={`${window.location.origin}/checkin/${selectedQrActivity.id}`}
                     size={220}
-                    fgColor="#1a5c3a"
+                    fgColor="#0756a0"
                     bgColor="#ffffff"
                   />
                 </div>

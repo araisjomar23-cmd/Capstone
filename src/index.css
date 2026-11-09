@@ -2,25 +2,28 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #17623d;
-  --color-primary-dark: #10452d;
-  --color-primary-light: #e8f4ed;
-  --color-accent: #e5a333;
-  --color-teal: #278365;
-  --color-danger: #c34242;
-  --color-info: #32678f;
+  --color-primary: #0756a0;
+  --color-primary-dark: #063568;
+  --color-primary-light: #eaf3fc;
+  --color-accent: #bc4c00;
+  --color-brand-gold: #ffbf00;
+  --color-brand-red: #b90813;
+  --color-brand-green: #008b50;
+  --color-teal: #007f8b;
+  --color-danger: #b90813;
+  --color-info: #0756a0;
   --color-warn: #b36b00;
-  --color-ink: #17231d;
-  --color-muted: #718078;
-  --color-paper: #f5f7f5;
-  --color-border-warm: #e2e9e4;
+  --color-ink: #172b42;
+  --color-muted: #63758a;
+  --color-paper: #f4f7fc;
+  --color-border-warm: #dce5ef;
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
   font-family: var(--font-sans);
   color: var(--color-ink);
-  background: #f5f7f5;
+  background: #f4f7fc;
   font-feature-settings: 'ss01' on;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -29,7 +32,7 @@ body {
 .activity-form-dialog fieldset label {
   display: block;
   margin-bottom: 8px;
-  color: #374b40;
+  color: #344860;
   font-size: 13px;
   font-weight: 600;
 }
@@ -39,7 +42,7 @@ body {
   min-height: 46px;
   padding: 11px 13px;
   font-size: 14px;
-  color: #17231d;
+  color: #172b42;
   background-color: #fff;
 }
 .activity-form-dialog fieldset input[type="color"] { height: 46px; padding: 5px; }
@@ -48,7 +51,7 @@ body {
 .activity-form-dialog fieldset section > .flex > div { min-width: 0; }
 .activity-form-dialog fieldset input:disabled,
 .activity-form-dialog fieldset select:disabled,
-.activity-form-dialog fieldset textarea:disabled { color: #273e30; opacity: 1; background-color: #f6f8f6; }
+.activity-form-dialog fieldset textarea:disabled { color: #293f58; opacity: 1; background-color: #f4f7fb; }
 @media (max-width: 639px) {
   .activity-form-dialog fieldset section > .flex { grid-template-columns: minmax(0, 1fr); gap: 18px; }
 }
@@ -60,7 +63,7 @@ button, a, input, select, textarea {
 select {
   appearance: none;
   padding-right: 2.5rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317231d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23172b42' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 1rem;
@@ -72,18 +75,18 @@ button, a {
 
 button:focus-visible, a:focus-visible, input:focus-visible,
 select:focus-visible, textarea:focus-visible {
-  outline: 3px solid rgb(39 131 101 / 32%);
+  outline: 3px solid rgb(7 86 160 / 32%);
   outline-offset: 2px;
 }
 
 ::selection {
-  color: #10452d;
-  background: #cce8d7;
+  color: #063568;
+  background: #d6e9fc;
 }
 
 .input {
   width: 100%;
-  border: 1px solid #dce5df;
+  border: 1px solid #dce5ef;
   border-radius: 0.75rem;
   padding: 0.68rem 0.85rem;
   font-size: 0.875rem;
@@ -131,15 +134,15 @@ select:focus-visible, textarea:focus-visible {
 }
 .input:focus {
   outline: none;
-  border-color: #61a17a;
-  box-shadow: 0 0 0 4px rgb(23 98 61 / 9%);
+  border-color: #4a8fc7;
+  box-shadow: 0 0 0 4px rgb(7 86 160 / 12%);
 }
 
 /* Reserve room for dropdown arrows after the shared input padding. */
 select.input, select.filter-select {
   appearance: none;
   padding-right: 2.5rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317231d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23172b42' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 1rem;
@@ -155,11 +158,11 @@ select.filter-select-light {
   border-radius: 0.75rem;
   padding: 0.68rem 1.1rem;
   font-size: 0.875rem;
-  box-shadow: 0 5px 14px rgba(23, 98, 61, 0.16);
+  box-shadow: 0 5px 14px rgba(7, 86, 160, 0.16);
   transition: box-shadow 0.2s, transform 0.16s, background-color 0.2s;
 }
 .btn-primary:hover {
-  box-shadow: 0 8px 20px rgba(23, 98, 61, 0.22);
+  box-shadow: 0 8px 20px rgba(7, 86, 160, 0.22);
   background: var(--color-primary-dark);
 }
 .btn-primary:active {
@@ -181,24 +184,24 @@ select.filter-select-light {
   transition: background 0.18s, border-color 0.18s, transform 0.16s;
 }
 .btn-secondary:hover {
-  background: #f6f9f7;
-  border-color: #cbd9cf;
+  background: #f1f6fc;
+  border-color: #c4d5e8;
 }
 
 /* Stat card — colored left bar + watermark icon + hover lift */
 .stat-card {
   background: white;
   border-radius: 18px;
-  border: 1px solid rgb(218 229 221 / 85%);
+  border: 1px solid rgb(214 226 240 / 85%);
   padding: 22px 24px;
-  box-shadow: 0 5px 20px rgba(29, 66, 43, 0.045), 0 1px 2px rgba(29, 66, 43, 0.035);
+  box-shadow: 0 5px 20px rgba(20, 49, 85, 0.045), 0 1px 2px rgba(20, 49, 85, 0.035);
   position: relative;
   overflow: hidden;
   transition: box-shadow 0.22s, transform 0.22s, border-color 0.22s;
 }
 .stat-card:hover {
-  box-shadow: 0 12px 28px rgba(29, 66, 43, 0.09);
-  border-color: #c9dccf;
+  box-shadow: 0 12px 28px rgba(20, 49, 85, 0.09);
+  border-color: #bdd3eb;
   transform: translateY(-3px);
 }
 .stat-accent-bar {
@@ -241,8 +244,8 @@ select.filter-select-light {
 .panel {
   background: white;
   border-radius: 18px;
-  border: 1px solid rgb(218 229 221 / 85%);
-  box-shadow: 0 5px 20px rgba(29, 66, 43, 0.045), 0 1px 2px rgba(29, 66, 43, 0.035);
+  border: 1px solid rgb(214 226 240 / 85%);
+  box-shadow: 0 5px 20px rgba(20, 49, 85, 0.045), 0 1px 2px rgba(20, 49, 85, 0.035);
   overflow: hidden;
 }
 .panel-header {
@@ -301,21 +304,21 @@ select.filter-select-light {
 /* Shared portal shell polish */
 .portal-sidebar {
   background: rgb(255 255 255 / 96%);
-  border-color: #e5ebe6;
-  box-shadow: 8px 0 28px rgb(24 61 38 / 3%);
+  border-color: #dce5ef;
+  box-shadow: 8px 0 28px rgb(16 48 84 / 4%);
 }
 .portal-brand {
   background-image: radial-gradient(ellipse at 100% 0%, rgb(255 255 255 / 13%), transparent 54%),
-    linear-gradient(145deg, #1b7048, #10452d 78%);
+    linear-gradient(145deg, #0756a0, #063568 78%);
 }
 .portal-nav-link {
   position: relative;
   min-height: 42px;
 }
 .portal-nav-link[aria-current='page'] {
-  background: #eaf4ed;
-  color: #155d39;
-  box-shadow: inset 0 0 0 1px rgb(23 98 61 / 5%);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px rgb(7 86 160 / 8%);
 }
 .portal-nav-link[aria-current='page']::before {
   content: '';
@@ -325,17 +328,17 @@ select.filter-select-light {
   bottom: 9px;
   width: 3px;
   border-radius: 0 4px 4px 0;
-  background: #278365;
+  background: #007f8b;
 }
 .portal-topbar {
   background: rgb(255 255 255 / 92%);
-  border-color: #e5ebe6;
+  border-color: #dce5ef;
   backdrop-filter: blur(14px);
 }
 
 /* Keep dense data pages readable while preserving their mobile scroll behavior. */
 .panel table th {
-  color: #65766c;
+  color: #60738b;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .075em;
@@ -344,7 +347,7 @@ select.filter-select-light {
   transition: background-color .16s ease;
 }
 .panel table tbody tr:hover {
-  background-color: #f8fbf8;
+  background-color: #f4f8fd;
 }
 
 @media (max-width: 767px) {
@@ -353,3 +356,35 @@ select.filter-select-light {
   .panel-header { padding: 15px 16px; }
   .panel table th, .panel table td { white-space: nowrap; }
 }
+
+/* The five colors of the CYDO logo, shared by public and portal branding. */
+:root {
+  --brand-ribbon: linear-gradient(90deg, var(--color-brand-red) 0% 20%, var(--color-teal) 20% 40%, var(--color-brand-gold) 40% 60%, var(--color-primary) 60% 80%, var(--color-brand-green) 80% 100%);
+}
+.portal-brand { border-bottom: 4px solid transparent; border-image: var(--brand-ribbon) 1; }
+
+/* Equal brand families: vivid fills, readable ink, and matching light surfaces. */
+[data-brand="red"] { --brand-color: #b90813; --brand-ink: #a10812; --brand-surface: #fff0f1; }
+[data-brand="teal"] { --brand-color: #007f8b; --brand-ink: #006873; --brand-surface: #e5f7f8; }
+[data-brand="gold"] { --brand-color: #ffbf00; --brand-ink: #805000; --brand-surface: #fff7da; }
+[data-brand="blue"] { --brand-color: #0756a0; --brand-ink: #0756a0; --brand-surface: #eaf3fc; }
+[data-brand="green"] { --brand-color: #008b50; --brand-ink: #006d3e; --brand-surface: #e7f7ee; }
+.brand-card { border-top: 4px solid var(--brand-color); }
+.brand-icon { background: var(--brand-surface); color: var(--brand-ink); }
+.brand-fill { background: var(--brand-color); color: white; }
+[data-brand="gold"] .brand-fill { color: #503600; }
+.portal-nav-link[data-brand] > svg,
+.portal-nav-link[data-brand] > span:first-child { color: var(--brand-ink); }
+.portal-nav-link[data-brand]:hover,
+.portal-nav-link[data-brand][aria-current="page"] { background: var(--brand-surface); color: var(--brand-ink); }
+.portal-nav-link[data-brand][aria-current="page"]::before { background: var(--brand-color); }
+.portal-brand {
+  background-image: linear-gradient(125deg, #8c0713, #063568 48%, #006b76 75%, #006d3e);
+}
+.brand-login { background: linear-gradient(130deg, #800a16, #063568 35%, #006b76 70%, #006d3e) !important; }
+.brand-login-panel { background: linear-gradient(160deg, #8c0713, #063568 40%, #006b76 72%, #006d3e) !important; }
+.stat-card:nth-child(5n + 1) { border-top: 4px solid #b90813; }
+.stat-card:nth-child(5n + 2) { border-top: 4px solid #007f8b; }
+.stat-card:nth-child(5n + 3) { border-top: 4px solid #ffbf00; }
+.stat-card:nth-child(5n + 4) { border-top: 4px solid #0756a0; }
+.stat-card:nth-child(5n + 5) { border-top: 4px solid #008b50; }

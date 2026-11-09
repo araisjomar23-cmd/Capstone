@@ -47,28 +47,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    let disposed = false
+    let revision = 0
     async function init() {
+      const current = ++revision
       const { data } = await supabase.auth.getSession()
       const session = data.session
       if (session?.user) {
         const role = await resolveRole(session.user.id)
-        setState({ loading: false, userId: session.user.id, email: session.user.email ?? null, role })
-      } else {
+        if (!disposed && current === revision) setState({ loading: false, userId: session.user.id, email: session.user.email ?? null, role })
+      } else if (!disposed && current === revision) {
         setState({ loading: false, userId: null, email: null, role: null })
       }
     }
     init()
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const role = await resolveRole(session.user.id)
-        setState({ loading: false, userId: session.user.id, email: session.user.email ?? null, role })
-      } else {
-        setState({ loading: false, userId: null, email: null, role: null })
-      }
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const current = ++revision
+      // Supabase holds its auth lock during this callback. Query roles afterward.
+      window.setTimeout(() => {
+        if (disposed || current !== revision) return
+        if (!session?.user) {
+          setState({ loading: false, userId: null, email: null, role: null })
+          return
+        }
+        void resolveRole(session.user.id).then(role => {
+          if (!disposed && current === revision) {
+            setState({ loading: false, userId: session.user.id, email: session.user.email ?? null, role })
+          }
+        })
+      }, 0)
     })
 
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      disposed = true
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   return <AuthContext.Provider value={{ ...state, refreshRole }}>{children}</AuthContext.Provider>

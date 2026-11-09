@@ -100,7 +100,7 @@ export default function ParticipantDashboard() {
               <div key={activity.id} className="bg-white rounded-2xl border border-border-warm overflow-hidden flex flex-col shadow-sm transition-transform hover:-translate-y-1.5">
                 <div
                   className="h-[140px] relative flex items-center justify-center overflow-hidden"
-                  style={{ backgroundColor: activity.colorBg || '#1a5c3a' }}
+                  style={{ backgroundColor: activity.colorBg || '#0756a0' }}
                 >
                   <div
                     className="absolute inset-0 opacity-10"

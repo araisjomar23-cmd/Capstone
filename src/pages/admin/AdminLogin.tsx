@@ -113,17 +113,17 @@ function AdminLogin() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
+      className="brand-login min-h-screen flex items-center justify-center p-4"
       style={{
-        background: 'linear-gradient(135deg, var(--color-primary-dark, #12432c) 0%, var(--color-primary, #1a5c3a) 55%, #2e7d5a 100%)',
+        background: 'linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 55%, var(--color-teal) 100%)',
       }}
     >
       <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
         {/* Left branding panel */}
         <div
-          className="hidden md:flex flex-col items-center justify-center text-center p-10 relative overflow-hidden"
+          className="brand-login-panel hidden md:flex flex-col items-center justify-center text-center p-10 relative overflow-hidden"
           style={{
-            background: 'linear-gradient(160deg, var(--color-primary, #1a5c3a) 0%, #164a30 60%, #0f3a24 100%)',
+            background: 'linear-gradient(160deg, var(--color-primary) 0%, var(--color-primary-dark) 60%, #04254b 100%)',
           }}
         >
           <div
@@ -140,16 +140,16 @@ function AdminLogin() {
               <img src={logo} alt="CYDO logo" className="w-full h-full object-contain" />
             </div>
 
-            <h2 className="text-2xl font-extrabold text-white mb-1">CYDO PRIME</h2>
-            <p className="text-sm font-medium tracking-wide uppercase text-accent mb-8">
+            <h2 className="text-2xl font-extrabold text-white mb-1">PCYDO PRIME</h2>
+            <p className="text-sm font-medium tracking-wide uppercase text-brand-gold mb-8">
               MEAL System Portal
             </p>
 
             <div className="space-y-3 text-left">
               {FEATURES.map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full border border-accent/60 flex items-center justify-center shrink-0">
-                    <Check size={12} className="text-accent" />
+                  <span className="w-6 h-6 rounded-full border border-brand-gold/60 flex items-center justify-center shrink-0">
+                    <Check size={12} className="text-brand-gold" />
                   </span>
                   <span className="text-sm text-white/85 flex items-center gap-2">
                     <Icon size={14} className="text-white/50" />
@@ -226,13 +226,12 @@ function AdminLogin() {
                 />
                 Remember me
               </label>
-              <button
-                type="button"
+              <Link
+                to="/forgot-password"
                 className="text-primary font-medium hover:underline"
-                onClick={() => setError('Please contact your system administrator to reset your password.')}
               >
                 Forgot password?
-              </button>
+              </Link>
             </div>
 
             {error && (
@@ -258,7 +257,7 @@ function AdminLogin() {
           </p>
 
           <p className="text-center text-xs text-gray-400 mt-6 pt-6 border-t border-gray-100">
-            © {new Date().getFullYear()} CYDO PRIME MEAL System. All rights reserved.
+            © {new Date().getFullYear()} PCYDO PRIME MEAL System. All rights reserved.
           </p>
         </div>
       </div>

@@ -101,9 +101,10 @@ function AdminLayout() {
               <div className="px-5 text-[10px] font-bold uppercase tracking-widest text-gray-300 mb-1.5 mt-3">
                 {group.section}
               </div>
-              {group.items.map((item) => (
+              {group.items.map((item, index) => (
                 <NavLink
                   key={item.to}
+                  data-brand={['blue', 'teal', 'gold', 'red', 'green'][(navItems.indexOf(group) + index) % 5]}
                   to={item.to}
                   end={item.end}
                   onClick={() => setSidebarOpen(false)}
