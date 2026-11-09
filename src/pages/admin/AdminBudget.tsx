@@ -1,6 +1,6 @@
 import { ACTIVITY_STATUS_DISPLAY, getActivityDisplayStatus } from '../../features/activities/activityLifecycle'
 import ActivityDateFilter from '../../components/ActivityDateFilter'
-import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
+import { currentMonthPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { useEffect, useState } from 'react'
 import { deleteExpenseEntry, fetchBudgetOverview, saveBudgetEntry, updateExpenseEntry } from '../../features/budget/budgetService'
 import type { BudgetAuditEvent, BudgetOverview } from '../../features/budget/budgetService'
@@ -44,7 +44,7 @@ function ActivityBudgetStatus({ activity }: { activity: Activity }) {
 }
 
 function AdminBudget() {
-  const [period, setPeriod] = useState(currentYearPeriod)
+  const [period, setPeriod] = useState(currentMonthPeriod)
   const [data, setData] = useState<BudgetOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')

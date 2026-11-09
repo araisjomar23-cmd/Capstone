@@ -3,15 +3,8 @@ import { generateReport } from '../../features/reports/reportService'
 import type { ReportData } from '../../features/reports/reportService'
 import { Activity, FileText, Lightbulb, Printer, Star, Users } from 'lucide-react'
 import DatePicker from '../../components/DatePicker'
+import { currentMonthPeriod } from '../../lib/activityDatePeriod'
 
-function todayISO() {
-  return localDateISO(new Date())
-}
-function monthAgoISO() {
-  const d = new Date()
-  d.setMonth(d.getMonth() - 1)
-  return localDateISO(d)
-}
 function localDateISO(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -85,9 +78,10 @@ function buildAdvancedInsights(current: ReportData, previous: ReportData) {
 }
 
 function AdminReports() {
+  const [currentPeriod] = useState(currentMonthPeriod)
   const [reportType, setReportType] = useState<'Monthly' | 'Quarterly' | 'Annual'>('Monthly')
-  const [dateFrom, setDateFrom] = useState(monthAgoISO())
-  const [dateTo, setDateTo] = useState(todayISO())
+  const [dateFrom, setDateFrom] = useState(() => monthRange(Number(currentPeriod.year), Number(currentPeriod.month) - 1).from)
+  const [dateTo, setDateTo] = useState(() => monthRange(Number(currentPeriod.year), Number(currentPeriod.month) - 1).to)
   const [preparedBy, setPreparedBy] = useState('')
   const [reviewedBy, setReviewedBy] = useState('')
   const [approvedBy, setApprovedBy] = useState('')
@@ -95,8 +89,8 @@ function AdminReports() {
   const [report, setReport] = useState<ReportData | null>(null)
   const [insightData, setInsightData] = useState<ReportData | null>(null)
   const [previousInsightData, setPreviousInsightData] = useState<ReportData | null>(null)
-  const [insightMonth, setInsightMonth] = useState(new Date().getMonth())
-  const [insightYear, setInsightYear] = useState(new Date().getFullYear())
+  const [insightMonth, setInsightMonth] = useState(Number(currentPeriod.month) - 1)
+  const [insightYear, setInsightYear] = useState(Number(currentPeriod.year))
   const [insightsLoading, setInsightsLoading] = useState(true)
   const [insightsError, setInsightsError] = useState('')
   const [loading, setLoading] = useState(false)

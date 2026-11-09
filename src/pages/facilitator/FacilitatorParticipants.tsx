@@ -1,7 +1,7 @@
 import { ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { Search, Users, Printer } from 'lucide-react'
 import ActivityDateFilter from '../../components/ActivityDateFilter'
-import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
+import { currentMonthPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { printAttendance } from '../../features/participants/printAttendance'
 import { useMyActivityIds } from '../../features/facilitators/useMyActivityIds'
 import { fetchParticipants } from '../../features/participants/participantService'
@@ -24,7 +24,7 @@ function FacilitatorParticipants() {
   const [all, setAll] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [period, setPeriod] = useState(currentYearPeriod)
+  const [period, setPeriod] = useState(currentMonthPeriod)
   const [activityFilter, setActivityFilter] = useState('')
 
   useEffect(() => {

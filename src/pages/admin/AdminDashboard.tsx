@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import DashboardControlPanel from '../../features/dashboard/DashboardControlPanel'
 import FiscalYearFilter from '../../features/dashboard/FiscalYearFilter'
-import { fiscalYearFor, fiscalYearLabel, type FiscalPeriod } from '../../lib/fiscalYear'
+import { fiscalYearLabel, type FiscalPeriod } from '../../lib/fiscalYear'
+import { currentMonthPeriod } from '../../lib/activityDatePeriod'
 import { Users, CheckCircle2, Star, CircleDollarSign } from 'lucide-react'
 import {
   PieChart,
@@ -37,7 +38,8 @@ function AdminDashboard() {
   usePageTitle('PRIME Admin')
   const { showToast } = useToast()
   const [period, setPeriod] = useState<FiscalPeriod>(() => {
-    return { startMonth: 1, year: fiscalYearFor(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }), 1) ?? new Date().getFullYear() }
+    const current = currentMonthPeriod()
+    return { startMonth: 1, year: Number(current.year), month: Number(current.month) }
   })
   const { data, activities, loading, error, refresh } = useDashboardData(period)
   function changePeriod(next: FiscalPeriod) {

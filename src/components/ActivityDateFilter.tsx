@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { CalendarDays, RotateCcw } from 'lucide-react'
-import { currentYearPeriod, type DatePeriod } from '../lib/activityDatePeriod'
+import { currentMonthPeriod, type DatePeriod } from '../lib/activityDatePeriod'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -12,7 +12,8 @@ export default function ActivityDateFilter({ value, onChange, dates, compact = f
   onChange: (value: DatePeriod) => void
   dates: { start?: string; end?: string }[]
 }) {
-  const [currentYear] = useState(() => currentYearPeriod().year)
+  const [defaultPeriod] = useState(currentMonthPeriod)
+  const currentYear = defaultPeriod.year
   const years = new Set<string>([currentYear])
   for (const date of dates) {
     const first = Number(date.start?.slice(0, 4))
@@ -20,7 +21,7 @@ export default function ActivityDateFilter({ value, onChange, dates, compact = f
     if (first > 0) for (let year = first; year <= Math.max(first, last); year++) years.add(String(year))
   }
   if (value.year) years.add(value.year)
-  const active = Boolean(value.month || value.year !== currentYear)
+  const active = value.month !== defaultPeriod.month || value.year !== currentYear
   const summary = value.month
     ? MONTHS[Number(value.month) - 1] + (value.year ? ' ' + value.year : ' across all years')
     : value.year ? 'All months in ' + value.year : 'All months and years'
@@ -46,7 +47,7 @@ export default function ActivityDateFilter({ value, onChange, dates, compact = f
             {[...years].sort().reverse().map((year) => <option key={year} value={year}>{year}</option>)}
           </select>
         </label>
-        {active && <button type="button" className="col-span-full sm:col-auto min-h-11 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-primary" onClick={() => onChange(currentYearPeriod())}>
+        {active && <button type="button" className="col-span-full sm:col-auto min-h-11 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-primary" onClick={() => onChange(currentMonthPeriod())}>
           <RotateCcw size={14} aria-hidden="true" /> Reset filters
         </button>}
         {actions && <div className="col-span-full sm:ml-auto">{actions}</div>}

@@ -3,8 +3,9 @@ import { isCalendarDate, manilaDate } from './calendarDate'
 export interface DatePeriod { year: string; month: string }
 export const ALL_DATES: DatePeriod = { year: '', month: '' }
 
-export function currentYearPeriod(now = new Date()): DatePeriod {
-  return { year: manilaDate(now)!.slice(0, 4), month: '' }
+export function currentMonthPeriod(now = new Date()): DatePeriod {
+  const today = manilaDate(now)!
+  return { year: today.slice(0, 4), month: today.slice(5, 7) }
 }
 
 // Compare calendar dates directly so activity schedules do not shift with timezones.

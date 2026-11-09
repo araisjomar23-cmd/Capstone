@@ -1,5 +1,5 @@
 import ActivityDateFilter from '../../components/ActivityDateFilter'
-import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
+import { currentMonthPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { useEffect, useState } from 'react'
 import { useMemo } from 'react'
 import { fetchEvaluations } from '../../features/evaluations/evaluationService'
@@ -25,7 +25,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 function AdminEvaluations() {
-  const [period, setPeriod] = useState(currentYearPeriod)
+  const [period, setPeriod] = useState(currentMonthPeriod)
   const [rows, setRows] = useState<EvaluationRow[]>([])
   const [loading, setLoading] = useState(true)
 

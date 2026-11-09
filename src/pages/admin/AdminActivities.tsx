@@ -1,5 +1,5 @@
 import ActivityDateFilter from '../../components/ActivityDateFilter'
-import { currentYearPeriod, matchesDatePeriod } from '../../lib/activityDatePeriod'
+import { currentMonthPeriod, matchesDatePeriod } from '../../lib/activityDatePeriod'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Activity } from '../../types/activity'
 import ActivityFormModal from '../../features/activities/ActivityFormModal'
@@ -32,7 +32,7 @@ function formatTimeRange(startTime?: string, endTime?: string): string {
 }
 
 function AdminActivities() {
-  const [period, setPeriod] = useState(currentYearPeriod)
+  const [period, setPeriod] = useState(currentMonthPeriod)
   const { showToast } = useToast()
   const [all, setAll] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)

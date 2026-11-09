@@ -1,5 +1,5 @@
 import ActivityDateFilter from '../../components/ActivityDateFilter'
-import { currentYearPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
+import { currentMonthPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAdminParticipants } from '../../features/participants/participantService'
 import ParticipantModal from '../../features/participants/ParticipantModal'
@@ -28,7 +28,7 @@ function formatStatus(status: string) {
 }
 
 function AdminParticipants() {
-  const [period, setPeriod] = useState(currentYearPeriod)
+  const [period, setPeriod] = useState(currentMonthPeriod)
   const [all, setAll] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

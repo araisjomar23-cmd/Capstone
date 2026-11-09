@@ -23,7 +23,7 @@ function load(relative, mocks = {}) {
   }, module, module.exports)
   return module.exports
 }
-const { matchesDatePeriod, activityDateLabel, currentYearPeriod } = load('src/lib/activityDatePeriod.ts')
+const { matchesDatePeriod, activityDateLabel, currentMonthPeriod } = load('src/lib/activityDatePeriod.ts')
 const { fiscalYearFor, fiscalYearRange } = load('src/lib/fiscalYear.ts')
 const { summarizeDashboard } = load('src/features/dashboard/dashboardSummary.ts')
 const { manilaDate } = load('src/lib/calendarDate.ts')
@@ -318,9 +318,72 @@ test('Budget cards and totals use the same filtered activities, preserving overs
   assert.match(html, /125%/)
 })
 
- test('date filters default and reset to the current Manila year with all months', () => {
-  assert.deepEqual(currentYearPeriod(new Date('2026-12-31T15:59:59Z')), { year: '2026', month: '' })
-  assert.deepEqual(currentYearPeriod(new Date('2026-12-31T16:00:00Z')), { year: '2027', month: '' })
+test('date defaults follow the current Manila month and year at month and year boundaries', () => {
+  assert.deepEqual(currentMonthPeriod(new Date('2026-12-31T15:59:59Z')), { year: '2026', month: '12' })
+  assert.deepEqual(currentMonthPeriod(new Date('2026-12-31T16:00:00Z')), { year: '2027', month: '01' })
+  assert.deepEqual(currentMonthPeriod(new Date('2026-10-31T16:00:00Z')), { year: '2026', month: '11' })
+  assert.deepEqual(currentMonthPeriod(new Date('2024-02-29T16:00:00Z')), { year: '2024', month: '03' })
+})
+
+function treeNodes(tree) {
+  const nodes = []
+  function visit(node) {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) return node.forEach(visit)
+    nodes.push(node)
+    visit(node.props?.children)
+  }
+  visit(tree)
+  return nodes
+}
+
+const initialHooks = {
+  ...React,
+  useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
+  useEffect: () => {},
+}
+
+test('reset returns from all months to the current month and is hidden at the default period', () => {
+  const Filter = load('src/components/ActivityDateFilter.tsx', { react: initialHooks }).default
+  const current = currentMonthPeriod()
+  let next
+  const nodes = treeNodes(Filter({ value: { year: current.year, month: '' }, dates: [], onChange: value => { next = value } }))
+  const reset = nodes.find(node => node.type === 'button')
+  assert.ok(reset, 'All months is now a non-default selection')
+  reset.props.onClick()
+  assert.deepEqual(next, current)
+  const defaults = treeNodes(Filter({ value: current, dates: [], onChange() {} }))
+  assert.equal(defaults.some(node => node.type === 'button'), false)
+  assert.equal(defaults.filter(node => node.type === 'select')[0].props.value, current.month)
+})
+
+test('dashboard requests data for the current Manila month and year on first render', () => {
+  let requested
+  const Dashboard = load('src/pages/admin/AdminDashboard.tsx', {
+    react: initialHooks,
+    '../../features/dashboard/useDashboardData': { useDashboardData(period) { requested = period; return { loading: true, data: null } } },
+    '../../components/ToastProvider': { useToast: () => ({ showToast() {} }) },
+  }).default
+  Dashboard()
+  const current = currentMonthPeriod()
+  assert.deepEqual(requested, { startMonth: 1, year: Number(current.year), month: Number(current.month) })
+})
+
+test('report dates and insight selectors initialize to the full current Manila month', () => {
+  const Reports = load('src/pages/admin/AdminReports.tsx', {
+    react: initialHooks,
+    '../../features/reports/reportService': { generateReport() {} },
+    '../../components/DatePicker': { default: () => null },
+  }).default
+  const nodes = treeNodes(Reports())
+  const current = currentMonthPeriod()
+  const prefix = `${current.year}-${current.month}-`
+  const lastDay = new Date(Number(current.year), Number(current.month), 0).getDate()
+  assert.equal(nodes.find(node => node.props?.['aria-label'] === 'Date from').props.value, prefix + '01')
+  assert.equal(nodes.find(node => node.props?.['aria-label'] === 'Date to').props.value, prefix + String(lastDay))
+  const selects = nodes.filter(node => node.type === 'select')
+  assert.equal(selects[0].props.value, Number(current.month) - 1)
+  assert.equal(selects[1].props.value, Number(current.year))
 })
 
 test('dashboard exposes only year and month controls and selects a numeric year', () => {
