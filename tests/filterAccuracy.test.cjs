@@ -421,10 +421,10 @@ test('saving an activity reveals it even when year, month, program and status fi
   assert.equal(matchesDatePeriod(saved.startDate, saved.endDate, states[0]), true)
 })
 
-test('Activities explains why a saved 2027 activity is hidden by the default 2026 filter', () => {
+test('Activities keeps future activities filtered without a date-period banner', () => {
   const future = { ...activities[1], id: 'future', title: 'FitForward: Step Into Strength', startDate: '2027-10-22', endDate: '2027-10-22', status: 'upcoming' }
   const html = renderPage('AdminActivities', [{ year: '2026', month: '' }, [activities[0], future], false, '', false, null, Date.now(), null, '', null, false, ''])
-  assert.match(html, /1 activity is.*outside the selected date period/)
-  assert.match(html, /View 2027/)
+  assert.doesNotMatch(html, /outside the selected date period/)
+  assert.doesNotMatch(html, /View 2027/)
   assert.doesNotMatch(html, /FitForward: Step Into Strength/)
 })

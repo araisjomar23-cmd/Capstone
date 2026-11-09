@@ -96,9 +96,6 @@ async function load() {
     })
   }, [all, programFilter, period, lifecycleFilter, clockNow])
 
-  const outsidePeriod = all.filter((a) => !matchesDatePeriod(a.startDate, a.endDate, period))
-  const outsideYears = [...new Set(outsidePeriod.map((a) => a.startDate?.slice(0, 4)).filter((year) => year && /^\d{4}$/.test(year)))].sort()
-
 async function handleToggle(a: Activity) {
   if (toggling) return
   if (getActivityLifecycleStatus(a) === 'completed') {
@@ -185,13 +182,6 @@ async function handleToggle(a: Activity) {
           ? `${all.length} ${all.length === 1 ? 'activity' : 'activities'}`
           : `Showing ${filtered.length} of ${all.length} activities`}
       </p>
-
-      {!loading && outsidePeriod.length > 0 && (
-        <div role="status" className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
-          <span>{outsidePeriod.length} {outsidePeriod.length === 1 ? 'activity is' : 'activities are'} outside the selected date period.</span>
-          {outsideYears.map((year) => <button type="button" key={year} onClick={() => { setPeriod({ year, month: '' }); setProgramFilter(''); setLifecycleFilter('') }} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 font-semibold hover:bg-blue-100">View {year}{year === period.year && period.month ? ' (all months)' : ''}</button>)}
-        </div>
-      )}
 
       {/* Desktop table view */}
       <div className="panel overflow-x-auto hidden md:block">
