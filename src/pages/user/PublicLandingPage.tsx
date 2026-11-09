@@ -122,7 +122,7 @@ function PublicLandingPage() {
         <nav aria-label="Main navigation" className="max-w-5xl mx-auto px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <a href="#" className="flex items-center gap-3" aria-label="PRIME home">
             <img src={logo} alt="CYDO" className="w-11 h-11 rounded-full object-contain" />
-            <div><div className="font-display text-xl font-extrabold text-primary">PRIME<span className="text-accent">.</span></div><p className="text-[10px] text-gray-500">Panabo City Youth Development Office</p></div>
+            <div><div className="font-display text-xl font-extrabold" aria-label="PRIME"><span className="text-brand-red">P</span><span className="text-teal">R</span><span className="text-brand-gold">I</span><span className="text-primary">M</span><span className="text-brand-green">E</span></div><p className="text-[10px] text-gray-500">Panabo City Youth Development Office</p></div>
           </a>
           <div className="landing-nav-links flex gap-6 text-sm font-semibold text-gray-600">
             <a href="#activities-section" className="hover:text-primary">Activities</a>
@@ -267,7 +267,7 @@ function PublicLandingPage() {
                 >
                   <div
                     className="h-[140px] relative flex items-center justify-center overflow-hidden"
-                    style={{ backgroundColor: a.colorBg || '#1a5c3a' }}
+                    style={{ backgroundColor: a.colorBg || '#0756a0' }}
                   >
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 55%, rgba(0,0,0,.06))' }} />
                     <Sparkles size={44} className="relative z-10 text-white/90 drop-shadow-lg" />
@@ -344,9 +344,9 @@ function PublicLandingPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {PILLARS.map((p) => (
-            <div key={p.letter} className="panel p-5 text-center">
-              <div className="w-10 h-10 rounded-full bg-primary-light text-primary font-display font-extrabold text-lg flex items-center justify-center mx-auto mb-3">
+          {PILLARS.map((p, index) => (
+            <div key={p.letter} data-brand={['red', 'teal', 'gold', 'green'][index]} className="brand-card panel p-5 text-center">
+              <div className="brand-icon w-10 h-10 rounded-full bg-primary-light text-primary font-display font-extrabold text-lg flex items-center justify-center mx-auto mb-3">
                 {p.letter}
               </div>
               <div className="font-bold text-gray-900 text-sm mb-1">{p.word}</div>
@@ -370,11 +370,11 @@ function PublicLandingPage() {
             {STEPS.map((step, i) => {
               const Icon = step.icon
               return (
-                <div key={step.title} className="bg-white rounded-2xl border p-5 relative" style={{ borderColor: 'var(--color-border-warm)' }}>
-                  <div className="absolute -top-3 -left-3 w-7 h-7 rounded-full bg-accent text-white text-xs font-extrabold flex items-center justify-center shadow">
+                <div key={step.title} data-brand={['red', 'teal', 'gold', 'green'][i]} className="brand-card bg-white rounded-2xl border p-5 relative" style={{ borderColor: 'var(--brand-color)' }}>
+                  <div className="brand-fill absolute -top-3 -left-3 w-7 h-7 rounded-full bg-accent text-white text-xs font-extrabold flex items-center justify-center shadow">
                     {i + 1}
                   </div>
-                  <div className="w-11 h-11 rounded-xl bg-primary-light text-primary flex items-center justify-center mb-4">
+                  <div className="brand-icon w-11 h-11 rounded-xl bg-primary-light text-primary flex items-center justify-center mb-4">
                     <Icon size={20} />
                   </div>
                   <h3 className="font-bold text-gray-900 text-sm mb-1.5">{step.title}</h3>
@@ -396,18 +396,19 @@ function PublicLandingPage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {PROGRAMS.map((p) => {
+          {PROGRAMS.map((p, index) => {
             const Icon = p.icon
             return (
               <button
                 key={p.name}
+                data-brand={['red', 'teal', 'gold', 'blue', 'green'][index % 5]}
                 onClick={() => {
                   setProgramFilter(p.name)
                   document.getElementById('activities-section')?.scrollIntoView({ behavior: 'smooth' })
                 }}
-                className="panel p-4 text-center hover:-translate-y-1 transition-transform"
+                className="brand-card panel p-4 text-center hover:-translate-y-1 transition-transform"
               >
-                <div className="w-10 h-10 rounded-full bg-primary-light text-primary flex items-center justify-center mx-auto mb-2.5">
+                <div className="brand-icon w-10 h-10 rounded-full bg-primary-light text-primary flex items-center justify-center mx-auto mb-2.5">
                   <Icon size={18} />
                 </div>
                 <div className="text-xs font-semibold text-gray-700 leading-tight">{p.name}</div>
@@ -418,13 +419,13 @@ function PublicLandingPage() {
       </div>
 
       <section className="max-w-5xl mx-auto px-6 py-8">
-        <div className="rounded-3xl bg-primary-light p-8 sm:p-12 flex flex-wrap items-center justify-between gap-6">
+        <div data-brand="green" className="brand-community-cta rounded-3xl bg-primary-light p-8 sm:p-12 flex flex-wrap items-center justify-between gap-6">
           <div><p className="text-primary uppercase text-[11px] tracking-[0.16em] font-bold mb-3">Your community is waiting</p><h2 className="font-display text-3xl font-extrabold text-primary-dark">Be part of what comes next.</h2><p className="text-sm text-gray-600 mt-3">Create your account and take your first step with CYDO.</p></div>
           <button onClick={() => navigate('/signup')} className="bg-primary text-white rounded-full px-6 py-3.5 text-sm font-bold inline-flex items-center gap-3">Create an account <ArrowRight size={18} /></button>
         </div>
       </section>
       {/* Footer */}
-      <footer className="text-white mt-8" style={{ background: 'var(--color-primary-dark, #0f4429)' }}>
+      <footer className="text-white mt-8" style={{ background: 'var(--color-primary-dark, #063568)' }}>
         <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-3 gap-10">
           <div>
             <div className="flex items-center gap-3 mb-3">
@@ -432,7 +433,7 @@ function PublicLandingPage() {
                 <img src={logo} alt="CYDO Logo" className="w-full h-full object-contain" />
               </div>
               <div>
-                <div className="font-display font-extrabold text-sm">CYDO MEAL System</div>
+                <div className="font-display font-extrabold text-sm">PCYDO MEAL System</div>
                 <div className="text-white/50 text-[11px]">Panabo City Government</div>
               </div>
             </div>
