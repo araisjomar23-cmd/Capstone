@@ -4,6 +4,7 @@ import type { ReportData } from '../../features/reports/reportService'
 import { Activity, FileText, Lightbulb, Printer, Star, Users } from 'lucide-react'
 import DatePicker from '../../components/DatePicker'
 import { currentMonthPeriod } from '../../lib/activityDatePeriod'
+import { SkeletonBox, SkeletonTableRows } from '../../components/Skeleton'
 
 function localDateISO(date: Date) {
   const year = date.getFullYear()
@@ -141,14 +142,15 @@ function AdminReports() {
         {report && (
           <button
             onClick={handlePrint}
-            className="bg-white border border-gray-300 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg"
+            disabled={loading}
+            className="bg-white border border-gray-300 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
           >
             <Printer size={14} className="inline mr-1.5" /> Print Report
           </button>
         )}
       </div>
 
-      <section className="bg-white rounded-xl shadow border border-gray-100 p-5 mb-6 print:hidden" aria-labelledby="period-insights-title">
+      <section className="bg-white rounded-xl shadow border border-gray-100 p-5 mb-6 print:hidden" aria-labelledby="period-insights-title" aria-busy={insightsLoading}>
         <div className="flex items-start gap-3 mb-4">
           <span className="rounded-lg bg-green-50 p-2 text-primary"><Lightbulb size={19} /></span>
           <div>
@@ -173,7 +175,7 @@ function AdminReports() {
         </div>
 
         {insightsLoading ? (
-          <p className="text-sm text-gray-500 py-3">Loading report data and analyzing written feedback… If comments exist, the first analysis downloads the multilingual model to this browser; later runs can reuse the cached model.</p>
+          <InsightsSkeleton />
         ) : insightData ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -317,7 +319,8 @@ function AdminReports() {
         </button>
       </div>
 
-      {report && (
+      {loading && <ReportPreviewSkeleton />}
+      {report && !loading && (
         <div className="bg-white rounded-xl shadow border border-gray-100 p-8 print:shadow-none print:border-none">
           <div className="text-center mb-5">
             <div className="text-[11px] uppercase tracking-wide text-gray-400">Republic of the Philippines</div>
@@ -431,6 +434,68 @@ function AdminReports() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function InsightsSkeleton() {
+  return (
+    <div>
+      <p role="status" className="sr-only">Loading report insights and feedback analysis…</p>
+      <div aria-hidden="true">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+              <SkeletonBox className="h-3 w-3/4" />
+              <SkeletonBox className="h-7 w-16" />
+              <SkeletonBox className="h-3 w-full" />
+            </div>
+          ))}
+        </div>
+        <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-4 space-y-3">
+          <SkeletonBox className="h-4 w-1/2 mb-4" />
+          <SkeletonBox className="h-3 w-full" />
+          <SkeletonBox className="h-3 w-5/6" />
+          <SkeletonBox className="h-3 w-2/3" />
+        </div>
+        <div className="mt-4 rounded-lg border border-gray-200 p-4 space-y-3">
+          <SkeletonBox className="h-4 w-48 max-w-full" />
+          <SkeletonBox className="h-3 w-full" />
+          <SkeletonBox className="h-3 w-3/4" />
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: 4 }, (_, index) => <SkeletonBox key={index} className="h-6 w-24 !rounded-full" />)}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReportPreviewSkeleton() {
+  return (
+    <div className="bg-white rounded-xl shadow border border-gray-100 p-4 sm:p-8 print:hidden" aria-busy="true">
+      <p role="status" className="sr-only">Generating report preview…</p>
+      <div aria-hidden="true">
+        <div className="flex flex-col items-center gap-3 mb-6">
+          <SkeletonBox className="h-3 w-48 max-w-full" />
+          <SkeletonBox className="h-5 w-72 max-w-full" />
+          <SkeletonBox className="h-3 w-56 max-w-full" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="rounded-lg bg-gray-50 p-3 space-y-3">
+              <SkeletonBox className="h-3 w-full" />
+              <SkeletonBox className="h-6 w-1/2 mx-auto" />
+            </div>
+          ))}
+        </div>
+        {[8, 5, 4].map((cols) => (
+          <div key={cols} className="mb-6">
+            <SkeletonBox className="h-4 w-48 max-w-full mb-3" />
+            <table className="w-full"><tbody><SkeletonTableRows cols={cols} rows={3} /></tbody></table>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -62,12 +62,17 @@ function AdminParticipants() {
   }
 
   const activityOptions = useMemo(() => {
-    const seen = new Map<string, string>()
+    const seen = new Map<string, { label: string; fullLabel: string }>()
     all.forEach((p) => {
-      if (p.activityId && !seen.has(p.activityId)) seen.set(p.activityId, p.activityTitle + ' (' + activityDateLabel(p.activityStartDate, p.activityEndDate) + ')')
+      if (p.activityId && !seen.has(p.activityId) && matchesDatePeriod(p.activityStartDate, p.activityEndDate, period)) {
+        const title = p.activityTitle.trim()
+        const shortTitle = title.length > 24 ? title.slice(0, 23).trimEnd() + '…' : title
+        const date = ' (' + activityDateLabel(p.activityStartDate, p.activityEndDate) + ')'
+        seen.set(p.activityId, { label: shortTitle + date, fullLabel: title + date })
+      }
     })
     return Array.from(seen.entries())
-  }, [all])
+  }, [all, period])
 
   const participantsInPeriod = useMemo(() => all.filter((p) => {
     const start = p.status === 'not_registered' ? manilaDate(p.registeredAt) ?? undefined : p.activityStartDate
@@ -107,7 +112,7 @@ function AdminParticipants() {
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="min-w-0 w-full p-4 md:p-8">
       <h1 className="text-2xl font-bold text-primary mb-6">Participants</h1>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -125,7 +130,12 @@ function AdminParticipants() {
         )}
       </div>
 
-      <ActivityDateFilter showHelp={false} value={period} onChange={setPeriod} dates={all.map((p) => p.status === 'not_registered'
+      <ActivityDateFilter showHelp={false} value={period} onChange={(nextPeriod) => {
+        setPeriod(nextPeriod)
+        if (activityFilter && !all.some((p) => p.activityId === activityFilter && matchesDatePeriod(p.activityStartDate, p.activityEndDate, nextPeriod))) {
+          setActivityFilter('')
+        }
+      }} dates={all.map((p) => p.status === 'not_registered'
         ? { start: manilaDate(p.registeredAt) ?? undefined, end: undefined }
         : { start: p.activityStartDate, end: p.activityEndDate })}
         actions={<button type="button" onClick={handlePrintAttendance} disabled={loading || !attendanceRows.length}
@@ -133,8 +143,8 @@ function AdminParticipants() {
           <Printer size={16} aria-hidden="true" /> Print attendance
         </button>} />
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[220px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] gap-3 mb-4">
+        <div className="relative min-w-0">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
@@ -145,21 +155,24 @@ function AdminParticipants() {
           />
         </div>
         <select
+          aria-label="Activity"
+          title={activityOptions.find(([id]) => id === activityFilter)?.[1].fullLabel ?? 'All Activities'}
           value={activityFilter}
           onChange={(e) => setActivityFilter(e.target.value)}
-          className="filter-select border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
+          className="filter-select w-full min-w-0 truncate border border-gray-300 rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All Activities</option>
-          {activityOptions.map(([id, title]) => (
-            <option key={id} value={id}>
-              {title}
+          {activityOptions.map(([id, activity]) => (
+            <option key={id} value={id} title={activity.fullLabel} aria-label={activity.fullLabel}>
+              {activity.label}
             </option>
           ))}
         </select>
         <select
+          aria-label="Status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="filter-select border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[140px]"
+          className="filter-select w-full min-w-0 truncate border border-gray-300 rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All Statuses</option>
           <option value="registered">Registered</option>
@@ -170,7 +183,7 @@ function AdminParticipants() {
           <option value="not_registered">Unregistered</option>
         </select>
         <select aria-label="Age group" value={ageGroupFilter} onChange={(e) => setAgeGroupFilter(e.target.value)}
-          className="filter-select border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 sm:flex-none min-w-[180px]">
+          className="filter-select w-full min-w-0 truncate border border-gray-300 rounded-lg px-3 py-2 text-sm">
           <option value="">All Age Groups</option>
           {YOUTH_AGE_GROUPS.map((group) => <option key={group.label} value={group.label}>{group.label} ({group.min}–{group.max} yrs)</option>)}
         </select>
@@ -181,7 +194,7 @@ function AdminParticipants() {
       </p>
 
       {/* Desktop table view */}
-      <div className="panel overflow-x-auto hidden md:block">
+      <div className="panel !overflow-x-auto hidden md:block">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50/70 text-gray-500 text-[11px] uppercase tracking-wide">
             <tr>

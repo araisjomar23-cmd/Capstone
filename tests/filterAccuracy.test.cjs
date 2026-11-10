@@ -270,6 +270,26 @@ test('Participants supports age search and empty combined results', () => {
   assert.match(renderPage('AdminParticipants', [period, participants, false, '', 'old', 'completed', null]), /Showing 0 of 2 participants/)
 })
 
+test('participant activity options follow the month and year, including overlapping schedules', () => {
+  const schedules = [
+    { id: 'october', title: 'October activity', startDate: '2026-10-21', endDate: '2026-10-21' },
+    { id: 'november', title: 'November activity', startDate: '2026-11-16', endDate: '2026-11-16' },
+    { id: 'overlap', title: 'Spanning activity', startDate: '2026-10-31', endDate: '2026-11-02' },
+    { id: 'last-year', title: 'Previous year activity', startDate: '2025-11-16', endDate: '2025-11-16' },
+  ]
+  const rows = schedules.map((activity) => participant(activity.id, activity))
+  function optionIds(selectedPeriod) {
+    const html = renderPage('AdminParticipants', [selectedPeriod, rows, false, '', '', '', null, ''])
+    const select = html.match(/<select[^>]*aria-label="Activity"[^>]*>([^]*?)<\/select>/)[1]
+    return [...select.matchAll(/<option[^>]*value="([^"]+)"/g)].map((match) => match[1])
+  }
+  assert.deepEqual(optionIds({ year: '2026', month: '11' }), ['november', 'overlap'])
+  assert.deepEqual(optionIds({ year: '2026', month: '10' }), ['october', 'overlap'])
+  assert.deepEqual(optionIds({ year: '2025', month: '11' }), ['last-year'])
+  assert.deepEqual(optionIds({ year: '2026', month: '' }), ['october', 'november', 'overlap'])
+  assert.deepEqual(optionIds({ year: '2027', month: '11' }), [])
+})
+
 test('participant total follows the selected month and year', () => {
   assert.match(renderPage('AdminParticipants', [{ year: '2026', month: '11' }, participants, false, '', '', '', null, '']), /Showing 0 of 0 participants/)
   assert.match(renderPage('AdminParticipants', [{ year: '2026', month: '07' }, participants, false, '', '', '', null, '']), /Showing 2 of 2 participants/)
@@ -336,6 +356,64 @@ function treeNodes(tree) {
   visit(tree)
   return nodes
 }
+
+test('registration chart keeps full activity names and makes zero counts and capacity explicit', () => {
+  const { ActivityRegistrationsChart } = load('src/features/dashboard/DashboardCharts.tsx')
+  const { BarChart, Bar, YAxis, Tooltip } = require('recharts')
+  const data = [
+    { name: 'Klima at Kwento: The Eco-Theater & Climate Action Roadshow', registrations: 1, slots: 100 },
+    { name: 'Empty activity', registrations: 0, slots: 100 },
+    { name: 'No slots activity', registrations: 2, slots: 0 },
+  ]
+  const nodes = treeNodes(ActivityRegistrationsChart({ data }))
+  assert.equal(nodes.find((node) => node.type === BarChart).props.layout, 'vertical')
+  const registrationBar = nodes.find((node) => node.type === Bar && node.props.dataKey === 'registrations')
+  assert.equal(registrationBar.props.minPointSize(0), 0)
+  assert.equal(registrationBar.props.minPointSize(1), 3)
+  const tick = nodes.find((node) => node.type === YAxis).props.tick
+  const axis = renderToStaticMarkup(React.createElement('svg', {}, React.cloneElement(tick, { payload: { value: data[0].name } })))
+  assert.match(axis, /<tspan/)
+  const tooltip = nodes.find((node) => node.type === Tooltip).props.content
+  const html = data.map((item) => renderToStaticMarkup(React.cloneElement(tooltip, { active: true, payload: [{ payload: item }] }))).join('')
+  assert.match(html, /Klima at Kwento: The Eco-Theater &amp; Climate Action Roadshow/)
+  assert.match(html, /1% of slots filled/)
+  assert.match(html, /0% of slots filled/)
+  assert.match(html, /No capacity set/)
+  assert.doesNotMatch(html, /NaN|Infinity/)
+})
+
+test('budget chart shows exact zero spending and keeps overspending within a common scale', () => {
+  const { BudgetOverviewChart } = load('src/features/dashboard/DashboardCharts.tsx')
+  const { BarChart, Bar, XAxis, Tooltip } = require('recharts')
+  const data = [{ name: 'Over budget', allocated: 100, spent: 150 }, { name: 'Unused budget', allocated: 50, spent: 0 }]
+  const nodes = treeNodes(BudgetOverviewChart({
+    data,
+    allocated: 150, spent: 150,
+  }))
+  assert.equal(nodes.find((node) => node.type === BarChart).props.layout, 'vertical')
+  assert.equal(nodes.filter((node) => node.type === Bar).length, 2)
+  assert.ok(nodes.find((node) => node.type === XAxis).props.domain[1](150) >= 150)
+  const tooltip = nodes.find((node) => node.type === Tooltip).props.content
+  const html = data.map((item) => renderToStaticMarkup(React.cloneElement(tooltip, { active: true, payload: [{ payload: item }] }))).join('')
+  assert.match(html, /Spent: <strong>PHP 0/)
+  assert.match(html, /Spent: <strong>PHP 150/)
+  assert.match(html, /Remaining: <strong>PHP -50/)
+  assert.doesNotMatch(html, /NaN|Infinity/)
+})
+
+test('daily chart uses grouped bars and whole-person ticks for a single registration', () => {
+  const { AttendanceTrendChart } = load('src/features/dashboard/DashboardCharts.tsx')
+  const { BarChart, Bar, YAxis } = require('recharts')
+  const tree = AttendanceTrendChart({ data: [{ date: '2026-11-05', registrations: 1, attendance: 0 }] })
+  const nodes = treeNodes(tree)
+  assert.ok(nodes.some((node) => node.type === BarChart))
+  assert.equal(nodes.filter((node) => node.type === Bar).length, 2)
+  assert.deepEqual(nodes.find((node) => node.type === YAxis).props.ticks, [0, 1])
+  const html = renderToStaticMarkup(tree)
+  assert.match(html, /1 registration/)
+  assert.match(html, /0 check-ins/)
+  assert.doesNotMatch(html, /No registrations or check-ins/)
+})
 
 const initialHooks = {
   ...React,

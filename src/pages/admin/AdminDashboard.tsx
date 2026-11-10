@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import DashboardControlPanel from '../../features/dashboard/DashboardControlPanel'
+import { AttendanceTrendChart, ActivityRegistrationsChart, BudgetOverviewChart } from '../../features/dashboard/DashboardCharts'
 import FiscalYearFilter from '../../features/dashboard/FiscalYearFilter'
 import { fiscalYearLabel, type FiscalPeriod } from '../../lib/fiscalYear'
 import { currentMonthPeriod } from '../../lib/activityDatePeriod'
@@ -9,13 +10,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
@@ -108,10 +102,10 @@ function AdminDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 items-stretch gap-4 mb-4">
           <AttendanceTrendChart data={data.attendanceTrend} />
+          <RegistrationStatusChart data={data.statusBreakdown} />
           <ActivityRegistrationsChart
             data={data.activityRegistrations}
           />
-          <RegistrationStatusChart data={data.statusBreakdown} />
           <BudgetOverviewChart data={data.budgetOverview} allocated={data.totalBudgetAllocated} spent={data.totalBudgetSpent} />
       </div>
       <RecentEvaluationsFeed rows={data.recentEvaluations} />
@@ -130,7 +124,7 @@ function RegistrationStatusChart({
     <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
       <h2 className="text-sm font-semibold text-gray-600 mb-2">Attendees by Sectoral Group</h2>
       {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No registration data yet.</p>
+        <p className="text-sm text-gray-500 py-12 text-center flex-1 flex items-center justify-center min-h-64">No attendees yet in the selected period. Sectoral groups appear after participants check in.</p>
       ) : (
         <ResponsiveContainer width="100%" height={260}>
           <PieChart>
@@ -151,126 +145,6 @@ function RegistrationStatusChart({
             <Tooltip />
             <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
           </PieChart>
-        </ResponsiveContainer>
-      )}
-    </div>
-  )
-}
-
-function ActivityRegistrationsChart({
-  data,
-}: {
-  data: { name: string; registrations: number; slots: number }[]
-}) {
-  const isEmpty = data.length === 0
-
-  return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-semibold text-gray-600">Registrations by Activity</h2>
-
-      </div>
-      <p className="text-xs text-gray-500 mb-3">Top 8 activities by registrations in the selected period.</p>
-      {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No activities for this period. Try another fiscal year.</p>
-      ) : (
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 12, bottom: 12 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11 }}
-              interval={0}
-              angle={-35}
-              textAnchor="end"
-              height={78}
-              tickFormatter={(name: any) => (String(name).length > 16 ? `${String(name).slice(0, 16)}…` : String(name))}
-            />
-            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Legend verticalAlign="top" height={28} />
-            <Bar maxBarSize={32} dataKey="registrations" name="Registrations" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-            <Bar maxBarSize={32} dataKey="slots" name="Total Slots" fill="var(--color-info)" radius={[4, 4, 0, 0]} fillOpacity={0.35} />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </div>
-  )
-}
-
-function BudgetOverviewChart({
-  data, allocated, spent,
-}: {
-  data: { name: string; allocated: number; spent: number }[]
-  allocated: number
-  spent: number
-}) {
-  const isEmpty = data.length === 0
-
-  return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
-      <h2 className="text-sm font-semibold text-gray-600 mb-2">Budget: Allocated vs Spent</h2>
-      <p className="text-xs text-gray-500 mb-3">Allocated: PHP {allocated.toLocaleString()} <span className="mx-1">/</span> Spent: PHP {spent.toLocaleString()}</p>
-      <p className="text-xs text-gray-500 mb-3">Chart shows up to 8 activities with the largest allocations; totals include all selected activities.</p>
-      {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No budget data yet.</p>
-      ) : (
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 12, bottom: 12 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11 }}
-              interval={0}
-              angle={-35}
-              textAnchor="end"
-              height={78}
-              tickFormatter={(name: any) => (String(name).length > 16 ? `${String(name).slice(0, 16)}…` : String(name))}
-            />
-            <YAxis
-              allowDecimals={false}
-              tick={{ fontSize: 12 }}
-              width={76}
-              tickFormatter={(v: any) => `₱${new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(v))}`}
-            />
-            <Tooltip formatter={(v: any) => `₱${Number(v).toLocaleString()}`} />
-            <Legend verticalAlign="top" height={28} />
-            <Bar maxBarSize={32} dataKey="allocated" name="Allocated" fill="var(--color-info)" fillOpacity={0.35} radius={[4, 4, 0, 0]} />
-            <Bar maxBarSize={32} dataKey="spent" name="Spent" fill="var(--color-accent)" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </div>
-  )
-}
-
-function AttendanceTrendChart({ data }: { data: { date: string; registrations: number; attendance: number }[] }) {
-  const isEmpty = data.every((d) => d.registrations === 0 && d.attendance === 0)
-
-  return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
-      <h2 className="text-sm font-semibold text-gray-600 mb-2">Registrations vs Attendance (Last 14 Days)</h2>
-      {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No activity in the last 14 days.</p>
-      ) : (
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={data} margin={{ top: 8, right: 12, left: 12, bottom: 12 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 11 }}
-              tickFormatter={(d: any) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-            />
-            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-            <Tooltip
-              labelFormatter={(d: any) =>
-                new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-              }
-            />
-            <Legend verticalAlign="top" height={28} />
-            <Line type="monotone" dataKey="registrations" name="Registrations" stroke="var(--color-primary)" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="attendance" name="Attendance" stroke="var(--color-teal)" strokeWidth={2} dot={false} />
-          </LineChart>
         </ResponsiveContainer>
       )}
     </div>

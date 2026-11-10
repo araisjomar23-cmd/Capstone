@@ -9,6 +9,7 @@ import { Star } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState'
 import { MessageSquareText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { SkeletonBox, SkeletonStatCard, SkeletonTableRows } from '../../components/Skeleton'
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -71,35 +72,41 @@ function AdminEvaluations() {
   }, [filtered])
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-4 md:p-8" aria-busy={loading}>
       <h1 className="text-2xl font-bold text-primary mb-6">Evaluations & Feedback</h1>
+      {loading && <p role="status" className="sr-only">Loading evaluations and feedback…</p>}
 
       <ActivityDateFilter value={period} onChange={setPeriod} dates={rows.map((r) => ({ start: r.activityStartDate, end: r.activityEndDate }))} />
-      <p className="text-xs text-gray-500 mb-4">Showing {filtered.length} of {rows.length} evaluations.</p>
+      {loading ? <div aria-hidden="true" className="mb-4"><SkeletonBox className="h-4 w-48" /></div>
+        : <p className="text-xs text-gray-500 mb-4">Showing {filtered.length} of {rows.length} evaluations.</p>}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        {loading ? Array.from({ length: 3 }, (_, index) => (
+          <div key={index} aria-hidden="true"><SkeletonStatCard /></div>
+        )) : <>
         <div className="bg-white rounded-xl shadow p-4 sm:p-5 border border-gray-100">
           <div className="text-sm text-gray-500">Total Responses</div>
-          <div className="text-2xl font-bold text-gray-900 mt-1">{loading ? '—' : stats.totalResponses}</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{stats.totalResponses}</div>
         </div>
         <div className="bg-white rounded-xl shadow p-4 sm:p-5 border border-gray-100">
           <div className="text-sm text-gray-500">Average Rating</div>
           <div className="text-2xl font-bold text-gray-900 mt-1">
-            {loading ? '—' : stats.averageRating.toFixed(1)}
+            {stats.averageRating.toFixed(1)}
           </div>
           <div className="text-xs text-gray-400 mt-1">Out of 5.0 stars</div>
         </div>
         <div className="bg-white rounded-xl shadow p-4 sm:p-5 border border-gray-100">
           <div className="text-sm text-gray-500">Would Recommend</div>
-          <div className="text-2xl font-bold text-gray-900 mt-1">{loading ? '—' : `${stats.recommendRate}%`}</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{`${stats.recommendRate}%`}</div>
         </div>
+        </>}
       </div>
 
       <div className="bg-white rounded-xl shadow border border-gray-100 overflow-x-auto mb-6">
         <div className="p-4 border-b border-gray-100 font-bold text-gray-900">Satisfaction by Activity</div>
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-gray-500"><th className="p-3">Activity</th><th className="p-3">Responses</th><th className="p-3">Average / 5</th></tr></thead>
-          <tbody>{activityStats.map((item) => <tr key={item.id} className="border-t border-gray-100"><td className="p-3">{item.title}<div className="text-xs text-gray-400">{item.date}</div></td><td className="p-3">{item.responses}</td><td className="p-3 font-semibold">{item.average.toFixed(1)}</td></tr>)}
-            {!activityStats.length && <tr><td colSpan={3} className="p-4 text-center text-gray-400">No evaluation results yet.</td></tr>}
+          <tbody aria-hidden={loading || undefined}>{loading ? <SkeletonTableRows cols={3} rows={3} /> : activityStats.map((item) => <tr key={item.id} className="border-t border-gray-100"><td className="p-3">{item.title}<div className="text-xs text-gray-400">{item.date}</div></td><td className="p-3">{item.responses}</td><td className="p-3 font-semibold">{item.average.toFixed(1)}</td></tr>)}
+            {!loading && !activityStats.length && <tr><td colSpan={3} className="p-4 text-center text-gray-400">No evaluation results yet.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -108,7 +115,22 @@ function AdminEvaluations() {
         <div className="p-4 border-b border-gray-100 font-bold text-gray-900">All Feedback</div>
         <div className="divide-y divide-gray-50">
           {loading ? (
-              <div className="text-center text-gray-400 py-10">Loading…</div>
+              <div aria-hidden="true" className="divide-y divide-gray-50">
+                {Array.from({ length: 3 }, (_, index) => (
+                  <div key={index} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <SkeletonBox className="h-4 w-1/3" />
+                        <SkeletonBox className="h-3 w-1/2" />
+                      </div>
+                      <SkeletonBox className="h-4 w-20" />
+                    </div>
+                    <SkeletonBox className="h-3 w-full" />
+                    <SkeletonBox className="h-3 w-2/3" />
+                    <SkeletonBox className="h-3 w-40" />
+                  </div>
+                ))}
+              </div>
             ) : filtered.length === 0 ? (
               <EmptyState
                 icon={<MessageSquareText size={22} />}
