@@ -27,6 +27,7 @@ export interface FeedbackAnalysis {
 
 export interface HybridFeedbackBatch {
   analyses: FeedbackAnalysis[]
+  sentimentSources: ('rules' | 'semantic' | 'none')[]
   semanticAssistedComments: number
   modelStatus: 'not-needed' | 'ready' | 'unavailable'
   modelError?: string
@@ -423,8 +424,9 @@ export function analyzeFeedback(text: string): FeedbackAnalysis {
  */
 export async function analyzeFeedbackHybrid(comments: string[]): Promise<HybridFeedbackBatch> {
   const analyses = comments.map(analyzeFeedback)
+  const sentimentSources: HybridFeedbackBatch['sentimentSources'] = analyses.map((analysis) => analysis.label === 'no-signal' ? 'none' : 'rules')
   if (!comments.length) {
-    return { analyses, semanticAssistedComments: 0, modelStatus: 'not-needed' }
+    return { analyses, sentimentSources, semanticAssistedComments: 0, modelStatus: 'not-needed' }
   }
 
   try {
@@ -441,6 +443,7 @@ export async function analyzeFeedbackHybrid(comments: string[]): Promise<HybridF
       let assisted = false
       const semanticSentiment = classifySemanticSentiment(vector, prototypeVectors.sentiments)
       if (analysis.label === 'no-signal' && semanticSentiment) {
+        sentimentSources[index] = 'semantic'
         analysis.label = semanticSentiment.label
         analysis.score = semanticSentiment.label === 'positive'
           ? semanticSentiment.score
@@ -468,10 +471,11 @@ export async function analyzeFeedbackHybrid(comments: string[]): Promise<HybridF
       if (assisted) semanticAssistedComments += 1
     })
 
-    return { analyses, semanticAssistedComments, modelStatus: 'ready' }
+    return { analyses, sentimentSources, semanticAssistedComments, modelStatus: 'ready' }
   } catch (error) {
     return {
       analyses,
+      sentimentSources,
       semanticAssistedComments: 0,
       modelStatus: 'unavailable',
       modelError: error instanceof Error ? error.message : String(error),

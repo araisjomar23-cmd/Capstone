@@ -4,6 +4,7 @@ export interface EvaluationRow {
   id: string
   rating: number
   feedback: string
+  responses: Record<string, string>
   wouldRecommend: boolean
   submittedAt: string
   participantName: string
@@ -22,7 +23,7 @@ export interface EvaluationStats {
 export async function fetchEvaluations(strict = false): Promise<{ stats: EvaluationStats; rows: EvaluationRow[] }> {
   const { data, error } = await supabase
     .from('evaluations')
-    .select('id, rating, feedback, would_recommend, submitted_at, registration_id')
+    .select('id, rating, feedback, responses, would_recommend, submitted_at, registration_id')
     .order('submitted_at', { ascending: false })
 
   if (error) {
@@ -57,6 +58,9 @@ export async function fetchEvaluations(strict = false): Promise<{ stats: Evaluat
       id: e.id,
       rating: e.rating,
       feedback: e.feedback || '',
+      responses: e.responses && typeof e.responses === 'object' && !Array.isArray(e.responses)
+        ? Object.fromEntries(Object.entries(e.responses).map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value) ?? '']))
+        : {},
       wouldRecommend: !!e.would_recommend,
       submittedAt: e.submitted_at,
       participantName: reg?.name || '—',

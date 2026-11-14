@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useMemo } from 'react'
 import { fetchEvaluations } from '../../features/evaluations/evaluationService'
 import type { EvaluationRow } from '../../features/evaluations/evaluationService'
+import EvaluationResponseDetails from '../../features/evaluations/EvaluationResponseDetails'
 import { ThumbsUp, ThumbsDown } from 'lucide-react'
 import { Star } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState'
@@ -164,6 +165,7 @@ function AdminEvaluations() {
                     })}
                   </span>
                 </div>
+                <EvaluationResponseDetails evaluation={r} />
               </div>
             ))
           )}

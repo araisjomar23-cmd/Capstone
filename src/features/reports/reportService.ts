@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
-import { analyzeFeedbackHybrid, type SuggestedSentiment } from '../evaluations/feedbackAnalyzer'
+import { analyzeFeedbackHybrid, type SuggestedSentiment, type FeedbackTheme, type MatchedSentimentTerm } from '../evaluations/feedbackAnalyzer'
+import { buildFeedbackInsights } from './feedbackInsights'
 
 export interface ReportData {
   period: string
@@ -39,6 +40,17 @@ export interface ReportData {
     recommendPct: string
   }[]
   feedbackAnalysis: {
+    comments: {
+      id: string
+      activityTitle: string
+      submittedAt: string
+      text: string
+      sentiment: SuggestedSentiment
+      themes: string[]
+      sentimentSource: 'rules' | 'semantic' | 'none'
+      matchedTerms: MatchedSentimentTerm[]
+      themeDetails: FeedbackTheme[]
+    }[]
     analyzedComments: number
     semanticAssistedComments: number
     modelStatus: 'not-needed' | 'ready' | 'unavailable'
@@ -86,8 +98,9 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
   const { data: evals, error: evaluationsError } = activityIds.length
     ? await supabase
       .from('evaluations')
-      .select('activity_id, rating, would_recommend, feedback')
+      .select('id, activity_id, rating, would_recommend, feedback, submitted_at')
       .in('activity_id', activityIds)
+      .order('submitted_at', { ascending: false })
     : { data: null, error: null }
 
   if (evaluationsError) throw new Error(`Unable to load report evaluations: ${evaluationsError.message}`)
@@ -194,9 +207,8 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
       ? `A total of ${evals.length} evaluation${evals.length === 1 ? '' : 's'} were collected across ${evalRows.length} activit${evalRows.length === 1 ? 'y' : 'ies'}, with an overall average satisfaction rating of ${avgSatisfaction} out of 5.`
       : 'No evaluation responses were collected during this period.'
 
-  const comments = (evals || [])
-    .map((evaluation: any) => String(evaluation.feedback || '').trim())
-    .filter(Boolean)
+  const writtenEvaluations = (evals || []).filter((evaluation: any) => String(evaluation.feedback || '').trim())
+  const comments = writtenEvaluations.map((evaluation: any) => String(evaluation.feedback).trim())
   const sentimentCounts: Record<SuggestedSentiment, number> = {
     positive: 0,
     negative: 0,
@@ -218,6 +230,17 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
     }
   }
   const feedbackAnalysis = {
+    comments: writtenEvaluations.map((evaluation: any, index: number) => ({
+      id: evaluation.id,
+      activityTitle: (activities || []).find((activity: any) => activity.id === evaluation.activity_id)?.title || 'Unknown activity',
+      submittedAt: evaluation.submitted_at,
+      text: comments[index],
+      sentiment: hybridResults.analyses[index].label,
+      themes: hybridResults.analyses[index].themes.map(({ theme }) => theme),
+      sentimentSource: hybridResults.sentimentSources[index],
+      matchedTerms: hybridResults.analyses[index].matchedTerms,
+      themeDetails: hybridResults.analyses[index].themes,
+    })),
     analyzedComments: comments.length,
     semanticAssistedComments: hybridResults.semanticAssistedComments,
     modelStatus: hybridResults.modelStatus,
@@ -268,6 +291,8 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
   if (activities?.length && (!evals || evals.length === 0)) {
     insights.push('No evaluation responses were collected in this period, so participant satisfaction could not be assessed.')
   }
+
+  insights.push(...buildFeedbackInsights(feedbackAnalysis))
 
   if (insights.length === 0) {
     insights.push('No significant issues detected for this reporting period based on available data.')

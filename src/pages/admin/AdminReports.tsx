@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { generateReport } from '../../features/reports/reportService'
 import type { ReportData } from '../../features/reports/reportService'
+import FeedbackComment from '../../features/reports/FeedbackComment'
 import { Activity, FileText, Lightbulb, Printer, Star, Users } from 'lucide-react'
 import DatePicker from '../../components/DatePicker'
 import { currentMonthPeriod } from '../../lib/activityDatePeriod'
@@ -211,7 +212,7 @@ function AdminReports() {
             </div>
             <div className="mt-4 rounded-lg border border-gray-200 p-4">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h3 className="text-sm font-semibold text-gray-900">Written feedback analysis</h3>
+                <h3 className="text-sm font-semibold text-gray-900">NLP feedback analysis</h3>
                 <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">Suggested</span>
                 <span className="text-xs text-gray-500">
                   {insightData.feedbackAnalysis.modelStatus === 'ready'
@@ -222,9 +223,9 @@ function AdminReports() {
                 </span>
               </div>
               <p className="text-xs text-gray-500 mb-3">
-                Based on {insightData.feedbackAnalysis.analyzedComments} written comment{insightData.feedbackAnalysis.analyzedComments === 1 ? '' : 's'}. Pretrained multilingual embeddings compare comments with sentiment and theme examples; weighted Bisaya/English rules handle negation, contrast, and emphasis, and take priority when they match. The model runs locally in this browser; feedback text is not sent to an inference API. Cebuano is low-resource for this model, so review the original comments.
+                NLP reads written comments to suggest sentiment and feedback topics. Based on {insightData.feedbackAnalysis.analyzedComments} written comment{insightData.feedbackAnalysis.analyzedComments === 1 ? '' : 's'}. Review the matched wording and topic analysis beneath each comment.
                 {' '}{insightData.feedbackAnalysis.modelStatus === 'ready'
-                  ? `Semantic analysis contributed to ${insightData.feedbackAnalysis.semanticAssistedComments} comment${insightData.feedbackAnalysis.semanticAssistedComments === 1 ? '' : 's'}.`
+                  ? `The multilingual model contributed sentiment or topics to ${insightData.feedbackAnalysis.semanticAssistedComments} comment${insightData.feedbackAnalysis.semanticAssistedComments === 1 ? '' : 's'}; language rules can identify other comments independently.`
                   : insightData.feedbackAnalysis.modelStatus === 'unavailable'
                     ? 'The model could not be loaded, so these results use the Bisaya-aware rules only.'
                     : 'The model loads when written comments are available.'} Review original feedback before making decisions.
@@ -237,7 +238,7 @@ function AdminReports() {
                     <SentimentCount label="Positive" count={insightData.feedbackAnalysis.sentimentCounts.positive} color="bg-green-50 text-green-700" />
                     <SentimentCount label="Negative" count={insightData.feedbackAnalysis.sentimentCounts.negative} color="bg-red-50 text-red-700" />
                     <SentimentCount label="Mixed" count={insightData.feedbackAnalysis.sentimentCounts.mixed} color="bg-amber-50 text-amber-700" />
-                    <SentimentCount label="No signal" count={insightData.feedbackAnalysis.sentimentCounts['no-signal']} color="bg-gray-100 text-gray-600" />
+                    <SentimentCount label="Needs review" count={insightData.feedbackAnalysis.sentimentCounts['no-signal']} color="bg-gray-100 text-gray-600" />
                   </div>
                   {insightData.feedbackAnalysis.themeCounts.length ? (
                     <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
@@ -249,6 +250,15 @@ function AdminReports() {
                       ))}
                     </div>
                   ) : <p className="text-xs text-gray-500">No configured feedback themes were matched.</p>}
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <h4 className="text-sm font-semibold text-gray-900">Participant comments</h4>
+                    <p className="mt-1 text-xs text-gray-500">Original comments and their NLP results. “Needs review” means the sentiment is unclear; the comment is still included.</p>
+                    <div className="mt-3 max-h-96 space-y-3 overflow-y-auto">
+                      {insightData.feedbackAnalysis.comments.map((comment) => (
+                        <FeedbackComment key={comment.id} comment={comment} />
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
