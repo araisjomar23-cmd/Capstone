@@ -477,7 +477,7 @@ function PublicLandingPage() {
 
               <a
                 href="mailto:pdaopanabocity@gmail.com"
-                className="inline-flex min-h-11 items-center gap-2 hover:text-white transition-colors"
+                className="inline-flex items-center gap-2 hover:text-white transition-colors"
               ><Mail size={14} className="text-white/40" /> pdaopanabocity@gmail.com</a>
 
               <a 
