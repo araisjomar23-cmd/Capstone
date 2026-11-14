@@ -429,7 +429,7 @@ function PublicLandingPage() {
       </section>
       {/* Footer */}
       <footer className="text-white mt-8" style={{ background: 'var(--color-primary-dark, #063568)' }}>
-        <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-3 gap-10">
+        <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-2 gap-10">
           <div>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-white/95 flex items-center justify-center p-1.5 shrink-0">
@@ -444,21 +444,6 @@ function PublicLandingPage() {
               Monitoring, Evaluation, Accountability, and Learning for youth development programs
               across Panabo City.
             </p>
-          </div>
-
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-white/40 mb-3">Quick Links</div>
-            <div className="flex flex-col gap-2 text-sm">
-              <button onClick={() => document.getElementById('activities-section')?.scrollIntoView({ behavior: 'smooth' })} className="text-white/70 hover:text-white text-left">
-                Browse Activities
-              </button>
-              <button onClick={() => navigate('/signup')} className="text-white/70 hover:text-white text-left">
-                Create an Account
-              </button>
-              <button onClick={() => navigate('/admin/login')} className="text-white/70 hover:text-white text-left">
-                Log In
-              </button>
-            </div>
           </div>
 
           <div id="contact">
