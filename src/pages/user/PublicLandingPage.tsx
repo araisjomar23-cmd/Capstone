@@ -473,8 +473,14 @@ function PublicLandingPage() {
               <span>3rd Floor, New City Hall Building, Barangay JP Laurel, Panabo City, Davao del Norte</span>
               </a>
 
-              <span className="inline-flex items-center gap-2"><Phone size={14} className="text-white/40" /> (084) 000-0000</span>
-              <span className="inline-flex items-center gap-2"><Mail size={14} className="text-white/40" /> cydo@panabocity.gov.ph</span>
+              <span className="inline-flex items-center gap-2"><Phone size={14} className="text-white/40" /> 09913011896</span>
+
+              <a
+                href="mailto:pdaopanabocity@gmail.com"
+                target='_blank'
+                rel='noopener noreferrer'
+                className="inline-flex min-h-11 items-center gap-2 hover:text-white transition-colors"
+              ><Mail size={14} className="text-white/40" /> pdaopanabocity@gmail.com</a>
 
               <a 
                href="https://www.facebook.com/profile.php?id=100090102912449"
