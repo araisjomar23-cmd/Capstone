@@ -28,6 +28,7 @@ html:has(.public-landing) { scroll-behavior: smooth; }
   .public-landing .landing-nav-links {
     order: 3;
     width: 100%;
+    flex-wrap: wrap;
     justify-content: center;
     gap: 28px;
     border-top: 1px solid var(--landing-line);

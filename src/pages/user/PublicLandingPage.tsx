@@ -130,6 +130,7 @@ function PublicLandingPage() {
             <a href="#activities-section" className="hover:text-primary">Activities</a>
             <a href="#how-it-works" className="hover:text-primary">How it works</a>
             <a href="#programs" className="hover:text-primary">Our programs</a>
+            <a href="#contact" className="hover:text-primary">Contact</a>
           </div>
           <div className="flex items-center gap-4 text-sm font-bold">
             <button onClick={() => navigate('/admin/login')} className="text-primary">Log in</button>
@@ -460,7 +461,7 @@ function PublicLandingPage() {
             </div>
           </div>
 
-          <div>
+          <div id="contact">
             <div className="text-[11px] font-bold uppercase tracking-wide text-white/40 mb-3">Contact CYDO</div>
             <div className="flex flex-col gap-2 text-sm text-white/70">
               <a
