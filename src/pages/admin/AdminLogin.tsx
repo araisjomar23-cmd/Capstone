@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { loginAdmin, getAdminRole } from '../../features/auth/authService'
-import { Mail, Lock, Eye, EyeOff, CalendarCheck2, Users, Wallet, Check, ArrowLeft } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, CalendarCheck2, Users, Wallet, Check, ArrowLeft, AlertCircle } from 'lucide-react'
 import logo from '../../assets/CYDO LOGO.jpg'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { supabase } from '../../lib/supabase'
@@ -31,6 +31,9 @@ function AdminLogin() {
   // This checkbox controls saved email only. Supabase sessions always use localStorage.
   const [rememberMe, setRememberMe] = useState(true)
   const [error, setError] = useState('')
+  const [missingFields, setMissingFields] = useState({ email: false, password: false })
+  const emailRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -49,9 +52,14 @@ function AdminLogin() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    setMissingFields({ email: !email.trim(), password: !password })
 
     if (!email.trim() || !password) {
-      setError('Please enter both email and password.')
+      setError(!email.trim() && !password
+        ? 'Enter your email address and password to continue.'
+        : !email.trim() ? 'Enter your email address to continue.' : 'Enter your password to continue.')
+      if (!email.trim()) emailRef.current?.focus()
+      else passwordRef.current?.focus()
       return
     }
 
@@ -62,7 +70,7 @@ function AdminLogin() {
 
     if (loginError) {
       setLoading(false)
-      setError('Invalid email or password.')
+      setError('The email or password is incorrect. Check your details and try again.')
       return
     }
 
@@ -179,11 +187,18 @@ function AdminLogin() {
                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   id="login-email"
+                  ref={emailRef}
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setMissingFields(fields => ({ ...fields, email: false }))
+                    setError('')
+                  }}
+                  aria-invalid={missingFields.email || undefined}
+                  aria-describedby={error ? 'login-error' : undefined}
                   placeholder=" "
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
+                  className="w-full border border-gray-200 aria-invalid:border-red-400 bg-gray-50 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
                   autoComplete="email"
                 />
                 <label htmlFor="login-email">Email Address</label>
@@ -195,11 +210,18 @@ function AdminLogin() {
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   id="login-password"
+                  ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setMissingFields(fields => ({ ...fields, password: false }))
+                    setError('')
+                  }}
+                  aria-invalid={missingFields.password || undefined}
+                  aria-describedby={error ? 'login-error' : undefined}
                   placeholder=" "
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
+                  className="w-full border border-gray-200 aria-invalid:border-red-400 bg-gray-50 rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
                   autoComplete="current-password"
                 />
                 <label htmlFor="login-password">Password</label>
@@ -235,9 +257,13 @@ function AdminLogin() {
             </div>
 
             {error && (
-              <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                {error}
-              </p>
+              <div id="login-error" role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">
+                <AlertCircle size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-red-600" />
+                <div>
+                  <p className="text-sm font-semibold">Please check your details</p>
+                  <p className="mt-1 text-sm leading-relaxed">{error}</p>
+                </div>
+              </div>
             )}
 
             <button
