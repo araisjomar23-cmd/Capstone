@@ -73,7 +73,7 @@ html:has(.public-landing) { scroll-behavior: smooth; }
 .public-landing a:hover, .public-landing button:hover { text-decoration: none; }
 .landing-slideshow { position: relative; isolation: isolate; overflow: hidden; background: var(--color-primary-dark); color: #fff; }
 .landing-slide-images, .landing-slide-shade { position: absolute; inset: 0; z-index: -1; }
-.landing-slide-images img { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.1s ease; }
+.landing-slide-images img { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1s ease-in-out; }
 .landing-slide-images img.is-active { opacity: 1; }
 .landing-slide-shade { background: linear-gradient(90deg, #04254bed 0%, #04254bc9 35%, #04254b50 75%, #04254b30), linear-gradient(0deg, #04254be6, transparent 50%); }
 .landing-slide-inner { max-width: 1200px; margin: auto; padding: 58px 24px 18px; }
@@ -105,8 +105,6 @@ html:has(.public-landing) { scroll-behavior: smooth; }
 .landing-slide-controls { display: flex; align-items: center; gap: 7px; }
 .landing-slide-count { font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 700; margin-right: 15px; white-space: nowrap; }
 .landing-slide-count > span { font-size: 11px; color: #c0d4e9; font-weight: 400; }
-.landing-slide-controls > button { display: flex; align-items: center; justify-content: center; width: 37px; height: 37px; border: 1px solid #ffffff45; border-radius: 50%; color: white; background: #06356870; }
-.landing-slide-controls > button:hover { background: #ffffff25; }
 .landing-slide-dots { display: flex; align-items: center; }
 .landing-slide-dots button { padding: 14px 5px; }
 .landing-slide-dots button span { display: block; width: 7px; height: 7px; background: #ffffff66; border-radius: 10px; transition: width .25s, background-color .25s; }

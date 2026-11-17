@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, GraduationCap, HandHeart, Pause, Play, Sprout } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, GraduationCap, HandHeart, Sprout } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const SLIDES = [
   {
-    image: '/images/landing/learn.jpg',
+    image: '/images/landing/youth-leadership-group.png',
+    brand: 'blue',
     label: 'LEARN & GROW',
     title: 'Your next chapter',
     highlight: 'starts here.',
@@ -13,7 +14,8 @@ const SLIDES = [
     position: 'center 45%',
   },
   {
-    image: '/images/landing/community.jpg',
+    image: '/images/landing/youth-leadership-discussion.png',
+    brand: 'teal',
     label: 'CONNECT & BELONG',
     title: 'Find your people.',
     highlight: 'Build your future.',
@@ -22,7 +24,8 @@ const SLIDES = [
     position: 'center 50%',
   },
   {
-    image: '/images/landing/volunteer.jpg',
+    image: '/images/landing/youth-leadership-speaking.png',
+    brand: 'green',
     label: 'SHOW UP & MAKE A DIFFERENCE',
     title: 'Small steps.',
     highlight: 'Lasting impact.',
@@ -30,11 +33,20 @@ const SLIDES = [
     caption: 'A little of your time. A world of possibility.',
     position: 'center 50%',
   },
+  {
+    image: '/images/landing/youth-leadership-workshop.png',
+    brand: 'blue',
+    label: 'LEAD & INSPIRE',
+    title: 'Share your ideas.',
+    highlight: 'Shape tomorrow.',
+    description: 'Build confidence, learn together, and turn your ideas into action through youth leadership opportunities in Panabo City.',
+    caption: 'Every voice can inspire change.',
+    position: 'center 50%',
+  },
 ]
 
 export default function LandingHero() {
   const [active, setActive] = useState(0)
-  const [paused, setPaused] = useState(false)
   const [interacting, setInteracting] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
 
@@ -46,12 +58,12 @@ export default function LandingHero() {
   }, [])
 
   useEffect(() => {
-    if (paused || interacting || reducedMotion) return
+    if (interacting || reducedMotion) return
     const timer = window.setInterval(() => {
       if (!document.hidden) setActive(value => (value + 1) % SLIDES.length)
-    }, 6500)
+    }, 3000)
     return () => window.clearInterval(timer)
-  }, [paused, interacting, reducedMotion, active])
+  }, [interacting, reducedMotion, active])
 
   function selectSlide(index: number) {
     setActive((index + SLIDES.length) % SLIDES.length)
@@ -61,12 +73,10 @@ export default function LandingHero() {
     <>
       <section
         className="landing-slideshow"
-        data-brand={['blue', 'teal', 'green'][active]}
+        data-brand={SLIDES[active].brand}
         aria-label="Discover opportunities with PRIME"
         aria-roledescription="carousel"
-        onMouseEnter={() => setInteracting(true)}
-        onMouseLeave={() => setInteracting(false)}
-        onFocusCapture={() => setInteracting(true)}
+        onFocusCapture={event => setInteracting(event.target.matches(':focus-visible'))}
         onBlurCapture={event => {
           if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false)
         }}
@@ -79,7 +89,7 @@ export default function LandingHero() {
         <div className="landing-slide-shade" />
         <div className="landing-slide-inner">
           <p className="landing-slide-eyebrow"><span /> PANABO CITY YOUTH DEVELOPMENT OFFICE</p>
-          <div className="landing-slide-copy" aria-live={paused || interacting || reducedMotion ? 'polite' : 'off'} aria-atomic="true">
+          <div className="landing-slide-copy" aria-live={interacting || reducedMotion ? 'polite' : 'off'} aria-atomic="true">
             {SLIDES.map((slide, index) => (
               <div key={slide.label} className={`landing-slide${index === active ? ' is-active' : ''}`} aria-hidden={index !== active} inert={index !== active} role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${SLIDES.length}`}>
                 <p className="landing-slide-category">{slide.label}</p>
@@ -96,15 +106,12 @@ export default function LandingHero() {
             <div className="landing-slide-note"><span className="landing-slide-note-line" /><div><strong>GROW. CONNECT. CONTRIBUTE.</strong><div className="landing-slide-captions">{SLIDES.map((slide, index) => <p key={slide.label} className={index === active ? 'is-active' : ''} aria-hidden={index !== active}>{slide.caption}</p>)}</div></div></div>
             <div className="landing-slide-controls" role="group" aria-label="Slideshow controls">
               <span className="landing-slide-count">0{active + 1}<span> / 0{SLIDES.length}</span></span>
-              <button type="button" onClick={() => selectSlide(active - 1)} aria-label="Previous slide"><ChevronLeft size={18} /></button>
               <div className="landing-slide-dots">
                 {SLIDES.map((slide, index) => <button type="button" key={slide.label} className={index === active ? 'is-active' : ''} aria-label={`Show slide ${index + 1}: ${slide.label.toLowerCase()}`} aria-current={index === active ? 'true' : undefined} onClick={() => selectSlide(index)}><span /></button>)}
               </div>
-              <button type="button" onClick={() => selectSlide(active + 1)} aria-label="Next slide"><ChevronRight size={18} /></button>
-              {!reducedMotion && <button type="button" onClick={() => setPaused(value => !value)} aria-label={paused ? 'Play slideshow' : 'Pause slideshow'}>{paused ? <Play size={15} /> : <Pause size={15} />}</button>}
             </div>
           </div>
-          <p className="landing-photo-note">Illustrative photography · Unsplash</p>
+          <p className="landing-photo-note">Panabo City Youth Development Office</p>
         </div>
       </section>
       <div className="landing-community-band">
