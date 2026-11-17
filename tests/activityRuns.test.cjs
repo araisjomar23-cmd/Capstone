@@ -40,6 +40,35 @@ test('new runs insert a separate activity and never clear registrations, attenda
   assert.ok(writes.every((write) => write.action !== 'delete' || write.id === 'new-run'))
   assert.ok(!writes.some((write) => write.table === 'budget_entries'))
 })
+
+test('saving an activity preserves unchanged assignments and only writes actual facilitator changes', async () => {
+  const writes = []
+  function client(existing) {
+    return { from: table => {
+      const query = {
+        eq: () => query,
+        in: (column, ids) => { writes.push({ table, action: 'remove', ids }); return query },
+        then: (resolve, reject) => Promise.resolve({ data: existing.map(facilitator_id => ({ facilitator_id })), error: null }).then(resolve, reject),
+      }
+      return {
+        select: () => query,
+        update: () => query,
+        delete: () => query,
+        insert: payload => { writes.push({ table, action: 'insert', payload }); return Promise.resolve({ error: null }) },
+      }
+    } }
+  }
+  const payload = { title: 'Workshop', programId: 'p', slots: 20, startDate: '2100-01-01', endDate: '2100-01-01', startTime: '09:00', endTime: '10:00', checkInEarlyAccessMinutes: 30, venue: 'Hall', previewDesc: '', fullDesc: '', note: '', colorBg: '', budget: 0 }
+  const unchanged = load('src/features/activities/activityService.ts', client(['f1']))
+  assert.equal((await unchanged.saveActivity(payload, [{ id: 'f1' }], 'activity')).ok, true)
+  assert.equal(writes.length, 0, 'unchanged assignments must not create removal/reassignment notifications')
+  const changed = load('src/features/activities/activityService.ts', client(['f1', 'f2']))
+  assert.equal((await changed.saveActivity(payload, [{ id: 'f1' }, { id: 'f3' }, { id: 'f3' }], 'activity')).ok, true)
+  assert.deepEqual(writes, [
+    { table: 'activity_facilitators', action: 'remove', ids: ['f2'] },
+    { table: 'activity_facilitators', action: 'insert', payload: { activity_id: 'activity', facilitator_id: 'f3' } },
+  ])
+})
 test('public and participant catalog hides completed and manually closed activities without deleting history', async () => {
   const rows = [
     { id: 'old', title: 'Previous run', status: 'closed', slots: 20, start_date: '2000-01-01', end_date: '2000-01-01' },

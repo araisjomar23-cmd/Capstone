@@ -11,8 +11,8 @@ import {
   Pie,
   Cell,
   Tooltip,
-  Legend,
   ResponsiveContainer,
+  type PieLabelRenderProps,
 } from 'recharts'
 import { useDashboardData } from '../../features/dashboard/useDashboardData'
 import { useToast } from '../../components/ToastProvider'
@@ -20,13 +20,25 @@ import { SkeletonStatCard } from '../../components/Skeleton'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 const CHART_COLORS = [
-  'var(--color-primary)',
-  'var(--color-teal)',
-  'var(--color-info)',
-  'var(--color-accent)',
-  'var(--color-warning, #f59e0b)',
-  'var(--color-danger, #ef4444)',
+  '#f56800',
+  '#ffcc00',
+  '#df009b',
+  '#555555',
+  '#999999',
+  '#0756a0',
 ]
+
+function SectorPercentLabel({ cx, cy, midAngle = 0, outerRadius = 0, percent = 0, index }: PieLabelRenderProps) {
+  if (percent < 0.04) return null
+  const radius = Number(outerRadius) * 0.62
+  const radians = -midAngle * Math.PI / 180
+  return (
+    <text x={Number(cx) + radius * Math.cos(radians)} y={Number(cy) + radius * Math.sin(radians)}
+      fill={index % CHART_COLORS.length === 1 ? '#654800' : '#fff'} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={700} pointerEvents="none">
+      {Math.round(percent * 100)}%
+    </text>
+  )
+}
 
 function AdminDashboard() {
   usePageTitle('PRIME Admin')
@@ -119,6 +131,7 @@ function RegistrationStatusChart({
   data: { status: string; label: string; value: number }[]
 }) {
   const isEmpty = data.length === 0 || data.every((d) => d.value === 0)
+  const total = data.reduce((sum, entry) => sum + entry.value, 0)
 
   return (
     <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
@@ -126,27 +139,48 @@ function RegistrationStatusChart({
       {isEmpty ? (
         <p className="text-sm text-gray-500 py-12 text-center flex-1 flex items-center justify-center min-h-64">No attendees yet in the selected period. Sectoral groups appear after participants check in.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
+        <div className="flex-1 flex flex-col min-[480px]:flex-row items-center justify-center gap-4 py-4">
+          <div className="w-full min-[480px]:w-[55%] min-w-0" role="img" aria-label={`Sectoral group distribution across ${total} attendees. Slice labels show each group's percentage of the total.`}>
+          <ResponsiveContainer width="100%" height={250}>
+          <PieChart accessibilityLayer>
             <Pie
               data={data}
               dataKey="value"
               nameKey="label"
               cx="50%"
               cy="50%"
-              innerRadius={48}
-              outerRadius={72}
-              paddingAngle={2}
+              innerRadius={0}
+              outerRadius="88%"
+              startAngle={90}
+              endAngle={-270}
+              paddingAngle={0}
+              stroke="#943e9e"
+              strokeWidth={1}
+              label={SectorPercentLabel}
+              labelLine={false}
             >
               {data.map((entry, index) => (
                 <Cell key={entry.status} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip />
-            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+            <Tooltip formatter={(value) => {
+              const count = Number(value)
+              return `${count.toLocaleString()} ${count === 1 ? 'attendee' : 'attendees'} (${Math.round(count / total * 100)}%)`
+            }} contentStyle={{ borderRadius: 12, borderColor: '#dce5ef', fontSize: 12 }} />
           </PieChart>
-        </ResponsiveContainer>
+          </ResponsiveContainer>
+          </div>
+          <ul className="w-full min-[480px]:flex-1 min-w-0 space-y-3" aria-label="Sectoral group legend">
+            {data.map((entry, index) => (
+              <li key={entry.status} className="flex items-start gap-2.5 text-xs">
+                <span className="w-6 h-3.5 shrink-0 rounded-sm border border-[#943e9e] mt-0.5" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} aria-hidden="true" />
+                <div className="min-w-0"><p className="font-medium text-gray-700 break-words">{entry.label}</p><p className="text-gray-500 mt-0.5">{entry.value.toLocaleString()} · {Math.round(entry.value / total * 100)}%</p></div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
+      {!isEmpty && <p className="text-xs text-gray-500 mt-2">Each slice shows its share of total attendees (100%). Hover a slice for attendee counts and percentages.</p>}
     </div>
   )
 }

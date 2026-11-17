@@ -14,7 +14,8 @@
     "db:status": "supabase migration list --linked",
     "db:push": "supabase db push --linked",
     "db:baseline": "supabase migration repair 20261016000000 20261017 --status applied --linked",
-    "test:filters": "node --test tests/filterAccuracy.test.cjs"
+    "test:filters": "node --test tests/filterAccuracy.test.cjs",
+    "test:notifications": "node --test tests/notifications.test.cjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",
@@ -30,6 +31,7 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

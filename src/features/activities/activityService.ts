@@ -199,6 +199,12 @@ export async function saveActivity(
   editingId: string | null
 ): Promise<{ ok: boolean; error?: string; id?: string }> {
   if (editingId && payload.previousActivityId) return { ok: false, error: 'A new run must be created as a separate activity.' }
+  let previousFacilitatorIds: string[] = []
+  if (editingId) {
+    const { data, error } = await supabase.from('activity_facilitators').select('facilitator_id').eq('activity_id', editingId)
+    if (error) return { ok: false, error: 'Unable to load existing facilitator assignments: ' + error.message }
+    previousFacilitatorIds = (data || []).map(row => row.facilitator_id)
+  }
   const dbPayload = {
     ...(payload.previousActivityId ? { previous_activity_id: payload.previousActivityId } : {}),
     ...(payload.tags ? { tags: payload.tags } : {}),
@@ -265,11 +271,18 @@ export async function saveActivity(
     })
   }
 
-  await supabase.from('activity_facilitators').delete().eq('activity_id', activityId)
-  for (const f of facilitators) {
-    await supabase
-      .from('activity_facilitators')
-      .insert({ activity_id: activityId, facilitator_id: f.id })
+  // Preserve existing assignments so a simple activity edit does not send
+  // misleading removal/reassignment notifications to every facilitator.
+  const nextIds = [...new Set(facilitators.map(f => f.id))]
+  const removedIds = previousFacilitatorIds.filter(id => !nextIds.includes(id))
+  if (removedIds.length) {
+    const { error } = await supabase.from('activity_facilitators').delete()
+      .eq('activity_id', activityId).in('facilitator_id', removedIds)
+    if (error) return { ok: false, error: 'Activity saved, but facilitator assignments could not be removed: ' + error.message }
+  }
+  for (const id of nextIds.filter(id => !previousFacilitatorIds.includes(id))) {
+    const { error } = await supabase.from('activity_facilitators').insert({ activity_id: activityId, facilitator_id: id })
+    if (error) return { ok: false, error: 'Activity saved, but a facilitator could not be assigned: ' + error.message }
   }
 
   return { ok: true, id: activityId }
