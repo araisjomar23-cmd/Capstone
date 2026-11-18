@@ -1,5 +1,6 @@
 export interface Activity {
   id: string
+  proposalId?: string | null
   programId: string
   programName: string
   title: string

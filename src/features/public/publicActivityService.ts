@@ -23,6 +23,7 @@ export interface PublicActivity {
   previewDesc: string
   fullDesc: string
   outcomes: string[]
+  objectives?: string[]
   schedule: string[]
   bring: string[]
   note: string
@@ -54,7 +55,7 @@ export async function fetchPublicActivities(): Promise<PublicActivity[]> {
     .select(`
   id, program_id, title, color_bg, tags,
   status, manually_closed, slots, start_date, end_date, start_time, end_time, venue,
-  preview_desc, full_desc, outcomes, schedule, bring, note,
+  preview_desc, full_desc, objectives, outcomes, schedule, bring, note,
   programs ( id, name )
 `)
     .order('created_at', { ascending: false })
@@ -102,6 +103,7 @@ export async function fetchPublicActivities(): Promise<PublicActivity[]> {
     previewDesc: a.preview_desc || '',
     fullDesc: a.full_desc || '',
     outcomes: a.outcomes || [],
+    objectives: a.objectives || [],
     schedule: a.schedule || [],
     bring: a.bring || [],
     note: a.note || '',

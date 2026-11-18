@@ -1,4 +1,5 @@
 import { activityDescription } from '../../features/activities/activityDescription'
+import ActivityPlanDetails from '../../features/public/ActivityPlanDetails'
 import { getActivityLifecycleStatus, getActivityDisplayStatus, ACTIVITY_STATUS_DISPLAY } from '../../features/activities/activityLifecycle'
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
@@ -153,6 +154,7 @@ function ActivityDetail() {
             <ActivityDeliveryDetails activityId={activity.id} />
             <h2 className="text-lg font-bold text-gray-900 mb-3">About this activity</h2>
             <p className="whitespace-pre-wrap break-words text-base leading-7 text-gray-800 mb-6">{activityDescription(activity.previewDesc, activity.fullDesc)}</p>
+            <ActivityPlanDetails activity={activity} />
 
             <div className="flex justify-between items-center text-sm font-medium text-gray-700 mb-5">
               <span>{open <= 0 ? 'Full' : `${open} slot${open === 1 ? '' : 's'} left`}</span>

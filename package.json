@@ -15,7 +15,8 @@
     "db:push": "supabase db push --linked",
     "db:baseline": "supabase migration repair 20261016000000 20261017 --status applied --linked",
     "test:filters": "node --test tests/filterAccuracy.test.cjs",
-    "test:notifications": "node --test tests/notifications.test.cjs"
+    "test:notifications": "node --test tests/notifications.test.cjs",
+    "test:ppa": "node --test tests/ppaWorkflow.test.cjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",
@@ -23,12 +24,15 @@
     "@tailwindcss/vite": "^4.3.3",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.58.0",
+    "mammoth": "^1.13.0",
+    "pdfjs-dist": "^6.5.438",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.1",
     "recharts": "^3.10.1",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",

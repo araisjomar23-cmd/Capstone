@@ -25,7 +25,7 @@ for (const page of ['CompleteProfile', 'ParticipantProfile']) {
       const capture = (data) => { payload = data; return { error: { message: 'Stop after database write' } } }
       const supabase = { auth: { getUser: async () => ({ data: { user: { id: 'u' } } }) }, from: (table) => { assert.equal(table, 'participants'); return { upsert: async (data) => capture(data), update: (data) => ({ eq: async () => capture(data) }) } } }
       const noop = () => {}
-      await new Function('form', 'supabase', 'calcAge', 'setError', 'setSaving', 'setRow', 'setEditing', 'refreshRole', 'requestedReturnTo', 'activityId', 'navigate', `${handler}; return save();`)(form, supabase, () => 20, noop, noop, noop, noop, noop, null, null, noop)
+      await new Function('form', 'supabase', 'calcAge', 'setError', 'setSaving', 'setRow', 'setEditing', 'refreshRole', 'requestedReturnTo', 'activityId', 'navigate', 'saving', 'confirm', `${handler}; return save();`)(form, supabase, () => 20, noop, noop, noop, noop, noop, null, null, noop, false, async () => true)
       assert.equal(payload.youth_classification, youth)
       assert.equal(payload.sectoral_group, sector)
     }

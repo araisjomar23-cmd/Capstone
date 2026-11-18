@@ -31,7 +31,7 @@ export async function fetchActivityById(id: string): Promise<PublicActivity | nu
     .select(`
       id, program_id, title, color_bg, tags,
       status, manually_closed, slots, taken, start_date, end_date, start_time, end_time, venue,
-      preview_desc, full_desc, outcomes, schedule, bring, note,
+      preview_desc, full_desc, objectives, outcomes, schedule, bring, note,
       programs ( id, name )
     `)
     .eq('id', id)
@@ -72,6 +72,7 @@ export async function fetchActivityById(id: string): Promise<PublicActivity | nu
     previewDesc: data.preview_desc || '',
     fullDesc: data.full_desc || '',
     outcomes: data.outcomes || [],
+    objectives: data.objectives || [],
     schedule: data.schedule || [],
     bring: data.bring || [],
     note: data.note || '',

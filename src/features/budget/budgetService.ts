@@ -11,6 +11,8 @@ export interface BudgetEntry {
   entryType: 'allocation' | 'expense'
   recordedAt: string
   recordedBy: string
+  approvedBudgetItemId?: string | null
+  unplannedReason?: string
 }
 
 export interface BudgetAuditEvent {
@@ -54,6 +56,8 @@ interface BudgetEntryRecord {
   entry_type: 'allocation' | 'expense'
   recorded_at: string
   recorded_by: string | null
+  approved_budget_item_id?: string | null
+  unplanned_reason?: string
 }
 
 export async function fetchBudgetOverview(): Promise<BudgetOverview> {
@@ -61,7 +65,7 @@ export async function fetchBudgetOverview(): Promise<BudgetOverview> {
 
   const { data: entries, error } = await supabase
     .from('budget_entries')
-    .select('id, activity_id, category, description, amount, entry_type, recorded_at, recorded_by')
+    .select('id, activity_id, category, description, amount, entry_type, recorded_at, recorded_by, approved_budget_item_id, unplanned_reason')
     .order('recorded_at', { ascending: false })
   if (error) throw new Error(`Unable to load budget entries: ${error.message}`)
 
@@ -80,6 +84,8 @@ export async function fetchBudgetOverview(): Promise<BudgetOverview> {
     entryType: e.entry_type,
     recordedAt: e.recorded_at,
     recordedBy: e.recorded_by || 'Admin',
+    approvedBudgetItemId: e.approved_budget_item_id || null,
+    unplannedReason: e.unplanned_reason || '',
   }))
 
   const entriesByActivity: Record<string, BudgetEntry[]> = {}
@@ -119,7 +125,9 @@ export async function saveBudgetEntry(
   amount: number,
   category: string,
   description: string,
-  recordedBy = 'Admin'
+  recordedBy = 'Admin',
+  approvedBudgetItemId: string | null = null,
+  unplannedReason = ''
 ): Promise<{ ok: boolean; error?: string }> {
   if (!Number.isFinite(amount) || amount <= 0) {
     return { ok: false, error: 'Enter a valid amount.' }
@@ -133,6 +141,8 @@ export async function saveBudgetEntry(
     entry_type: entryType,
     recorded_by: recordedBy,
     recorded_at: new Date().toISOString(),
+    approved_budget_item_id: approvedBudgetItemId,
+    unplanned_reason: unplannedReason.trim(),
   })
 
   if (error) {
@@ -142,10 +152,10 @@ export async function saveBudgetEntry(
   return { ok: true }
 }
 
-export async function updateExpenseEntry(id: string, amount: number, category: string, description: string): Promise<{ ok: boolean; error?: string }> {
+export async function updateExpenseEntry(id: string, amount: number, category: string, description: string, approvedBudgetItemId: string | null = null, unplannedReason = ''): Promise<{ ok: boolean; error?: string }> {
   if (!Number.isFinite(amount) || amount <= 0 || !category.trim()) return { ok: false, error: 'Enter a valid positive amount and category.' }
   const { error } = await supabase.from('budget_entries')
-    .update({ amount, category: category.trim(), description: description.trim() })
+    .update({ amount, category: category.trim(), description: description.trim(), approved_budget_item_id: approvedBudgetItemId, unplanned_reason: unplannedReason.trim() })
     .eq('id', id).eq('entry_type', 'expense')
   return error ? { ok: false, error: error.message } : { ok: true }
 }

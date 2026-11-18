@@ -38,7 +38,7 @@ const participant = (id, activity, status = 'registered') => ({
   org: '', program: activity.programName, registeredAt: '2026-07-01T00:00:00Z', attendedAt: null, attendanceHistory: [], sectoralGroup: 'None',
 })
 const participants = [participant('old-person', activities[0], 'attended'), participant('new-person', activities[1], 'completed'), participant('inactive-person', activities[1], 'inactive')]
-const evaluations = activities.map((a, index) => ({ id: a.id, activityId: a.id, activityStartDate: a.startDate, activityEndDate: a.endDate, activityTitle: a.title, participantName: 'Reviewer ' + a.id, rating: index ? 5 : 1, wouldRecommend: Boolean(index), feedback: 'Feedback ' + a.id, submittedAt: '2026-07-0' + (index + 1) + 'T00:00:00Z' }))
+const evaluations = activities.map((a, index) => ({ id: a.id, activityId: a.id, activityStartDate: a.startDate, activityEndDate: a.endDate, activityTitle: a.title, participantName: 'Reviewer ' + a.id, rating: index ? 5 : 1, wouldRecommend: Boolean(index), feedback: 'Feedback ' + a.id, responses: {}, submittedAt: '2026-07-0' + (index + 1) + 'T00:00:00Z' }))
 
 function renderPage(name, states) {
   let stateIndex = 0

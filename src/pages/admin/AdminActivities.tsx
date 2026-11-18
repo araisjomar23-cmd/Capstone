@@ -3,6 +3,8 @@ import { currentMonthPeriod, matchesDatePeriod } from '../../lib/activityDatePer
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Activity } from '../../types/activity'
 import ActivityFormModal from '../../features/activities/ActivityFormModal'
+import ProposalWorkspace from '../../features/proposals/ProposalWorkspace'
+import EligibilityReviewPanel from '../../features/proposals/EligibilityReviewPanel'
 import { Plus, Eye } from 'lucide-react'
 import { fetchActivities, toggleActivityStatus, autoCloseExpiredActivities } from '../../features/activities/activityService'
 import { useToast } from '../../components/ToastProvider'
@@ -45,6 +47,7 @@ function AdminActivities() {
   const [viewingActivityId, setViewingActivityId] = useState<string | null>(null)
   const [toggling, setToggling] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [proposalId, setProposalId] = useState<string | null>(null)
   const loadSequence = useRef(0)
   const viewedActivity = all.find((activity) => activity.id === viewingActivityId) || null
 
@@ -99,6 +102,7 @@ async function load() {
 async function handleToggle(a: Activity) {
   if (toggling) return
   if (getActivityLifecycleStatus(a) === 'completed') {
+    if (a.proposalId) { showToast('Upload a new signed PPA design for a new activity run. The completed activity will be preserved.','info'); return }
     setEditingActivity(null)
     setRepeatActivity(a)
     setFormOpen(true)
@@ -129,7 +133,7 @@ async function handleToggle(a: Activity) {
 }
 
   function openEditForm(a: Activity) {
-
+  if (a.proposalId) { setViewingActivityId(null); setProposalId(a.proposalId); return }
   setRepeatActivity(null)
   setEditingActivity(a)
   setFormOpen(true)
@@ -155,6 +159,8 @@ async function handleToggle(a: Activity) {
     </div>
 
       {loadError && <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{loadError} <button type="button" onClick={() => void load()} className="ml-2 font-semibold underline">Retry</button></div>}
+      <ProposalWorkspace onPublished={() => void load()} initialId={proposalId} onCloseInitial={() => setProposalId(null)} />
+      <EligibilityReviewPanel refreshKey={all.map(a => a.updatedAt).join('|')} />
       <ActivityDateFilter value={period} onChange={setPeriod} dates={all.map((a) => ({ start: a.startDate, end: a.endDate }))} />
 
       <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mb-4">

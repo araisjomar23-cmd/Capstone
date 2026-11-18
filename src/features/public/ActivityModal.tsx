@@ -8,6 +8,7 @@ import type { PublicActivity } from './publicActivityService'
 import { supabase } from '../../lib/supabase'
 import RegistrationConfirmation from './RegistrationConfirmation'
 import ActivityDeliveryDetails from './ActivityDeliveryDetails'
+import ActivityPlanDetails from './ActivityPlanDetails'
 import { useAuth } from '../auth/AuthContext'
 
 interface Props {
@@ -120,6 +121,7 @@ function ActivityModal({ activityId, onClose }: Props) {
               <ActivityDeliveryDetails activityId={activity.id} />
               <h2 className="text-lg font-bold text-gray-900 mb-3">About this activity</h2>
               <p className="whitespace-pre-wrap break-words text-base leading-7 text-gray-800 mb-6">{activityDescription(activity.previewDesc, activity.fullDesc)}</p>
+              <ActivityPlanDetails activity={activity} />
 
               <div className="flex justify-between items-center text-sm text-gray-500 mb-5">
                 <span>{open <= 0 ? 'Full' : `${open} slot${open === 1 ? '' : 's'} left`}</span>

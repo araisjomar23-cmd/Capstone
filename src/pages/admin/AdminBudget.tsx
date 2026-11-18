@@ -10,6 +10,9 @@ import { SkeletonStatCard, SkeletonCard } from '../../components/Skeleton'
 import type { Activity } from '../../types/activity'
 import type { BudgetEntry } from '../../features/budget/budgetService'
 import { supabase } from '../../lib/supabase'
+import ApprovedBudgetPanel from '../../features/budget/ApprovedBudgetPanel'
+import { fetchApprovedBudgets, type ApprovedBudgetVersion } from '../../features/budget/approvedBudgetService'
+import ProposalBudgetPreview from '../../features/budget/ProposalBudgetPreview'
 
 const EXPENSE_CATEGORIES = [
   'Food & Catering',
@@ -102,7 +105,7 @@ function AdminBudget() {
 
   return (
     <div className="p-4 md:p-8">
-      <h1 className="text-2xl font-bold text-primary mb-6">Budget Monitor</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold text-primary">Budget Monitor</h1><ProposalBudgetPreview /></div>
 
       <ActivityDateFilter value={period} onChange={(next) => { setPeriod(next); setSelectedActivityId(null) }} dates={data.activities.map((a) => ({ start: a.startDate, end: a.endDate }))} />
       <p className="text-xs text-gray-500 mb-4">Showing {activities.length} of {data.activities.length} activities. Totals reflect the selected activity period.</p>
@@ -125,6 +128,7 @@ function AdminBudget() {
             <ArrowLeft size={16} /> Back to all activities
           </button>
           <ActivityBudgetDetail
+            key={selectedActivity.id}
             activity={selectedActivity}
             entries={data.entriesByActivity[selectedActivity.id] || []}
             auditEvents={data.auditByActivity[selectedActivity.id] || []}
@@ -166,7 +170,7 @@ function ActivityBudgetSummaryCard({
 }) {
   const alloc = a.budgetAlloc
   const spent = a.budgetSpent
-  const left = Math.max(0, alloc - spent)
+  const left = alloc - spent
   const pct = alloc > 0 ? Math.min(100, Math.round((spent / alloc) * 100)) : 0
 
   return (
@@ -229,6 +233,21 @@ function ActivityBudgetDetail({
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
   const [editingEntry, setEditingEntry] = useState<BudgetEntry | null>(null)
+  const [approvedItem, setApprovedItem] = useState('')
+  const [unplannedReason, setUnplannedReason] = useState('')
+  const [approvedVersions, setApprovedVersions] = useState<ApprovedBudgetVersion[]>([])
+  const [approvalLoading, setApprovalLoading] = useState(Boolean(a.proposalId))
+  const [approvalError, setApprovalError] = useState('')
+  const [approvalRetry, setApprovalRetry] = useState(0)
+  useEffect(() => {
+    if (!a.proposalId) return
+    let active = true
+    fetchApprovedBudgets(a.id).then(versions => { if (active) { setApprovedVersions(versions); setApprovalError('') } }).catch(error => { if (active) setApprovalError(error.message) }).finally(() => { if (active) setApprovalLoading(false) })
+    return () => { active = false }
+  }, [a.id, a.proposalId, a.updatedAt, approvalRetry])
+  const currentItems = approvedVersions[0]?.items || []
+  const approvalUnavailable = Boolean(a.proposalId && (approvalLoading || approvalError || !approvedVersions.length))
+  const itemName = (id: string) => approvedVersions.flatMap(version => version.items).find(item => item.line_id === id)?.description || 'Previously approved item'
 
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -240,7 +259,7 @@ function ActivityBudgetDetail({
 
   const alloc = a.budgetAlloc
   const spent = a.budgetSpent
-  const left = Math.max(0, alloc - spent)
+  const left = alloc - spent
   const pct = alloc > 0 ? Math.min(100, Math.round((spent / alloc) * 100)) : 0
 
   async function handleAllocate() {
@@ -259,6 +278,7 @@ function ActivityBudgetDetail({
   }
 
   async function handleExpense() {
+    if (saving || approvalUnavailable) return
     const currentStatus = getActivityDisplayStatus(a)
     if (!editingEntry && (currentStatus === 'closed' || currentStatus === 'completed')) {
       return showToast('Expenses cannot be recorded for closed or completed activities.', 'error')
@@ -266,17 +286,20 @@ function ActivityBudgetDetail({
     const amt = Number(amount)
     if (!Number.isFinite(amt) || amt <= 0) return showToast('Enter a valid positive amount.', 'error')
     if (!category) return showToast('Select a category.', 'error')
+    if (a.proposalId && !approvedItem && unplannedReason.trim().length < 5) return showToast('Select an approved item or explain why this expense is unplanned.', 'error')
     const proposedSpend = spent - (editingEntry?.amount || 0) + amt
     setSaving(true)
     const result = editingEntry
-      ? await updateExpenseEntry(editingEntry.id, amt, category, description)
-      : await saveBudgetEntry(a.id, 'expense', amt, category, description)
+      ? await updateExpenseEntry(editingEntry.id, amt, category, description, approvedItem || null, approvedItem ? '' : unplannedReason)
+      : await saveBudgetEntry(a.id, 'expense', amt, category, description, 'Admin', approvedItem || null, approvedItem ? '' : unplannedReason)
     setSaving(false)
     if (result.ok) {
       setAmount('')
       setCategory('')
       setDescription('')
       setEditingEntry(null)
+      setApprovedItem('')
+      setUnplannedReason('')
       showToast(proposedSpend > alloc ? 'Expense saved. Warning: total spending exceeds the allocation.' : editingEntry ? 'Expense updated.' : 'Expense recorded.', proposedSpend > alloc ? 'info' : 'success')
       onSaved()
     } else {
@@ -290,6 +313,8 @@ function ActivityBudgetDetail({
     setAmount(String(entry.amount))
     setCategory(entry.category)
     setDescription(entry.description)
+    setApprovedItem(entry.approvedBudgetItemId || '')
+    setUnplannedReason(entry.unplannedReason || '')
   }
 
   async function handleDelete(entry: BudgetEntry) {
@@ -301,7 +326,7 @@ function ActivityBudgetDetail({
     else showToast(`Could not delete expense: ${result.error || 'Unknown error'}`, 'error')
   }
 
-  if (alloc === 0) {
+  if (alloc === 0 && !a.proposalId) {
     return (
       <div className="panel p-4 md:p-5">
         <div className="text-base font-bold text-gray-900">{a.title}</div>
@@ -365,6 +390,7 @@ function ActivityBudgetDetail({
       </div>
 
       <div className="mb-4">
+        {a.proposalId && (approvalLoading ? <p role="status" className="mb-5 text-sm text-gray-500">Loading approved budget…</p> : approvalError ? <p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{approvalError} <button type="button" className="font-semibold underline" onClick={() => { setApprovalLoading(true); setApprovalRetry(value => value + 1) }}>Retry</button></p> : <ApprovedBudgetPanel versions={approvedVersions} entries={entries} />)}
         <div className="text-[11px] font-bold uppercase text-gray-400 tracking-wide mb-2">
           Transaction History
         </div>
@@ -400,7 +426,7 @@ function ActivityBudgetDetail({
                       })}
                     </td>
                     <td className="py-1.5">{e.category || '—'}</td>
-                    <td className="py-1.5 max-w-[200px] truncate">{e.description || '—'}</td>
+                    <td className="py-1.5 max-w-[240px] break-words">{e.description || '—'}{e.approvedBudgetItemId ? <p className="mt-1 text-[10px] text-primary">Approved item: {itemName(e.approvedBudgetItemId)}</p> : a.proposalId && <p className="mt-1 text-[10px] text-amber-800">{e.unplannedReason ? `Unplanned: ${e.unplannedReason}` : 'Awaiting item assignment'}</p>}</td>
                     <td className="py-1.5 font-semibold text-red-500">₱{e.amount.toLocaleString()}</td>
                     <td className="py-1.5 text-gray-400">{e.recordedBy}</td>
                     <td className="py-1.5">
@@ -427,6 +453,7 @@ function ActivityBudgetDetail({
                     <span className="font-semibold text-red-500">₱{e.amount.toLocaleString()}</span>
                   </div>
                   {e.description && <div className="text-gray-500 mb-1">{e.description}</div>}
+                  {a.proposalId && <p className="mb-2 break-words text-[11px] text-primary">{e.approvedBudgetItemId ? `Approved item: ${itemName(e.approvedBudgetItemId)}` : e.unplannedReason ? `Unplanned: ${e.unplannedReason}` : 'Awaiting item assignment'}</p>}
                   <div className="flex justify-between text-gray-400 text-[11px]">
                     <span>
                       {new Date(e.recordedAt).toLocaleDateString('en-PH', {
@@ -489,6 +516,7 @@ function ActivityBudgetDetail({
         <div className="text-[11px] font-bold uppercase text-gray-400 tracking-wide mb-2 flex items-center gap-1.5">
           <Coins size={12} /> {editingEntry ? 'Edit Expense' : 'Add Expense'}
         </div>
+        {a.proposalId && <div className="mb-3 space-y-2"><label htmlFor="expense-approved-item" className="block text-xs font-semibold text-gray-700">Approved cost item</label><select id="expense-approved-item" value={approvedItem} disabled={saving || approvalUnavailable} onChange={event => setApprovedItem(event.target.value)} className="input"><option value="">Unplanned expense / not in the approved breakdown</option>{currentItems.map(item => <option key={item.line_id} value={item.line_id}>{item.description} · ₱{(item.quantity * item.unit_cost).toLocaleString()} approved</option>)}{editingEntry?.approvedBudgetItemId && !currentItems.some(item => item.line_id === editingEntry.approvedBudgetItemId) && <option value={editingEntry.approvedBudgetItemId}>{itemName(editingEntry.approvedBudgetItemId)} (earlier approval)</option>}</select>{!approvedItem && <><label htmlFor="unplanned-expense-reason" className="block text-xs font-semibold text-amber-800">Why is this expense outside the approved breakdown?</label><textarea id="unplanned-expense-reason" value={unplannedReason} maxLength={2000} rows={2} onChange={event => setUnplannedReason(event.target.value)} className="input resize-y" placeholder="Explain the need for this unplanned expense." /><p className="text-[11px] text-gray-500">This will be flagged as unplanned and included in actual spending.</p></>}</div>}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
           <select
             value={category}
@@ -523,13 +551,18 @@ function ActivityBudgetDetail({
         {Number(amount) > 0 && spent - (editingEntry?.amount || 0) + Number(amount) > alloc && (
           <p role="status" className="mb-2 text-xs text-amber-700">Warning: this expense will put total spending above the allocated budget.</p>
         )}
+        {approvedItem && Number(amount) > 0 && (() => {
+          const item = currentItems.find(item => item.line_id === approvedItem)
+          const itemSpent = entries.filter(entry => entry.approvedBudgetItemId === approvedItem && entry.id !== editingEntry?.id).reduce((sum, entry) => sum + entry.amount, 0) + Number(amount)
+          return item && itemSpent > item.quantity * item.unit_cost ? <p role="status" className="mb-2 text-xs text-amber-700">This expense will exceed the approved cost for {item.description}.</p> : null
+        })()}
         <button
           onClick={handleExpense}
-          disabled={saving}
+          disabled={saving || approvalUnavailable}
           className="w-full btn-primary inline-flex items-center justify-center gap-1.5 disabled:opacity-50">
           <Plus size={14} /> {editingEntry ? 'Save Expense' : 'Record Expense'}
         </button>
-        {editingEntry && <button type="button" onClick={() => { setEditingEntry(null); setAmount(''); setCategory(''); setDescription('') }} className="w-full mt-2 text-sm text-gray-500">Cancel edit</button>}
+        {editingEntry && <button type="button" onClick={() => { setEditingEntry(null); setAmount(''); setCategory(''); setDescription(''); setApprovedItem(''); setUnplannedReason('') }} className="w-full mt-2 text-sm text-gray-500">Cancel edit</button>}
       </div>
       )}
     </div>

@@ -20,7 +20,7 @@ export async function fetchActivities(strict = false): Promise<Activity[]> {
   const { data: acts, error: actsErr } = await supabase
     .from('legacy_activities')
     .select(`
-      id, program_id, title, color_bg, tags,
+      id, proposal_id, program_id, title, color_bg, tags,
       status, manually_closed, attendance_finalized_at, slots, taken,
       start_date, end_date, start_time, end_time, checkin_early_access_minutes,
       venue, preview_desc, full_desc,
@@ -64,6 +64,7 @@ export async function fetchActivities(strict = false): Promise<Activity[]> {
 
   return (acts || []).map((a: any) => ({
     id: a.id,
+    proposalId: a.proposal_id,
     programId: a.program_id,
     programName: a.programs?.name || '—',
     title: a.title || '',
