@@ -8,6 +8,7 @@ const { renderToStaticMarkup } = require('react-dom/server')
 const { MemoryRouter } = require('react-router-dom')
 
 function load(file, mocks = {}) {
+  if (file.endsWith('.css')) return {}
   file = path.resolve(file)
   const output = ts.transpileModule(fs.readFileSync(file, 'utf8').replaceAll('import.meta.env', '({})'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const m = { exports: {} }
@@ -89,7 +90,7 @@ for (const [view, file, authPath, servicePath] of [
   ['participant', 'src/pages/user/ActivityDetail.tsx', '../../features/auth/AuthContext', '../../features/public/registrationService'],
 ]) {
   test(view + ' activity details show the complete description before registration', () => {
-    const activity = { id: 'a', title: 'Open workshop', programName: 'Education', startDate: '2100-01-01', endDate: '2100-01-01', status: 'open', slots: 20, taken: 0, previewDesc: 'Activity summary.', fullDesc: 'Complete activity information.', venue: 'Hall', date: 'Jan 1, 2100' }
+    const activity = { id: 'a', title: 'Open workshop', programName: 'Education', startDate: '2100-01-01', endDate: '2100-01-01', status: 'open', slots: 20, taken: 0, previewDesc: 'Activity summary.', fullDesc: 'Complete activity information.', venue: 'Hall', date: 'Jan 1, 2100', outcomes: [], schedule: [], bring: [] }
     const states = [activity, false, false, '', '', Date.now(), false]
     let index = 0
     const Component = load(file, {
@@ -107,7 +108,7 @@ for (const [view, file, authPath, servicePath] of [
 }
 
 for (const facilitator of [false, true]) {
-  test((facilitator ? 'facilitator' : 'admin') + ' attendance labels manual closure as Closed, matching Activities', () => {
+  test((facilitator ? 'facilitator' : 'admin') + ' attendance excludes manually closed activities from check-in and QR display', () => {
     const activity = { id: 'a', title: 'Manually closed activity', status: 'closed', manuallyClosed: true, startDate: '2000-01-01', endDate: '2000-01-01', date: 'Jan 1, 2000', venue: 'Hall' }
     const states = facilitator ? [[activity], [], '', '', 1, 'manual', null, false, Date.now()] : [[activity], [], false, '', '', 1, null, false, null, Date.now()]
     let index = 0
@@ -121,10 +122,12 @@ for (const facilitator of [false, true]) {
       '../../components/QrCameraScanner': { __esModule: true, default: () => null },
     }).default
     const html = renderToStaticMarkup(React.createElement(Component))
-    assert.match(html, />Closed<\/span>/)
+    assert.equal(load('src/features/activities/activityLifecycle.ts').getActivityDisplayStatus(activity), 'closed')
+    assert.match(html, /No activity QR codes available/)
+    assert.doesNotMatch(html, /Manually closed activity/)
     assert.doesNotMatch(html, />Completed<\/span>|>Ongoing<\/span>/)
     assert.doesNotMatch(html, /<option value="a"/)
-    if (facilitator) assert.match(html, /manually closed. Check-in is unavailable/)
+    if (facilitator) assert.match(html, /No active activities/)
   })
 }
 

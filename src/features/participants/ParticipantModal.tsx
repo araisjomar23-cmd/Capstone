@@ -1,6 +1,7 @@
 import type { Registration } from '../../types/registration'
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import ParticipantHistoryPanel from './ParticipantHistoryPanel'
 
 const PILL_STYLES: Record<string, string> = {
   absent: 'bg-red-50 text-red-700',
@@ -24,9 +25,10 @@ function fmt(iso: string | null) {
 interface Props {
   participant: Registration
   onClose: () => void
+  history?: Registration[]
 }
 
-function ParticipantModal({ participant: p, onClose }: Props) {
+function ParticipantModal({ participant: p, onClose, history }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -117,7 +119,7 @@ function ParticipantModal({ participant: p, onClose }: Props) {
             </dl>
           </section>)}
 
-          <div className="mb-4">
+          {history ? <ParticipantHistoryPanel rows={history} /> : <div className="mb-4">
             <h3 className="text-base font-bold text-gray-900 mb-3">Attendance history</h3>
             {p.attendanceHistory.length ? (
               <ul className="space-y-1 text-sm text-gray-700">
@@ -128,7 +130,7 @@ function ParticipantModal({ participant: p, onClose }: Props) {
                 ))}
               </ul>
             ) : <p className="text-sm text-gray-700">No check-ins recorded for this activity.</p>}
-          </div>
+          </div>}
 
         </div>
       </div>

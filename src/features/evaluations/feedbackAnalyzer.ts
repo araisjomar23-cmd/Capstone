@@ -1,4 +1,5 @@
 import rawLexicon from './feedbackLexicon.json' with { type: 'json' }
+import semanticReferences from './feedbackSemanticReferences.json' with { type: 'json' }
 
 export type SuggestedSentiment = 'positive' | 'negative' | 'mixed' | 'no-signal'
 export type SentimentPolarity = 'positive' | 'negative'
@@ -20,6 +21,8 @@ export interface FeedbackTheme {
 
 export interface FeedbackAnalysis {
   label: SuggestedSentiment
+  /** Absent means false, preserving the existing analysis contract. */
+  isSuggestion?: boolean
   score: number
   matchedTerms: MatchedSentimentTerm[]
   themes: FeedbackTheme[]
@@ -49,47 +52,33 @@ interface FeedbackLexicon {
   diminishers: Record<string, number>
   spellingVariants: Record<string, string>
   ambiguousTerms: string[]
+  contrastMarkers: string[]
+  suggestionMarkers: string[]
+  feedbackContext: string[]
+  ambiguousThemeTerms: Record<string, string[]>
 }
 
 const lexicon = rawLexicon as FeedbackLexicon
 
 const SEMANTIC_MODEL = 'Xenova/multilingual-e5-small'
 const SEMANTIC_MODEL_REVISION = '0b7ea4d6ad2e9d527e013a65b805a4b4df72f648'
-const SENTIMENT_PROTOTYPES: Record<'positive' | 'negative' | 'mixed' | 'neutral', string[]> = {
-  positive: [
-    'The participant enjoyed the activity and found it helpful, well organized, and worth attending.',
-    'Nindot ug lingaw ang kalihokan. Daghan kog nakat-onan ug natabangan ko niini.',
-    'Maayo ang programa ug nalipay ang partisipante sa iyang naagian.',
-  ],
-  negative: [
-    'The participant disliked the activity and found it unhelpful, uncomfortable, or poorly organized.',
-    'Dili maayo ang kalihokan. Wala ko ganahi ug wala koy nakat-onan.',
-    'Lisod ug bati ang programa ug nasagmuyo ang partisipante.',
-  ],
-  mixed: [
-    'The participant liked some parts of the activity but had problems with other parts.',
-    'Kapoy pero lingaw ang kalihokan; naa koy ganahan ug naa pud koy reklamo.',
-    'Maayo ang topic apan bati ang venue o schedule.',
-  ],
-  neutral: [
-    'The participant describes what happened without expressing an opinion or emotion.',
-    'Ang partisipante naghisgot lamang sa nahitabo nga walay pagdayeg o reklamo.',
-  ],
+const SENTIMENT_PROTOTYPES: Record<string, string[]> = semanticReferences.sentiments
+const SEMANTIC_THEME_PROTOTYPES: Record<string, string[]> = semanticReferences.themes
+// Historical defaults, not validated confidence probabilities. Real calibration
+// must be performed separately from held-out evaluation before changing these.
+export interface FeedbackSemanticThresholds { sentimentMargin: number; topicSimilarity: number }
+export const FEEDBACK_SEMANTIC_THRESHOLDS: Readonly<FeedbackSemanticThresholds> = Object.freeze({ sentimentMargin: 0.035, topicSimilarity: 0.82 })
+export interface FeedbackAnalyzerOptions {
+  /** Dependency injection for offline regression tests; production uses E5. */
+  embedder?: TextEmbedder
+  thresholds?: FeedbackSemanticThresholds
 }
 
-const SEMANTIC_THEME_PROTOTYPES: Record<string, string[]> = {
-  venue: ['Feedback about the activity venue, location, room, facilities, cleanliness, or comfort.', 'Komento bahin sa lugar, venue, kwarto, kasaba, kainit, kalimpyo, o kaharuhay.'],
-  schedule: ['Feedback about the activity schedule, timing, duration, delays, or start time.', 'Komento bahin sa oras, iskedyul, gidugayon, paglangan, o pagsugod sa kalihokan.'],
-  food: ['Feedback about food, meals, snacks, drinks, or refreshments.', 'Komento bahin sa pagkaon, paniudto, snacks, tubig, o refreshments.'],
-  facilitators: ['Feedback about the facilitators, speakers, trainers, organizers, or staff.', 'Komento bahin sa facilitator, speaker, trainer, organizer, o staff.'],
-  content: ['Feedback about the activity topic, lessons, learning, skills, or session content.', 'Komento bahin sa hilisgutan, leksyon, nakat-onan, kahanas, o sulod sa sesyon.'],
-}
-
-type TextEmbedder = (texts: string[], options: { pooling: 'mean'; normalize: boolean }) => Promise<{ tolist(): unknown }>
+export type TextEmbedder = (texts: string[], options: { pooling: 'mean'; normalize: boolean }) => Promise<{ tolist(): unknown }>
 let textEmbedderPromise: Promise<TextEmbedder> | null = null
 let semanticPrototypeVectorsPromise: Promise<{ sentiments: Record<string, number[][]>; themes: Record<string, number[][]> }> | null = null
 
-async function getTextEmbedder(): Promise<TextEmbedder> {
+export async function getFeedbackTextEmbedder(): Promise<TextEmbedder> {
   if (!textEmbedderPromise) {
     textEmbedderPromise = (async () => {
       const { pipeline } = await import('@huggingface/transformers')
@@ -105,27 +94,28 @@ async function getTextEmbedder(): Promise<TextEmbedder> {
   return textEmbedderPromise
 }
 
-async function embedTexts(texts: string[]): Promise<number[][]> {
-  const embedder = await getTextEmbedder()
+async function embedTexts(texts: string[], override?: TextEmbedder): Promise<number[][]> {
+  const embedder = override ?? await getFeedbackTextEmbedder()
   const embeddings: number[][] = []
   for (let offset = 0; offset < texts.length; offset += 16) {
     const batch = texts.slice(offset, offset + 16).map((text) => `query: ${text}`)
     const result = await embedder(batch, { pooling: 'mean', normalize: true })
-    embeddings.push(...result.tolist() as number[][])
+    const vectors = result.tolist() as number[][]
+    if (!Array.isArray(vectors) || vectors.length !== batch.length || vectors.some(vector => !Array.isArray(vector) || !vector.length || vector.some(value => !Number.isFinite(value)) || !vector.some(value => value !== 0))) throw new Error('Invalid semantic embeddings')
+    embeddings.push(...vectors)
   }
   return embeddings
 }
 
-async function getSemanticPrototypeVectors() {
-  if (!semanticPrototypeVectorsPromise) {
-    semanticPrototypeVectorsPromise = (async () => {
+async function getSemanticPrototypeVectors(override?: TextEmbedder) {
+  const build = async () => {
       const sentimentEntries = Object.entries(SENTIMENT_PROTOTYPES)
       const themeEntries = Object.entries(SEMANTIC_THEME_PROTOTYPES)
       const allTexts = [
         ...sentimentEntries.flatMap(([, examples]) => examples),
         ...themeEntries.flatMap(([, examples]) => examples),
       ]
-      const vectors = await embedTexts(allTexts)
+      const vectors = await embedTexts(allTexts, override)
       let offset = 0
       const sentiments: Record<string, number[][]> = {}
       for (const [label, examples] of sentimentEntries) {
@@ -138,7 +128,10 @@ async function getSemanticPrototypeVectors() {
         offset += examples.length
       }
       return { sentiments, themes }
-    })().catch((error) => {
+  }
+  if (override) return build()
+  if (!semanticPrototypeVectorsPromise) {
+    semanticPrototypeVectorsPromise = build().catch((error) => {
       semanticPrototypeVectorsPromise = null
       throw error
     })
@@ -147,10 +140,11 @@ async function getSemanticPrototypeVectors() {
 }
 
 function cosineSimilarity(left: number[], right: number[]): number {
+  if (left.length !== right.length) throw new Error('Inconsistent semantic embedding dimensions')
   let dot = 0
   let leftMagnitude = 0
   let rightMagnitude = 0
-  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+  for (let index = 0; index < left.length; index += 1) {
     dot += left[index] * right[index]
     leftMagnitude += left[index] ** 2
     rightMagnitude += right[index] ** 2
@@ -164,13 +158,13 @@ function meanSimilarity(vector: number[], prototypes: number[][] = []): number {
     : 0
 }
 
-function classifySemanticSentiment(vector: number[], prototypes: Record<string, number[][]>) {
+function classifySemanticSentiment(vector: number[], prototypes: Record<string, number[][]>, margin: number) {
   const ranked = Object.entries(prototypes)
     .map(([label, examples]) => ({ label, score: meanSimilarity(vector, examples) }))
     .sort((left, right) => right.score - left.score)
   const best = ranked[0]
   const next = ranked[1]
-  if (!best || !next || best.label === 'neutral' || best.score - next.score < 0.035) return null
+  if (!best || !next || best.label === 'neutral' || best.score - next.score < margin) return null
   return {
     label: best.label as Exclude<SuggestedSentiment, 'no-signal'>,
     score: best.score - next.score,
@@ -221,11 +215,29 @@ function feedbackTokensOf(text: string): string[] {
   })
 }
 
-function splitFeedbackClauses(text: string): string[] {
-  return text
-    .split(/[,;.!?\n]+|\b(?:pero|but|apan|kaso)\b/iu)
-    .map((clause) => clause.trim())
-    .filter(Boolean)
+function hasPhrase(tokens: string[], phrases: string[]) {
+  return phrases.some(phrase => findPhraseStarts(tokens, tokensOf(phrase)).length > 0)
+}
+
+function splitFeedbackClauses(text: string) {
+  const markers = lexicon.contrastMarkers.map(escapeRegExp).join('|')
+  const requests = lexicon.suggestionMarkers.map(escapeRegExp).join('|')
+  const parts = text.split(new RegExp('([,;.!?\\n]+|\\b(?:' + markers + '|kay|because)\\b)', 'iu'))
+  const clauses: { text: string; continuation: boolean }[] = []
+  let continuation = false
+  for (const part of parts) {
+    if (!part.trim()) continue
+    if (/^[,;.!?\n]+$/.test(part)) { continuation = false; continue }
+    if (lexicon.contrastMarkers.some(marker => normalize(marker) === normalize(part)) || /^(kay|because)$/i.test(part.trim())) {
+      continuation = true; continue
+    }
+    // Keep an assertion before a request, even when the participant omits punctuation.
+    for (const segment of part.split(new RegExp('(?=\\b(?:' + requests + ')\\b)', 'iu'))) {
+      if (!segment.trim()) continue
+      clauses.push({ text: segment.trim(), continuation }); continuation = false
+    }
+  }
+  return clauses
 }
 
 function phraseAt(tokens: string[], phrase: string[], start: number): boolean {
@@ -259,7 +271,7 @@ function isNegated(tokens: string[], termStart: number, exceptionIndexes: Set<nu
   let distance = 0
   for (let index = termStart - 1; index >= 0; index -= 1) {
     const token = tokens[index]
-    if (token === '<comma>' || token === '<sentence>' || ['pero', 'but', 'apan', 'kaso'].includes(token)) return false
+    if (token === '<comma>' || token === '<sentence>' || lexicon.contrastMarkers.includes(token)) return false
     if (exceptionIndexes.has(index)) return false
     if (particles.has(token)) continue
     distance += 1
@@ -288,14 +300,6 @@ function intensityMultiplier(tokens: string[], start: number, length: number): n
   return 1
 }
 
-function findMatches(
-  tokens: string[],
-  candidates: Array<WeightedTerm & { sentiment: SentimentPolarity }>,
-  exceptionIndexes: Set<number>
-): MatchedSentimentTerm[] {
-  return findMatchesWithPositions(tokens, candidates, exceptionIndexes).map(({ match }) => match)
-}
-
 function findMatchesWithPositions(
   tokens: string[],
   candidates: Array<WeightedTerm & { sentiment: SentimentPolarity }>,
@@ -304,6 +308,7 @@ function findMatchesWithPositions(
   const ordered = candidates
     .map((candidate) => ({ ...candidate, tokens: tokensOf(candidate.term) }))
     .sort((a, b) => b.tokens.length - a.tokens.length || b.term.length - a.term.length)
+    .filter((item, index, items) => items.findIndex(other => other.tokens.join(' ') === item.tokens.join(' ')) === index)
   const occupied = new Set<number>()
   const matches: Array<{ match: MatchedSentimentTerm; start: number; end: number }> = []
 
@@ -336,85 +341,71 @@ function findMatchesWithPositions(
 }
 
 export function analyzeFeedback(text: string): FeedbackAnalysis {
-  const tokens = feedbackTokensOf(text)
-  if (!tokens.length) return { label: 'no-signal', score: 0, matchedTerms: [], themes: [] }
-
-  const exceptionIndexes = new Set<number>()
-  for (const exception of lexicon.negationExceptions) {
-    findPhraseIndexes(tokens, tokensOf(exception)).forEach((index) => exceptionIndexes.add(index))
-  }
-
+  if (!feedbackTokensOf(text).length) return { label: 'no-signal', score: 0, matchedTerms: [], themes: [] }
   const candidates = [
-    ...lexicon.positive.map((term) => ({ ...term, sentiment: 'positive' as const })),
-    ...lexicon.negative.map((term) => ({ ...term, sentiment: 'negative' as const })),
+    ...lexicon.positive.map(term => ({ ...term, sentiment: 'positive' as const })),
+    ...lexicon.negative.map(term => ({ ...term, sentiment: 'negative' as const })),
   ]
-  const matchedTerms = findMatches(tokens, candidates, exceptionIndexes)
-  const positiveWeight = matchedTerms.filter((match) => match.sentiment === 'positive').reduce((sum, match) => sum + match.weight, 0)
-  const negativeWeight = matchedTerms.filter((match) => match.sentiment === 'negative').reduce((sum, match) => sum + match.weight, 0)
-  const signalWeight = positiveWeight + negativeWeight
-  const score = signalWeight ? Number(((positiveWeight - negativeWeight) / signalWeight).toFixed(2)) : 0
-  const hasPositive = positiveWeight > 0
-  const hasNegative = negativeWeight > 0
-  const label: SuggestedSentiment = hasPositive && hasNegative
-    ? score >= 0.7 ? 'positive' : score <= -0.7 ? 'negative' : 'mixed'
-    : hasPositive ? 'positive'
-      : hasNegative ? 'negative' : 'no-signal'
+  const matchedTerms: MatchedSentimentTerm[] = []
+  const themeSignals = new Map<string, { positive: number; negative: number; terms: Set<string> }>()
+  let previousThemes: string[] = []
+  let isSuggestion = false
+  let positiveAssertion = false
+  let negativeAssertion = false
 
-  const themeSignals = new Map<string, {
-    positive: number
-    negative: number
-    terms: Set<string>
-  }>()
   for (const clause of splitFeedbackClauses(text)) {
-    const clauseTokens = feedbackTokensOf(clause)
-    const clauseExceptions = new Set<number>()
-    for (const exception of lexicon.negationExceptions) {
-      findPhraseIndexes(clauseTokens, tokensOf(exception)).forEach((index) => clauseExceptions.add(index))
+    const tokens = feedbackTokensOf(clause.text)
+    const suggestion = hasPhrase(tokens, lexicon.suggestionMarkers)
+    isSuggestion ||= suggestion
+    const exceptions = new Set<number>()
+    for (const phrase of lexicon.negationExceptions) findPhraseIndexes(tokens, tokensOf(phrase)).forEach(index => exceptions.add(index))
+    // A wish or request does not assert that the current activity is good/bad.
+    // Separate assertions after punctuation, contrast, or "kay/because" still count.
+    const matches = suggestion ? [] : findMatchesWithPositions(tokens, candidates, exceptions)
+    if (clause.continuation) for (const item of matches) item.match.weight = Number((item.match.weight * 1.3).toFixed(2))
+    matchedTerms.push(...matches.map(item => item.match))
+    positiveAssertion ||= matches.some(item => item.match.sentiment === 'positive' && !item.match.ambiguous)
+    negativeAssertion ||= matches.some(item => item.match.sentiment === 'negative' && !item.match.ambiguous)
+    const found = Object.entries(lexicon.themes).map(([theme, phrases]) => ({ theme, occurrences: phrases.flatMap(phrase =>
+      findPhraseStarts(tokens, tokensOf(phrase)).filter(start => !(phrase === 'time' && tokens[start - 1] === 'next')).map(start => ({ phrase, start, end: start + tokensOf(phrase).length }))
+    ) })).filter(item => item.occurrences.length)
+    const explicit = found.filter(item => item.occurrences.some(occurrence => !lexicon.ambiguousThemeTerms[item.theme]?.includes(occurrence.phrase)))
+    let selected = found.filter(item => !explicit.length || explicit.some(other => other.theme === item.theme))
+    if (clause.continuation && !explicit.length && previousThemes.length === 1) {
+      selected = selected.filter(item => item.theme === previousThemes[0])
     }
-    const clauseMatches = findMatchesWithPositions(clauseTokens, candidates, clauseExceptions)
-    for (const [theme, phrases] of Object.entries(lexicon.themes)) {
-      const occurrences = phrases.flatMap((phrase) =>
-        findPhraseStarts(clauseTokens, tokensOf(phrase)).map((start) => ({ phrase, start, end: start + tokensOf(phrase).length }))
-      )
-      if (!occurrences.length) continue
-
-      const signal = themeSignals.get(theme) || { positive: 0, negative: 0, terms: new Set<string>() }
-      for (const occurrence of occurrences) {
-        const nearestMatch = clauseMatches
-          .map((candidate) => ({
-            ...candidate,
-            distance: candidate.end <= occurrence.start
-              ? occurrence.start - candidate.end
-              : candidate.start >= occurrence.end
-                ? candidate.start - occurrence.end
-                : 0,
-          }))
-          .filter((candidate) => candidate.distance <= 5)
-          .sort((left, right) => left.distance - right.distance)[0]
-        if (nearestMatch?.match.sentiment === 'positive') signal.positive += nearestMatch.match.weight
-        if (nearestMatch?.match.sentiment === 'negative') signal.negative += nearestMatch.match.weight
-        signal.terms.add(occurrence.phrase)
-      }
-      themeSignals.set(theme, signal)
+    // An unnamed contrast clause can continue exactly one previous aspect.
+    // Never carry across a sentence, a new explicit aspect, or an ambiguous list.
+    if (!selected.length && clause.continuation && previousThemes.length === 1 && matches.length) {
+      selected.push({ theme: previousThemes[0], occurrences: [] })
     }
+    for (const item of selected) {
+      const signal = themeSignals.get(item.theme) ?? { positive: 0, negative: 0, terms: new Set<string>() }
+      const distance = (match: typeof matches[number], occurrence: { start: number; end: number }) => Math.max(0, occurrence.start - match.end, match.start - occurrence.end)
+      const relevant = item.occurrences.length ? matches.filter(match => {
+        const closest = Math.min(...selected.flatMap(aspect => aspect.occurrences.map(occurrence => distance(match, occurrence))))
+        return closest <= 5 && item.occurrences.some(occurrence => distance(match, occurrence) === closest)
+      }) : matches
+      // A sentiment match is counted once per aspect, even with repeated topic aliases.
+      for (const { match } of relevant) signal[match.sentiment] += match.weight
+      item.occurrences.forEach(occurrence => signal.terms.add(occurrence.phrase))
+      if (!item.occurrences.length) matches.forEach(match => signal.terms.add(match.match.term))
+      themeSignals.set(item.theme, signal)
+    }
+    previousThemes = selected.map(item => item.theme)
   }
-
-  const themes: FeedbackTheme[] = [...themeSignals.entries()].map(([theme, signal]) => {
-    const total = signal.positive + signal.negative
-    const score = total ? Number(((signal.positive - signal.negative) / total).toFixed(2)) : 0
-    const sentiment: SuggestedSentiment = signal.positive > 0 && signal.negative > 0
-      ? score >= 0.7 ? 'positive' : score <= -0.7 ? 'negative' : 'mixed'
-      : signal.positive > 0 ? 'positive'
-        : signal.negative > 0 ? 'negative' : 'no-signal'
-    return { theme, sentiment, score, matchedTerms: [...signal.terms] }
-  })
-
-  return {
-    label,
-    score,
-    matchedTerms,
-    themes,
-  }
+  const positive = matchedTerms.filter(match => match.sentiment === 'positive').reduce((sum, match) => sum + match.weight, 0)
+  const negative = matchedTerms.filter(match => match.sentiment === 'negative').reduce((sum, match) => sum + match.weight, 0)
+  const score = positive + negative ? Number(((positive - negative) / (positive + negative)).toFixed(2)) : 0
+  const label: SuggestedSentiment = positive && negative
+    ? positiveAssertion && negativeAssertion ? 'mixed' : score >= 0.7 ? 'positive' : score <= -0.7 ? 'negative' : 'mixed'
+    : positive ? 'positive' : negative ? 'negative' : 'no-signal'
+  const themes: FeedbackTheme[] = [...themeSignals.entries()].map(([theme, signal]) => ({
+    theme, sentiment: signal.positive && signal.negative ? 'mixed' : signal.positive ? 'positive' : signal.negative ? 'negative' : 'no-signal',
+    score: signal.positive + signal.negative ? Number(((signal.positive - signal.negative) / (signal.positive + signal.negative)).toFixed(2)) : 0,
+    matchedTerms: [...signal.terms],
+  }))
+  return { label, score, matchedTerms, themes, ...(isSuggestion ? { isSuggestion: true } : {}) }
 }
 
 /**
@@ -422,7 +413,7 @@ export function analyzeFeedback(text: string): FeedbackAnalysis {
  * Feedback text is embedded in the browser; only model weights are downloaded.
  * If model loading fails, the rule analysis remains available.
  */
-export async function analyzeFeedbackHybrid(comments: string[]): Promise<HybridFeedbackBatch> {
+export async function analyzeFeedbackHybrid(comments: string[], options: FeedbackAnalyzerOptions = {}): Promise<HybridFeedbackBatch> {
   const analyses = comments.map(analyzeFeedback)
   const sentimentSources: HybridFeedbackBatch['sentimentSources'] = analyses.map((analysis) => analysis.label === 'no-signal' ? 'none' : 'rules')
   if (!comments.length) {
@@ -430,9 +421,11 @@ export async function analyzeFeedbackHybrid(comments: string[]): Promise<HybridF
   }
 
   try {
+    const thresholds = options.thresholds ?? FEEDBACK_SEMANTIC_THRESHOLDS
+    if (!Number.isFinite(thresholds.sentimentMargin) || thresholds.sentimentMargin <= 0 || thresholds.sentimentMargin > 1 || !Number.isFinite(thresholds.topicSimilarity) || thresholds.topicSimilarity < 0 || thresholds.topicSimilarity > 1) throw new Error('Invalid semantic thresholds')
     const [prototypeVectors, commentVectors] = await Promise.all([
-      getSemanticPrototypeVectors(),
-      embedTexts(comments),
+      getSemanticPrototypeVectors(options.embedder),
+      embedTexts(comments, options.embedder),
     ])
     let semanticAssistedComments = 0
 
@@ -441,8 +434,10 @@ export async function analyzeFeedbackHybrid(comments: string[]): Promise<HybridF
       if (!vector) return
 
       let assisted = false
-      const semanticSentiment = classifySemanticSentiment(vector, prototypeVectors.sentiments)
-      if (analysis.label === 'no-signal' && semanticSentiment) {
+      const context = hasPhrase(feedbackTokensOf(comments[index]), lexicon.feedbackContext)
+      if (!context && !analysis.themes.length && !analysis.matchedTerms.length) return
+      const semanticSentiment = classifySemanticSentiment(vector, prototypeVectors.sentiments, thresholds.sentimentMargin)
+      if (analysis.label === 'no-signal' && !analysis.isSuggestion && semanticSentiment) {
         sentimentSources[index] = 'semantic'
         analysis.label = semanticSentiment.label
         analysis.score = semanticSentiment.label === 'positive'
@@ -457,12 +452,13 @@ export async function analyzeFeedbackHybrid(comments: string[]): Promise<HybridF
       for (const [theme, prototypes] of Object.entries(prototypeVectors.themes)) {
         if (existingThemes.has(theme)) continue
         const similarity = meanSimilarity(vector, prototypes)
-        if (similarity < 0.82) continue
+        if (similarity < thresholds.topicSimilarity) continue
+        // Topic similarity must also beat the neutral/off-topic references.
+        if (similarity <= meanSimilarity(vector, prototypeVectors.sentiments.neutral)) continue
         analysis.themes.push({
           theme,
-          sentiment: semanticSentiment?.label || 'no-signal',
-          score: semanticSentiment?.label === 'positive' ? semanticSentiment.score
-            : semanticSentiment?.label === 'negative' ? -semanticSentiment.score : 0,
+          sentiment: 'no-signal',
+          score: 0,
           matchedTerms: ['multilingual semantic similarity'],
         })
         assisted = true
@@ -474,8 +470,8 @@ export async function analyzeFeedbackHybrid(comments: string[]): Promise<HybridF
     return { analyses, sentimentSources, semanticAssistedComments, modelStatus: 'ready' }
   } catch (error) {
     return {
-      analyses,
-      sentimentSources,
+      analyses: comments.map(analyzeFeedback),
+      sentimentSources: comments.map(comment => analyzeFeedback(comment).label === 'no-signal' ? 'none' : 'rules'),
       semanticAssistedComments: 0,
       modelStatus: 'unavailable',
       modelError: error instanceof Error ? error.message : String(error),

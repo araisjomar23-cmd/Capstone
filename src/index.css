@@ -94,6 +94,32 @@ select:focus-visible, textarea:focus-visible {
   color: var(--color-ink);
   transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s;
 }
+
+/* Reports adapt to the space remaining beside the portal sidebar. */
+.reports-workspace {
+  overflow-wrap: anywhere;
+}
+.reports-workspace :where(input, select, textarea, label) {
+  min-width: 0;
+  max-width: 100%;
+}
+.reports-workspace :where(button, select, summary) {
+  min-height: 44px;
+}
+.reports-workspace :where(input, textarea) {
+  scroll-margin-block: 6rem;
+}
+@container reports (max-width: 35.99rem) {
+  .reports-workspace :where(input, select, textarea) {
+    /* Keep mobile browsers from zooming the page when a field receives focus. */
+    font-size: 1rem;
+  }
+}
+@media (max-height: 560px) {
+  .reports-workspace .post-report-actions {
+    position: static;
+  }
+}
 .floating-label-field {
   position: relative;
   min-width: 0;

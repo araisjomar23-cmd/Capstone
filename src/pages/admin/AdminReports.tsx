@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { generateReport } from '../../features/reports/reportService'
 import type { ReportData } from '../../features/reports/reportService'
-import FeedbackComment from '../../features/reports/FeedbackComment'
-import { Activity, FileText, Lightbulb, Printer, Star, Users } from 'lucide-react'
+import InsightsDashboard from '../../features/reports/InsightsDashboard'
+import { ChevronLeft, ChevronRight, FileText, Lightbulb, Printer, RefreshCw } from 'lucide-react'
 import DatePicker from '../../components/DatePicker'
 import { currentMonthPeriod } from '../../lib/activityDatePeriod'
 import { SkeletonBox, SkeletonTableRows } from '../../components/Skeleton'
+import PostActivityReport from '../../features/reports/PostActivityReport'
 
 function localDateISO(date: Date) {
   const year = date.getFullYear()
@@ -18,68 +19,9 @@ function monthRange(year: number, month: number) {
   const to = new Date(year, month + 1, 0)
   return { from: localDateISO(from), to: localDateISO(to) }
 }
-function attendanceRate(data: ReportData) {
-  return data.totalRegistered ? (data.totalAttended / data.totalRegistered) * 100 : null
-}
-function evaluationCount(data: ReportData) {
-  return data.evalRows.reduce((sum, row) => sum + row.responses, 0)
-}
-function buildAdvancedInsights(current: ReportData, previous: ReportData) {
-  const results = [...current.insights]
-  const currentAttendance = attendanceRate(current)
-  const previousAttendance = attendanceRate(previous)
-  if (currentAttendance !== null && previousAttendance !== null) {
-    const change = currentAttendance - previousAttendance
-    if (Math.abs(change) >= 5) {
-      results.push(`Attendance ${change > 0 ? 'improved' : 'fell'} by ${Math.abs(change).toFixed(0)} percentage points compared with the previous month (${previousAttendance.toFixed(0)}% to ${currentAttendance.toFixed(0)}%).`)
-    }
-  }
-
-  const ratedActivities = current.evalRows.filter((row) => Number.isFinite(Number(row.avgRating)))
-  if (ratedActivities.length) {
-    const bestRated = [...ratedActivities].sort((a, b) => Number(b.avgRating) - Number(a.avgRating))[0]
-    results.push(`Highest-rated activity: ${bestRated.title} at ${bestRated.avgRating}/5 from ${bestRated.responses} evaluation${bestRated.responses === 1 ? '' : 's'}.`)
-  }
-
-  const attendanceByActivity = current.activityRows
-    .filter((row) => row.registered > 0)
-    .map((row) => ({ ...row, rate: (row.attended / row.registered) * 100 }))
-    .sort((a, b) => a.rate - b.rate)
-  if (attendanceByActivity.length) {
-    const lowest = attendanceByActivity[0]
-    if (lowest.rate < 70) {
-      results.push(`${lowest.title} had the lowest attendance (${lowest.rate.toFixed(0)}%, ${lowest.attended} of ${lowest.registered} registered). Consider reviewing reminders, timing, or access barriers.`)
-    }
-  }
-
-  const evaluations = evaluationCount(current)
-  if (current.totalAttended > 0) {
-    const responseRate = (evaluations / current.totalAttended) * 100
-    if (responseRate < 50) {
-      results.push(`Evaluation response coverage is ${responseRate.toFixed(0)}% (${evaluations} responses for ${current.totalAttended} attendees). Consider setting aside time for feedback before participants leave.`)
-    }
-  }
-
-  if (current.topBarangays[0]) {
-    results.push(`Most represented barangay: ${current.topBarangays[0].label} (${current.topBarangays[0].count} registrations). Use this to compare reach across communities.`)
-  }
-
-  const commentAnalysis = current.feedbackAnalysis
-  if (commentAnalysis.analyzedComments >= 3) {
-    const negativeShare = commentAnalysis.sentimentCounts.negative / commentAnalysis.analyzedComments
-    const positiveShare = commentAnalysis.sentimentCounts.positive / commentAnalysis.analyzedComments
-    if (negativeShare >= 0.3) {
-      const mainTheme = commentAnalysis.themeCounts[0]?.theme
-      results.push(`Suggested text analysis found negative signals in ${Math.round(negativeShare * 100)}% of ${commentAnalysis.analyzedComments} written comments${mainTheme ? `; ${mainTheme} is the most-mentioned feedback theme` : ''}. Review the comments for context.`)
-    } else if (positiveShare >= 0.6) {
-      results.push(`Suggested text analysis found mostly positive signals in ${Math.round(positiveShare * 100)}% of written comments. Review the comments to identify practices worth repeating.`)
-    }
-  }
-
-  return [...new Set(results)]
-}
 
 function AdminReports() {
+  const [view, setView] = useState<'post' | 'monitoring' | 'insights'>('post')
   const [currentPeriod] = useState(currentMonthPeriod)
   const [reportType, setReportType] = useState<'Monthly' | 'Quarterly' | 'Annual'>('Monthly')
   const [dateFrom, setDateFrom] = useState(() => monthRange(Number(currentPeriod.year), Number(currentPeriod.month) - 1).from)
@@ -95,22 +37,28 @@ function AdminReports() {
   const [insightYear, setInsightYear] = useState(Number(currentPeriod.year))
   const [insightsLoading, setInsightsLoading] = useState(true)
   const [insightsError, setInsightsError] = useState('')
+  const [comparisonError, setComparisonError] = useState('')
+  const [insightsRetry, setInsightsRetry] = useState(0)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    if (view !== 'insights') return
     let active = true
     setInsightsLoading(true)
     setInsightsError('')
+    setComparisonError('')
     const range = monthRange(insightYear, insightMonth)
     const previousDate = new Date(insightYear, insightMonth - 1, 1)
     const previousRange = monthRange(previousDate.getFullYear(), previousDate.getMonth())
-    Promise.all([
+    Promise.allSettled([
       generateReport(range.from, range.to),
       generateReport(previousRange.from, previousRange.to),
     ]).then(([current, previous]) => {
       if (!active) return
-      setInsightData(current)
-      setPreviousInsightData(previous)
+      if (current.status === 'rejected') throw current.reason
+      setInsightData(current.value)
+      setPreviousInsightData(previous.status === 'fulfilled' ? previous.value : null)
+      if (previous.status === 'rejected') setComparisonError('Previous-month data could not be loaded. Current-month results are still available.')
       setInsightsLoading(false)
     }).catch((error: unknown) => {
       if (!active) return
@@ -120,7 +68,12 @@ function AdminReports() {
       setInsightsLoading(false)
     })
     return () => { active = false }
-  }, [insightMonth, insightYear])
+  }, [insightMonth, insightYear, view, insightsRetry])
+
+  function shiftInsightMonth(offset: number) {
+    const next = new Date(insightYear, insightMonth + offset, 1)
+    setInsightYear(next.getFullYear()); setInsightMonth(next.getMonth())
+  }
 
   async function handleGenerate() {
     setLoading(true)
@@ -134,13 +87,13 @@ function AdminReports() {
   }
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6 print:hidden">
+    <div className="reports-workspace @container/reports min-w-0 p-3 sm:p-4 lg:p-8">
+      <div className="mb-6 flex flex-col items-start justify-between gap-3 @min-[36rem]/reports:flex-row @min-[36rem]/reports:items-center print:hidden">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Reports & Insights</h1>
+          <h1 className="text-xl font-bold text-primary @min-[36rem]/reports:text-2xl">Reports & Insights</h1>
           <p className="text-sm text-gray-500">Auto-compiled monitoring reports and data-driven insights</p>
         </div>
-        {report && (
+        {report && view === 'monitoring' && (
           <button
             onClick={handlePrint}
             disabled={loading}
@@ -151,134 +104,42 @@ function AdminReports() {
         )}
       </div>
 
-      <section className="bg-white rounded-xl shadow border border-gray-100 p-5 mb-6 print:hidden" aria-labelledby="period-insights-title" aria-busy={insightsLoading}>
-        <div className="flex items-start gap-3 mb-4">
-          <span className="rounded-lg bg-green-50 p-2 text-primary"><Lightbulb size={19} /></span>
-          <div>
-            <h2 id="period-insights-title" className="font-bold text-gray-900">
-              Insights for {new Date(insightYear, insightMonth, 1).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}
-            </h2>
-            <p className="text-xs text-gray-500">Monthly performance, comparisons, and recommended follow-ups</p>
-        </div>
+      <div className="mb-6 grid grid-cols-3 gap-2 print:hidden" aria-label="Report views">
+        {([{ id: 'post', label: 'Activity post report' }, { id: 'monitoring', label: 'Monitoring report' }, { id: 'insights', label: 'Insights' }] as const).map(tab => <button key={tab.id} type="button" aria-pressed={view === tab.id} onClick={() => setView(tab.id)} className={`min-w-0 rounded-lg px-2 py-3 text-xs font-semibold @min-[36rem]/reports:px-4 @min-[36rem]/reports:text-sm ${view === tab.id ? 'bg-primary text-white' : 'border border-gray-200 bg-white text-gray-600'}`}>{tab.label}</button>)}
       </div>
+      <div hidden={view !== 'post'} className="print:hidden"><PostActivityReport /></div>
 
-        <div className="flex flex-wrap gap-3 mb-4 print:hidden">
-          <label className="text-xs font-semibold text-gray-600">Month
-            <select value={insightMonth} onChange={(event) => setInsightMonth(Number(event.target.value))} className="filter-select ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800">
-              {Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{new Date(2000, month, 1).toLocaleString('en', { month: 'long' })}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-gray-600">Year
-            <select value={insightYear} onChange={(event) => setInsightYear(Number(event.target.value))} className="filter-select ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800">
-              {Array.from({ length: 11 }, (_, offset) => new Date().getFullYear() - 10 + offset).map((year) => <option key={year} value={year}>{year}</option>)}
-            </select>
-          </label>
+      <section hidden={view !== 'insights'} className="mb-6 space-y-5 print:hidden" aria-labelledby="period-insights-title">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-light text-primary"><Lightbulb size={21} /></span><div><p className="text-[10px] font-bold uppercase tracking-widest text-primary">Monthly overview</p><h2 id="period-insights-title" className="mt-1 text-lg font-bold text-gray-900">Insights for {new Date(insightYear, insightMonth, 1).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}</h2><p className="mt-1 text-sm text-gray-500">Understand participation, spot patterns, and plan your next steps.</p></div></div>
+            <button type="button" onClick={() => setInsightsRetry(value => value + 1)} disabled={insightsLoading} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"><RefreshCw size={14} className={insightsLoading ? 'animate-spin' : ''} />Refresh</button>
+          </div>
+          <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-gray-100 pt-5">
+            <div className="flex min-w-0 flex-wrap items-end gap-3">
+              <label className="min-w-0 text-xs font-semibold text-gray-500">Month<select aria-label="Insight month" value={insightMonth} onChange={event => setInsightMonth(Number(event.target.value))} className="input mt-1.5 block min-h-11 !w-auto !rounded-xl !bg-gray-50 !pr-10">{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{new Date(2000, month, 1).toLocaleString('en', { month: 'long' })}</option>)}</select></label>
+              <label className="text-xs font-semibold text-gray-500">Year<select aria-label="Insight year" value={insightYear} onChange={event => setInsightYear(Number(event.target.value))} className="input mt-1.5 block min-h-11 !w-auto !rounded-xl !bg-gray-50 !pr-10">{[...new Set([...Array.from({ length: 11 }, (_, offset) => Number(currentPeriod.year) - 10 + offset), insightYear])].sort((a, b) => a - b).map(year => <option key={year} value={year}>{year}</option>)}</select></label>
+              <div className="flex gap-1"><button type="button" aria-label="Previous insight month" onClick={() => shiftInsightMonth(-1)} className="grid size-11 place-items-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50"><ChevronLeft size={18} /></button><button type="button" aria-label="Next insight month" onClick={() => shiftInsightMonth(1)} className="grid size-11 place-items-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50"><ChevronRight size={18} /></button></div>
+              <button type="button" disabled={insightYear === Number(currentPeriod.year) && insightMonth === Number(currentPeriod.month) - 1} onClick={() => { setInsightYear(Number(currentPeriod.year)); setInsightMonth(Number(currentPeriod.month) - 1) }} className="min-h-11 px-1 text-xs font-semibold text-primary disabled:text-gray-400">This month</button>
+            </div>
+            <p className="text-xs text-gray-500">Compared with {new Date(insightYear, insightMonth - 1, 1).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}</p>
+          </div>
         </div>
-
-        {insightsLoading ? (
-          <InsightsSkeleton />
-        ) : insightData ? (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-              <InsightMetric icon={<Activity size={16} />} label="Activities" value={insightData.totalActivities} />
-              <InsightMetric icon={<Users size={16} />} label="Registered participants" value={insightData.totalRegistered} />
-              <InsightMetric
-                icon={<Users size={16} />}
-                label="Attendance rate"
-                value={attendanceRate(insightData) === null ? '—' : `${Math.round(attendanceRate(insightData)!)}%`}
-                comparison={previousInsightData && attendanceRate(previousInsightData) !== null && attendanceRate(insightData) !== null
-                  ? `${(attendanceRate(insightData)! - attendanceRate(previousInsightData)! >= 0 ? '+' : '')}${(attendanceRate(insightData)! - attendanceRate(previousInsightData)!).toFixed(0)} pts vs previous month`
-                  : 'No previous-month baseline'}
-              />
-              <InsightMetric
-                icon={<Star size={16} />}
-                label="Avg. satisfaction"
-                value={insightData.avgSatisfaction === 'N/A' ? 'No ratings' : `${insightData.avgSatisfaction} / 5`}
-                comparison={insightData.avgSatisfaction !== 'N/A' && previousInsightData && previousInsightData.avgSatisfaction !== 'N/A'
-                  ? `${Number(insightData.avgSatisfaction) - Number(previousInsightData.avgSatisfaction) >= 0 ? '+' : ''}${(Number(insightData.avgSatisfaction) - Number(previousInsightData.avgSatisfaction)).toFixed(1)} vs previous month`
-                  : 'No previous-month baseline'}
-              />
-            </div>
-            <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Key takeaways and recommended actions</h3>
-              <ul className="space-y-2">
-                {buildAdvancedInsights(insightData, previousInsightData || insightData).map((insight, index) => (
-                  <li key={index} className="flex gap-2 text-sm text-gray-700">
-                    <span className="mt-0.5 text-amber-600"><Lightbulb size={15} /></span>
-                    <span>{insight}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="mt-4 rounded-lg border border-gray-200 p-4">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h3 className="text-sm font-semibold text-gray-900">NLP feedback analysis</h3>
-                <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">Suggested</span>
-                <span className="text-xs text-gray-500">
-                  {insightData.feedbackAnalysis.modelStatus === 'ready'
-                    ? 'Local multilingual semantic model + Bisaya rules'
-                    : insightData.feedbackAnalysis.modelStatus === 'unavailable'
-                      ? 'Bisaya-aware NLP rules (semantic model unavailable)'
-                      : 'Bisaya rules ready; semantic model loads when comments exist'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mb-3">
-                NLP reads written comments to suggest sentiment and feedback topics. Based on {insightData.feedbackAnalysis.analyzedComments} written comment{insightData.feedbackAnalysis.analyzedComments === 1 ? '' : 's'}. Review the matched wording and topic analysis beneath each comment.
-                {' '}{insightData.feedbackAnalysis.modelStatus === 'ready'
-                  ? `The multilingual model contributed sentiment or topics to ${insightData.feedbackAnalysis.semanticAssistedComments} comment${insightData.feedbackAnalysis.semanticAssistedComments === 1 ? '' : 's'}; language rules can identify other comments independently.`
-                  : insightData.feedbackAnalysis.modelStatus === 'unavailable'
-                    ? 'The model could not be loaded, so these results use the Bisaya-aware rules only.'
-                    : 'The model loads when written comments are available.'} Review original feedback before making decisions.
-              </p>
-              {insightData.feedbackAnalysis.analyzedComments === 0 ? (
-                <p className="text-sm text-gray-500">No written comments are available for this period.</p>
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    <SentimentCount label="Positive" count={insightData.feedbackAnalysis.sentimentCounts.positive} color="bg-green-50 text-green-700" />
-                    <SentimentCount label="Negative" count={insightData.feedbackAnalysis.sentimentCounts.negative} color="bg-red-50 text-red-700" />
-                    <SentimentCount label="Mixed" count={insightData.feedbackAnalysis.sentimentCounts.mixed} color="bg-amber-50 text-amber-700" />
-                    <SentimentCount label="Needs review" count={insightData.feedbackAnalysis.sentimentCounts['no-signal']} color="bg-gray-100 text-gray-600" />
-                  </div>
-                  {insightData.feedbackAnalysis.themeCounts.length ? (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                      <span className="font-semibold">Common themes:</span>
-                      {insightData.feedbackAnalysis.themeCounts.slice(0, 5).map((theme) => (
-                        <span key={theme.theme} className="rounded-full border border-gray-200 px-2.5 py-1 capitalize">
-                          {theme.theme} · {theme.count} (positive {theme.sentimentCounts.positive}, negative {theme.sentimentCounts.negative}, mixed {theme.sentimentCounts.mixed})
-                        </span>
-                      ))}
-                    </div>
-                  ) : <p className="text-xs text-gray-500">No configured feedback themes were matched.</p>}
-                  <div className="mt-4 border-t border-gray-100 pt-4">
-                    <h4 className="text-sm font-semibold text-gray-900">Participant comments</h4>
-                    <p className="mt-1 text-xs text-gray-500">Original comments and their NLP results. “Needs review” means the sentiment is unclear; the comment is still included.</p>
-                    <div className="mt-3 max-h-96 space-y-3 overflow-y-auto">
-                      {insightData.feedbackAnalysis.comments.map((comment) => (
-                        <FeedbackComment key={comment.id} comment={comment} />
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-red-600 py-2">Could not load insights: {insightsError || 'Try changing the date range or generating the report again.'}</p>
-        )}
+        <InsightsDashboard key={`${insightYear}-${insightMonth}`} current={insightData} previous={previousInsightData} loading={insightsLoading} error={insightsError} comparisonError={comparisonError} onRetry={() => setInsightsRetry(value => value + 1)} />
       </section>
 
       {/* Generator form */}
+      <div hidden={view !== 'monitoring'}>
       <div className="bg-white rounded-xl shadow border border-gray-100 p-5 mb-6 print:hidden">
         <h2 className="font-bold text-gray-900 mb-1"><FileText size={16} className="inline mr-1.5" /> Generate Report</h2>
         <p className="text-xs text-gray-400 mb-4">Compile monthly, quarterly, or annual MEAL reports</p>
 
-        <div className="flex gap-2 mb-4">
+        <div className="mb-4 grid grid-cols-3 gap-2">
           {(['Monthly', 'Quarterly', 'Annual'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setReportType(t)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium ${
+              className={`min-h-11 rounded-lg px-2 py-2 text-xs font-medium @min-[36rem]/reports:px-4 @min-[36rem]/reports:text-sm ${
                 reportType === t ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
               }`}
             >
@@ -287,7 +148,7 @@ function AdminReports() {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-1 gap-3 mb-3 @min-[36rem]/reports:grid-cols-2">
           <div>
             <label className="text-xs font-semibold text-gray-600">Date From</label>
             <DatePicker value={dateFrom} onChange={setDateFrom} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" aria-label="Date from" />
@@ -298,7 +159,7 @@ function AdminReports() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-1 gap-3 mb-3 @min-[36rem]/reports:grid-cols-2">
           <div>
             <label className="text-xs font-semibold text-gray-600">Prepared By</label>
             <input value={preparedBy} onChange={(e) => setPreparedBy(e.target.value)} placeholder="Name & Designation" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
@@ -309,7 +170,7 @@ function AdminReports() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-1 gap-3 mb-4 @min-[36rem]/reports:grid-cols-2">
           <div>
             <label className="text-xs font-semibold text-gray-600">Approved By</label>
             <input value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)} placeholder="e.g. CYDO Head" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
@@ -331,7 +192,7 @@ function AdminReports() {
 
       {loading && <ReportPreviewSkeleton />}
       {report && !loading && (
-        <div className="bg-white rounded-xl shadow border border-gray-100 p-8 print:shadow-none print:border-none">
+        <div className="bg-white rounded-xl shadow border border-gray-100 p-4 @min-[36rem]/reports:p-8 print:shadow-none print:border-none">
           <div className="text-center mb-5">
             <div className="text-[11px] uppercase tracking-wide text-gray-400">Republic of the Philippines</div>
             <div className="text-[11px] uppercase tracking-wide text-gray-400">City Government of Panabo</div>
@@ -345,7 +206,7 @@ function AdminReports() {
           <div className="border-t-2 border-primary mb-6" />
 
           <SectionTitle>I. Executive Summary</SectionTitle>
-          <div className="grid grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-2 gap-3 mb-6 @min-[44rem]/reports:grid-cols-4 print:grid-cols-4">
             <Stat label="Total Activities" value={report.totalActivities} />
             <Stat label="Total Registered" value={report.totalRegistered} />
             <Stat label="Total Attended" value={report.totalAttended} />
@@ -353,7 +214,7 @@ function AdminReports() {
           </div>
 
           <SectionTitle>II. Activity Summary</SectionTitle>
-          <table className="w-full text-xs mb-6 border-collapse">
+          <div role="region" aria-label="Activity summary table" tabIndex={0} className="mb-6 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-gray-100 print:overflow-visible print:border-0"><table className="w-full min-w-[44rem] text-xs border-collapse print:min-w-0">
             <thead>
               <tr className="bg-gray-50 text-gray-500">
                 <Th>Activity</Th><Th>Program</Th><Th>Date</Th><Th>Slots</Th><Th>Registered</Th><Th>Attended</Th><Th>Status</Th><Th>Budget Util.</Th>
@@ -370,22 +231,22 @@ function AdminReports() {
                 ))
               )}
             </tbody>
-          </table>
+          </table></div>
 
           <SectionTitle>III. Participant Demographics</SectionTitle>
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 gap-4 mb-6 @min-[36rem]/reports:grid-cols-3 print:grid-cols-3">
             <DemoList title="By Gender" items={report.genderBreakdown} />
             <DemoList title="By Age Bracket" items={report.ageBreakdown} />
             <DemoList title="Top Barangays" items={report.topBarangays} />
           </div>
 
           <SectionTitle>IV. Budget Summary</SectionTitle>
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-1 gap-3 mb-4 @min-[36rem]/reports:grid-cols-3 print:grid-cols-3">
             <Stat label="Total Allocated" value={`₱${report.budgetAllocated.toLocaleString()}`} />
             <Stat label="Total Utilized" value={`₱${report.budgetUtilized.toLocaleString()}`} />
             <Stat label="Remaining" value={`₱${report.budgetRemaining.toLocaleString()}`} />
           </div>
-          <table className="w-full text-xs mb-6 border-collapse">
+          <div role="region" aria-label="Budget summary table" tabIndex={0} className="mb-6 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-gray-100 print:overflow-visible print:border-0"><table className="w-full min-w-[34rem] text-xs border-collapse print:min-w-0">
             <thead>
               <tr className="bg-gray-50 text-gray-500">
                 <Th>Activity</Th><Th>Allocated</Th><Th>Utilized</Th><Th>Remaining</Th><Th>Utilization %</Th>
@@ -402,11 +263,11 @@ function AdminReports() {
                 ))
               )}
             </tbody>
-          </table>
+          </table></div>
 
           <SectionTitle>V. Evaluation & Satisfaction</SectionTitle>
           <p className="text-xs text-gray-500 mb-3 leading-relaxed">{report.evalSummary}</p>
-          <table className="w-full text-xs mb-6 border-collapse">
+          <div role="region" aria-label="Evaluation summary table" tabIndex={0} className="mb-6 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-gray-100 print:overflow-visible print:border-0"><table className="w-full min-w-[30rem] text-xs border-collapse print:min-w-0">
             <thead>
               <tr className="bg-gray-50 text-gray-500">
                 <Th>Activity</Th><Th>Responses</Th><Th>Avg. Rating</Th><Th>Would Recommend</Th>
@@ -423,7 +284,7 @@ function AdminReports() {
                 ))
               )}
             </tbody>
-          </table>
+          </table></div>
 
           <SectionTitle>VI. Key Insights</SectionTitle>
           <ul className="text-xs text-gray-600 mb-6 space-y-2 leading-relaxed list-disc list-inside">
@@ -433,7 +294,7 @@ function AdminReports() {
           </ul>
 
           <SectionTitle>VII. Certifications</SectionTitle>
-          <div className="grid grid-cols-3 gap-5 mt-4">
+          <div className="grid grid-cols-1 gap-5 mt-4 @min-[36rem]/reports:grid-cols-3 print:grid-cols-3">
             <SigBlock name={preparedBy} label="Prepared By" />
             <SigBlock name={reviewedBy} label="Reviewed By" />
             <SigBlock name={approvedBy} label="Approved By" />
@@ -444,38 +305,6 @@ function AdminReports() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function InsightsSkeleton() {
-  return (
-    <div>
-      <p role="status" className="sr-only">Loading report insights and feedback analysis…</p>
-      <div aria-hidden="true">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
-              <SkeletonBox className="h-3 w-3/4" />
-              <SkeletonBox className="h-7 w-16" />
-              <SkeletonBox className="h-3 w-full" />
-            </div>
-          ))}
-        </div>
-        <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-4 space-y-3">
-          <SkeletonBox className="h-4 w-1/2 mb-4" />
-          <SkeletonBox className="h-3 w-full" />
-          <SkeletonBox className="h-3 w-5/6" />
-          <SkeletonBox className="h-3 w-2/3" />
-        </div>
-        <div className="mt-4 rounded-lg border border-gray-200 p-4 space-y-3">
-          <SkeletonBox className="h-4 w-48 max-w-full" />
-          <SkeletonBox className="h-3 w-full" />
-          <SkeletonBox className="h-3 w-3/4" />
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: 4 }, (_, index) => <SkeletonBox key={index} className="h-6 w-24 !rounded-full" />)}
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -515,23 +344,11 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-gray-50 rounded-lg p-3 text-center">
+    <div className="min-w-0 bg-gray-50 rounded-lg p-3 text-center">
       <div className="text-[10px] uppercase text-gray-400">{label}</div>
-      <div className="text-lg font-bold text-gray-900 mt-1">{value}</div>
+      <div className="mt-1 break-words text-base font-bold text-gray-900 @min-[36rem]/reports:text-lg">{value}</div>
     </div>
   )
-}
-function InsightMetric({ icon, label, value, comparison }: { icon: React.ReactNode; label: string; value: string | number; comparison?: string }) {
-  return (
-    <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-      <div className="flex items-center gap-1.5 text-xs text-gray-500">{icon}<span>{label}</span></div>
-      <div className="mt-1 text-xl font-bold text-gray-900">{value}</div>
-      {comparison && <div className="mt-1 text-[11px] text-gray-500">{comparison}</div>}
-    </div>
-  )
-}
-function SentimentCount({ label, count, color }: { label: string; count: number; color: string }) {
-  return <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${color}`}>{label}: {count}</span>
 }
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="text-left px-2 py-2 font-semibold">{children}</th>
@@ -548,9 +365,9 @@ function DemoList({ title, items }: { title: string; items: { label: string; cou
       ) : (
         <div className="space-y-1">
           {items.map((it) => (
-            <div key={it.label} className="flex justify-between text-xs">
+            <div key={it.label} className="flex min-w-0 justify-between gap-2 text-xs">
               <span className="text-gray-600">{it.label}</span>
-              <span className="font-semibold text-gray-900">{it.count}</span>
+              <span className="shrink-0 font-semibold text-gray-900">{it.count}</span>
             </div>
           ))}
         </div>

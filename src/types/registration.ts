@@ -25,6 +25,7 @@ export interface Registration {
   activityDate: string
   activityVenue: string
   program: string
+  programId?: string
   sectoralGroup: string
   email?: string
   birthday?: string | null

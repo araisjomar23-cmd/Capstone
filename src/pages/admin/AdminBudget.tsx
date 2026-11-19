@@ -1,7 +1,8 @@
 import { ACTIVITY_STATUS_DISPLAY, getActivityDisplayStatus } from '../../features/activities/activityLifecycle'
 import ActivityDateFilter from '../../components/ActivityDateFilter'
 import { currentMonthPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { budgetAmount, budgetProgramKey, summarizeBudgets } from '../../features/budget/budgetSummary'
 import { deleteExpenseEntry, fetchBudgetOverview, saveBudgetEntry, updateExpenseEntry } from '../../features/budget/budgetService'
 import type { BudgetAuditEvent, BudgetOverview } from '../../features/budget/budgetService'
 import { Wallet, Plus, Coins, ArrowLeft, Pencil, Trash2 } from 'lucide-react'
@@ -52,30 +53,35 @@ function AdminBudget() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
+  const [programFilter, setProgramFilter] = useState('')
+  const latestRequest = useRef(0)
 
   useEffect(() => {
     load()
     const channel = supabase.channel(`budget-live-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_entries' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'programs' }, () => load())
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    return () => { latestRequest.current++; supabase.removeChannel(channel) }
   }, [])
 
   async function load() {
+    const request = ++latestRequest.current
     setLoading(true)
-    setLoadError('')
     try {
       const d = await fetchBudgetOverview()
+      if (request !== latestRequest.current) return
       setData(d)
+      setLoadError('')
     } catch (cause) {
-      setLoadError(cause instanceof Error ? cause.message : 'Unable to load budget data.')
+      if (request === latestRequest.current) setLoadError(cause instanceof Error ? cause.message : 'Unable to load budget data.')
     } finally {
-      setLoading(false)
+      if (request === latestRequest.current) setLoading(false)
     }
   }
 
-  if (loading || !data) {
+  if (!data) {
     return (
       <div className="p-4 md:p-8">
         <h1 className="text-2xl font-bold text-primary mb-6">Budget Monitor</h1>
@@ -93,32 +99,34 @@ function AdminBudget() {
     )
   }
 
-  const activities = data.activities.filter((a) => matchesDatePeriod(a.startDate, a.endDate, period))
+  const periodActivities = data.activities.filter((a) => matchesDatePeriod(a.startDate, a.endDate, period))
+  const programOptions = [...new Map(data.activities.map(activity => [budgetProgramKey(activity), activity.programName || 'Unassigned program'])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  const activities = periodActivities.filter(activity => !programFilter || budgetProgramKey(activity) === programFilter)
     .sort((a, b) => b.startDate.localeCompare(a.startDate))
-  const totalAlloc = activities.reduce((sum, a) => sum + a.budgetAlloc, 0)
-  const totalSpent = activities.reduce((sum, a) => sum + a.budgetSpent, 0)
-  const totalRemain = totalAlloc - totalSpent
-  const utilRate = totalAlloc > 0 ? Math.round(totalSpent / totalAlloc * 100) : 0
+  const summary = summarizeBudgets(activities)
+  const { allocated: totalAlloc, spent: totalSpent, remaining: totalRemain, utilization: utilRate } = summary
   const selectedActivity = selectedActivityId
     ? activities.find((a) => a.id === selectedActivityId) || null
     : null
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="min-w-0 p-4 md:p-8" aria-busy={loading}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold text-primary">Budget Monitor</h1><ProposalBudgetPreview /></div>
 
-      <ActivityDateFilter value={period} onChange={(next) => { setPeriod(next); setSelectedActivityId(null) }} dates={data.activities.map((a) => ({ start: a.startDate, end: a.endDate }))} />
-      <p className="text-xs text-gray-500 mb-4">Showing {activities.length} of {data.activities.length} activities. Totals reflect the selected activity period.</p>
+      {loadError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">{loadError} Showing previously loaded records. <button type="button" onClick={() => void load()} className="min-h-11 font-semibold underline">Retry</button></p>}
+      <ActivityDateFilter value={period} onChange={(next) => { setPeriod(next); setSelectedActivityId(null) }} dates={data.activities.map((a) => ({ start: a.startDate, end: a.endDate }))}
+        actions={<label className="block min-w-0 text-xs font-medium text-gray-600 sm:w-56">Program<select aria-label="Budget program" className="input filter-select mt-1.5 min-h-11 w-full min-w-0" value={programFilter} onChange={event => { setProgramFilter(event.target.value); setSelectedActivityId(null) }}><option value="">All Programs</option>{programOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>} />
+      <p className="text-xs text-gray-500 mb-4">Showing {activities.length} of {periodActivities.length} activities in this period{programFilter ? ` · ${programOptions.find(([id]) => id === programFilter)?.[1] || 'Selected program'}` : ''}. Totals reflect the selected dates and program.</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard barColor="var(--color-primary)" label="Allocated" value={`₱${totalAlloc.toLocaleString()}`} sub={`Across ${activities.length} activities`} />
         <StatCard barColor="var(--color-danger)" label="Spent" value={`₱${totalSpent.toLocaleString()}`} />
         <StatCard barColor="var(--color-teal)" label="Remaining" value={`₱${totalRemain.toLocaleString()}`} />
-        <StatCard barColor="var(--color-accent)" label="Utilization" value={`${utilRate}%`} />
+        <StatCard barColor="var(--color-accent)" label="Utilization" value={utilRate === null ? 'N/A' : `${utilRate}%`} sub={totalAlloc === 0 && totalSpent > 0 ? 'Spending recorded without allocation' : undefined} />
       </div>
 
       {activities.length === 0 ? (
-        <div className="text-center text-gray-400 py-12">No activities found for this period. Try clearing the date filters.</div>
+        <div className="text-center text-gray-400 py-12">No activities match the selected dates{programFilter ? ' and program' : ''}. Try another period or choose All Programs.</div>
       ) : selectedActivity ? (
         <div>
           <button
@@ -170,8 +178,8 @@ function ActivityBudgetSummaryCard({
 }) {
   const alloc = a.budgetAlloc
   const spent = a.budgetSpent
-  const left = alloc - spent
-  const pct = alloc > 0 ? Math.min(100, Math.round((spent / alloc) * 100)) : 0
+  const left = (budgetAmount(alloc) - budgetAmount(spent)) / 100
+  const pct = alloc > 0 ? Math.round((spent / alloc) * 100) : 0
 
   return (
     <button
@@ -184,7 +192,7 @@ function ActivityBudgetSummaryCard({
       <div className="text-xs text-gray-500 mb-3">{activityDateLabel(a.startDate, a.endDate)}</div>
 
       {alloc === 0 ? (
-        <div className="text-sm text-gray-400">No budget allocated yet</div>
+        <div className="text-sm text-gray-500">No budget allocated yet{spent > 0 && <p className="mt-2 font-semibold text-red-700">Spent: PHP {spent.toLocaleString()} · Remaining: PHP {left.toLocaleString()} · Spending without allocation</p>}</div>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-2 mb-3">
@@ -207,7 +215,7 @@ function ActivityBudgetSummaryCard({
             <span className={pctColor(pct)}>{pct}%</span>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-2">
-            <div className={`h-2 rounded-full ${barColor(pct)}`} style={{ width: `${pct}%` }} />
+            <div className={`h-2 rounded-full ${barColor(pct)}`} style={{ width: `${Math.min(100, pct)}%` }} />
           </div>
         </>
       )}
@@ -259,8 +267,8 @@ function ActivityBudgetDetail({
 
   const alloc = a.budgetAlloc
   const spent = a.budgetSpent
-  const left = alloc - spent
-  const pct = alloc > 0 ? Math.min(100, Math.round((spent / alloc) * 100)) : 0
+  const left = (budgetAmount(alloc) - budgetAmount(spent)) / 100
+  const pct = alloc > 0 ? Math.round((spent / alloc) * 100) : 0
 
   async function handleAllocate() {
     const amt = Number(allocInput)
@@ -326,7 +334,7 @@ function ActivityBudgetDetail({
     else showToast(`Could not delete expense: ${result.error || 'Unknown error'}`, 'error')
   }
 
-  if (alloc === 0 && !a.proposalId) {
+  if (alloc === 0 && !a.proposalId && !spent && !entries.length) {
     return (
       <div className="panel p-4 md:p-5">
         <div className="text-base font-bold text-gray-900">{a.title}</div>
@@ -381,12 +389,17 @@ function ActivityBudgetDetail({
         </div>
       </div>
 
+      {alloc === 0 && <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-900">No budget allocated. {spent > 0 ? 'Spending is recorded without an allocation; review these expenses.' : 'Utilization is unavailable until an allocation is recorded.'}</p>}
+      {alloc === 0 && !a.proposalId && <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <input aria-label="Allocate budget" type="number" min="0" step="0.01" value={allocInput} onChange={event => setAllocInput(event.target.value)} placeholder="Set allocated budget (PHP)" className="input min-w-0 flex-1" />
+        <button type="button" onClick={handleAllocate} disabled={saving} className="btn-primary min-h-11">Allocate</button>
+      </div>}
       <div className="flex justify-between text-xs text-gray-500 mb-1">
         <span>Utilization</span>
-        <span className={pctColor(pct)}>{pct}%</span>
+        <span className={pctColor(pct)}>{alloc > 0 ? `${pct}%` : 'N/A'}</span>
       </div>
       <div className="w-full bg-gray-100 rounded-full h-2 mb-5">
-        <div className={`h-2 rounded-full ${barColor(pct)}`} style={{ width: `${pct}%` }} />
+        <div className={`h-2 rounded-full ${barColor(pct)}`} style={{ width: `${Math.min(100, pct)}%` }} />
       </div>
 
       <div className="mb-4">

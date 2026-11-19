@@ -1,0 +1,114 @@
+{
+  "description": "Reference examples only. Adapt field names and weights to your existing feedbackLexicon.json; do not overwrite that file directly.",
+  "positive_phrases": {
+    "nindot kaayo": 2,
+    "maayo kaayo": 2,
+    "lingaw kaayo": 2,
+    "hapsay ang programa": 2,
+    "daghan kog nakat-unan": 2,
+    "mapuslanon kaayo": 2,
+    "lami ang snacks": 2,
+    "klaro ang pagpasabot": 2,
+    "komportable ang venue": 2,
+    "ganahan ko": 1
+  },
+  "negative_phrases": {
+    "bati kaayo": -2,
+    "dili maayo": -2,
+    "wala ko nalingaw": -2,
+    "gubot ang programa": -2,
+    "walay nakat-unan": -2,
+    "kulang ang oras": -2,
+    "init kaayo ang venue": -2,
+    "lisod sabton": -2,
+    "wala nasunod ang schedule": -2,
+    "wala mi nahatagan og snacks": -2
+  },
+  "negation_markers": [
+    "dili",
+    "di",
+    "wala",
+    "walay",
+    "wala'y",
+    "dili kaayo"
+  ],
+  "contrast_markers": [
+    "pero",
+    "apan",
+    "bisan pa",
+    "but",
+    "however"
+  ],
+  "emphasis_markers": [
+    "kaayo",
+    "kayo",
+    "gyud",
+    "jud",
+    "dyud",
+    "grabe"
+  ],
+  "spelling_variants": {
+    "kayo": "kaayo",
+    "jud": "gyud",
+    "dyud": "gyud",
+    "wala'y": "walay"
+  },
+  "semantic_examples": {
+    "venue": {
+      "positive": [
+        "Komportable ug limpyo ang lugar.",
+        "Dako ug presko ang venue."
+      ],
+      "negative": [
+        "Init ug huot ang venue.",
+        "Lisod pangitaon ang lugar."
+      ]
+    },
+    "schedule": {
+      "positive": [
+        "Sakto ra ang oras sa programa.",
+        "Hapsay ang iskedyul."
+      ],
+      "negative": [
+        "Kulang ang oras sa workshop.",
+        "Nalangan ang pagsugod sa programa."
+      ]
+    },
+    "food": {
+      "positive": [
+        "Lami ug igo ang pagkaon.",
+        "Naay tubig ug snacks para sa tanan."
+      ],
+      "negative": [
+        "Kulang ang meryenda.",
+        "Dili lami ang pagkaon."
+      ]
+    },
+    "facilitators": {
+      "positive": [
+        "Klaro moexplain ang speaker.",
+        "Buotan ug matinabangon ang trainer."
+      ],
+      "negative": [
+        "Lisod sabton ang facilitator.",
+        "Wala gitubag ang among pangutana."
+      ]
+    },
+    "content": {
+      "positive": [
+        "Daghan kog nakat-unan sa leksyon.",
+        "Mapuslanon ang discussion."
+      ],
+      "negative": [
+        "Libog ang topic ug discussion.",
+        "Kulang ang examples sa lesson."
+      ]
+    }
+  },
+  "cautions": [
+    "These are authored synthetic seeds, not real participant feedback or a held-out evaluation dataset.",
+    "Do not match positive words blindly inside negated phrases.",
+    "Suggestions without explicit praise or criticism should not automatically be forced to Neutral or Negative.",
+    "Preserve rule-based sentiment when semantic model only adds missing topics."
+  ]
+}

@@ -333,7 +333,7 @@ test('Budget cards and totals use the same filtered activities, preserving overs
   const html = renderPage('AdminBudget', [period, data, false, '', null])
   assert.match(html, /Selected workshop/)
   assert.doesNotMatch(html, /Previous workshop/)
-  assert.match(html, /Showing 1 of 2 activities/)
+  assert.match(html, /Showing 1 of 1 activities in this period/)
   assert.match(html, /-50/)
   assert.match(html, /125%/)
 })
@@ -452,6 +452,7 @@ test('report dates and insight selectors initialize to the full current Manila m
     react: initialHooks,
     '../../features/reports/reportService': { generateReport() {} },
     '../../components/DatePicker': { default: () => null },
+    '../../features/reports/PostActivityReport': { default: () => null },
   }).default
   const nodes = treeNodes(Reports())
   const current = currentMonthPeriod()

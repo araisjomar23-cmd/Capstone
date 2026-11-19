@@ -46,6 +46,7 @@ export interface ReportData {
       submittedAt: string
       text: string
       sentiment: SuggestedSentiment
+      isSuggestion?: boolean
       themes: string[]
       sentimentSource: 'rules' | 'semantic' | 'none'
       matchedTerms: MatchedSentimentTerm[]
@@ -236,6 +237,7 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
       submittedAt: evaluation.submitted_at,
       text: comments[index],
       sentiment: hybridResults.analyses[index].label,
+      isSuggestion: Boolean(hybridResults.analyses[index].isSuggestion),
       themes: hybridResults.analyses[index].themes.map(({ theme }) => theme),
       sentimentSource: hybridResults.sentimentSources[index],
       matchedTerms: hybridResults.analyses[index].matchedTerms,

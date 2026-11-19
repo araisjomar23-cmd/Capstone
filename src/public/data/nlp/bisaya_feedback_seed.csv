@@ -1,0 +1,122 @@
+﻿text,sentiment,topic,is_suggestion,language,source
+Nindot kaayo ang venue sa seminar.,Positive,venue,false,bisaya_or_mixed,synthetic_seed
+Komportable kaayo ang among lingkoranan.,Positive,venue,false,bisaya_or_mixed,synthetic_seed
+Bugnaw ug presko ang lugar sa activity.,Positive,venue,false,bisaya_or_mixed,synthetic_seed
+Limpyo kaayo ang venue ug CR.,Positive,venue,false,bisaya_or_mixed,synthetic_seed
+"Dako ang lugar, dili mi naghuot.",Positive,venue,false,bisaya_or_mixed,synthetic_seed
+Sayon ra pangitaon ang venue.,Positive,venue,false,bisaya_or_mixed,synthetic_seed
+Tarong ang sound system sa venue.,Positive,venue,false,bisaya_or_mixed,synthetic_seed
+Maayo ang kahayag sa hall.,Positive,venue,false,bisaya_or_mixed,synthetic_seed
+Init kaayo ang venue.,Negative,venue,false,bisaya_or_mixed,synthetic_seed
+Huot kaayo ang lugar sa event.,Negative,venue,false,bisaya_or_mixed,synthetic_seed
+Walay tarong nga lingkoranan.,Negative,venue,false,bisaya_or_mixed,synthetic_seed
+Saba kaayo sa sulod sa hall.,Negative,venue,false,bisaya_or_mixed,synthetic_seed
+Lisod pangitaon ang venue.,Negative,venue,false,bisaya_or_mixed,synthetic_seed
+Hugaw ang CR sa venue.,Negative,venue,false,bisaya_or_mixed,synthetic_seed
+Hinay ang aircon sa lugar.,Negative,venue,false,bisaya_or_mixed,synthetic_seed
+Dili komportable ang among gipwestoan.,Negative,venue,false,bisaya_or_mixed,synthetic_seed
+Sakto ra ang oras sa programa.,Positive,schedule,false,bisaya_or_mixed,synthetic_seed
+Nagsugod ang event sa saktong oras.,Positive,schedule,false,bisaya_or_mixed,synthetic_seed
+Hapsay ang iskedyul sa mga activity.,Positive,schedule,false,bisaya_or_mixed,synthetic_seed
+Dili dugay ang hulat sa registration.,Positive,schedule,false,bisaya_or_mixed,synthetic_seed
+Sakto ang gidugayon sa workshop.,Positive,schedule,false,bisaya_or_mixed,synthetic_seed
+Maayo ang pagkahan-ay sa schedule.,Positive,schedule,false,bisaya_or_mixed,synthetic_seed
+Naay igo nga break tali sa sessions.,Positive,schedule,false,bisaya_or_mixed,synthetic_seed
+Sayong nahuman ang programa sama sa plano.,Positive,schedule,false,bisaya_or_mixed,synthetic_seed
+Kulang kaayo ang oras sa workshop.,Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Dugay kaayo nagsugod ang seminar.,Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Nalangan ang among activity.,Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Sobra ka taas ang hulat sa registration.,Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Dali ra kaayo nahuman ang discussion.,Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Walay klaro ang oras sa sunod nga session.,Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Nag-overlap ang schedule sa mga activities.,Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Wala nasunod ang giingong iskedyul.,Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Lami kaayo ang snacks.,Positive,food,false,bisaya_or_mixed,synthetic_seed
+Sakto ra ang pagkaon para sa tanan.,Positive,food,false,bisaya_or_mixed,synthetic_seed
+Busog mi sa gihatag nga paniudto.,Positive,food,false,bisaya_or_mixed,synthetic_seed
+Lami ang meryenda human sa activity.,Positive,food,false,bisaya_or_mixed,synthetic_seed
+Hapsay ang pag-apod-apod sa pagkaon.,Positive,food,false,bisaya_or_mixed,synthetic_seed
+Presko ang pagkaon nga gihatag.,Positive,food,false,bisaya_or_mixed,synthetic_seed
+Naay tubig ug snacks para sa participants.,Positive,food,false,bisaya_or_mixed,synthetic_seed
+Maayo ang pagkaandam sa food.,Positive,food,false,bisaya_or_mixed,synthetic_seed
+Kulang ang snacks para sa participants.,Negative,food,false,bisaya_or_mixed,synthetic_seed
+Dili lami ang pagkaon.,Negative,food,false,bisaya_or_mixed,synthetic_seed
+Walay tubig nga giandam sa event.,Negative,food,false,bisaya_or_mixed,synthetic_seed
+Dugay kaayo nahatag ang paniudto.,Negative,food,false,bisaya_or_mixed,synthetic_seed
+Gamay ra ang serving sa pagkaon.,Negative,food,false,bisaya_or_mixed,synthetic_seed
+Wala mi nahatagan og meryenda.,Negative,food,false,bisaya_or_mixed,synthetic_seed
+Bugnaw na ang pagkaon pag-abot.,Negative,food,false,bisaya_or_mixed,synthetic_seed
+Gubot ang linya sa pagkuha og snacks.,Negative,food,false,bisaya_or_mixed,synthetic_seed
+Maayo kaayo ang facilitator.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+Klaro moexplain ang speaker.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+Buotan ug matinabangon ang organizers.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+Pasensyoso ang trainer sa among pangutana.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+Maalamon ang guest speaker.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+Interaktibo kaayo ang facilitator.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+Klaro ang tingog sa speaker.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+Motubag dayon ang staff kung mangutana mi.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+Dili klaro ang pagpasabot sa speaker.,Negative,facilitators,false,bisaya_or_mixed,synthetic_seed
+Paspas ra kaayo motudlo ang facilitator.,Negative,facilitators,false,bisaya_or_mixed,synthetic_seed
+Wala gitubag ang among mga pangutana.,Negative,facilitators,false,bisaya_or_mixed,synthetic_seed
+Lisod duolon ang organizer.,Negative,facilitators,false,bisaya_or_mixed,synthetic_seed
+Wala mi matabangi sa staff.,Negative,facilitators,false,bisaya_or_mixed,synthetic_seed
+Hinay kaayo ang tingog sa facilitator.,Negative,facilitators,false,bisaya_or_mixed,synthetic_seed
+Sige rag basa sa slides ang speaker.,Negative,facilitators,false,bisaya_or_mixed,synthetic_seed
+Walay tarong nga instruksyon gikan sa trainer.,Negative,facilitators,false,bisaya_or_mixed,synthetic_seed
+Daghan kog nakat-unan sa seminar.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+Mapuslanon kaayo ang leksyon.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+Klaro ang discussion ug examples.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+Bag-o ug importante ang among nahibaloan.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+Nakatabang ang training sa among skills.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+Angay kaayo sa kabatan-onan ang topic.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+Praktikal ang mga activity sa workshop.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+Ganahan ko sa mga gitudlo sa session.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+Wala ko kasabot sa discussion.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Libog ang pagpresentar sa topic.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Kulang ang examples sa leksyon.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Balik-balik ra ang mga gitudlo.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Dili angay sa among panginahanglan ang topic.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Sobra kalisod sa mga activity.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Walay klarong objective ang session.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Dili mapuslanon ang ubang bahin sa seminar.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Nindot ang venue pero init kaayo sa sulod.,Mixed,venue,false,bisaya_or_mixed,synthetic_seed
+Limpyo ang lugar apan huot ang lingkoranan.,Mixed,venue,false,bisaya_or_mixed,synthetic_seed
+Maayo ang hall pero lisod pangitaon ang location.,Mixed,venue,false,bisaya_or_mixed,synthetic_seed
+Hapsay ang programa pero kulang ang oras sa workshop.,Mixed,schedule,false,bisaya_or_mixed,synthetic_seed
+Sakto nagsugod ang event pero nalangan ang last session.,Mixed,schedule,false,bisaya_or_mixed,synthetic_seed
+Maayo ang schedule apan taas kaayo ang hulat sa registration.,Mixed,schedule,false,bisaya_or_mixed,synthetic_seed
+Lami ang snacks pero kulang para sa tanan.,Mixed,food,false,bisaya_or_mixed,synthetic_seed
+Naay pagkaon apan dugay kaayo gi-serve.,Mixed,food,false,bisaya_or_mixed,synthetic_seed
+Busog mi sa lunch pero walay tubig.,Mixed,food,false,bisaya_or_mixed,synthetic_seed
+Buotan ang speaker pero usahay dili klaro ang explanation.,Mixed,facilitators,false,bisaya_or_mixed,synthetic_seed
+Maayo ang facilitator apan paspas ra kaayo motudlo.,Mixed,facilitators,false,bisaya_or_mixed,synthetic_seed
+Nakatabang ang organizers pero dugay motubag sa pangutana.,Mixed,facilitators,false,bisaya_or_mixed,synthetic_seed
+Nindot ang topic pero kulang sa examples.,Mixed,content,false,bisaya_or_mixed,synthetic_seed
+Daghan kog nakat-unan apan lisod ang last activity.,Mixed,content,false,bisaya_or_mixed,synthetic_seed
+Mapuslanon ang lesson pero naglibog ko sa instructions.,Mixed,content,false,bisaya_or_mixed,synthetic_seed
+Unta dugangan pa ang oras sa workshop.,Needs review,schedule,true,bisaya_or_mixed,synthetic_seed
+Pwede mas sayo ipahibalo ang schedule?,Needs review,schedule,true,bisaya_or_mixed,synthetic_seed
+Mas maayo kung naa pay laing session.,Needs review,schedule,true,bisaya_or_mixed,synthetic_seed
+Unta mas dako nga venue ang gamiton sunod.,Needs review,venue,true,bisaya_or_mixed,synthetic_seed
+Pwede ba mas duol nga lugar ang gamiton?,Needs review,venue,true,bisaya_or_mixed,synthetic_seed
+Unta naa pud tubig sa sunod nga activity.,Needs review,food,true,bisaya_or_mixed,synthetic_seed
+Pwede magdugang og snacks sunod?,Needs review,food,true,bisaya_or_mixed,synthetic_seed
+Unta naa pay guest speaker sa sunod.,Needs review,facilitators,true,bisaya_or_mixed,synthetic_seed
+Palihog dugangi ang hands-on nga examples sa training.,Needs review,content,true,bisaya_or_mixed,synthetic_seed
+Unta naa pay lain nga youth leadership topics.,Needs review,content,true,bisaya_or_mixed,synthetic_seed
+I want more pogi participants.,Needs review,,false,bisaya_or_mixed,synthetic_seed
+Kinsa ang sunod nga muapil?,Needs review,,false,bisaya_or_mixed,synthetic_seed
+See you next time!,Needs review,,false,bisaya_or_mixed,synthetic_seed
+Naa ba moy group picture?,Needs review,,false,bisaya_or_mixed,synthetic_seed
+Wala koy ikasulti karon.,Needs review,,false,bisaya_or_mixed,synthetic_seed
+Nindot kaayo ang tibuok programa.,Positive,,false,bisaya_or_mixed,synthetic_seed
+Lingaw kaayo mi sa event.,Positive,,false,bisaya_or_mixed,synthetic_seed
+Salamat kaayo sa activity!,Positive,,false,bisaya_or_mixed,synthetic_seed
+Bati ang overall experience.,Negative,,false,bisaya_or_mixed,synthetic_seed
+Wala ko nalingaw sa programa.,Negative,,false,bisaya_or_mixed,synthetic_seed
+Dili nindot ang discussion.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Walay klaro ang lesson.,Negative,content,false,bisaya_or_mixed,synthetic_seed
+Dili bati ang lesson; daghan kog nakat-unan.,Positive,content,false,bisaya_or_mixed,synthetic_seed
+"Too late nagsugod ang event, dugay kaayo.",Negative,schedule,false,bisaya_or_mixed,synthetic_seed
+Very helpful kaayo ang facilitator.,Positive,facilitators,false,bisaya_or_mixed,synthetic_seed
+"Grabe ka-init ang venue, dili komportable.",Negative,venue,false,bisaya_or_mixed,synthetic_seed

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import DashboardControlPanel from '../../features/dashboard/DashboardControlPanel'
+import ProgramOverview from '../../features/dashboard/ProgramOverview'
 import { AttendanceTrendChart, ActivityRegistrationsChart, BudgetOverviewChart } from '../../features/dashboard/DashboardCharts'
 import FiscalYearFilter from '../../features/dashboard/FiscalYearFilter'
 import { fiscalYearLabel, type FiscalPeriod } from '../../lib/fiscalYear'
@@ -15,7 +16,6 @@ import {
   type PieLabelRenderProps,
 } from 'recharts'
 import { useDashboardData } from '../../features/dashboard/useDashboardData'
-import { useToast } from '../../components/ToastProvider'
 import { SkeletonStatCard } from '../../components/Skeleton'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -42,12 +42,11 @@ function SectorPercentLabel({ cx, cy, midAngle = 0, outerRadius = 0, percent = 0
 
 function AdminDashboard() {
   usePageTitle('PRIME Admin')
-  const { showToast } = useToast()
   const [period, setPeriod] = useState<FiscalPeriod>(() => {
     const current = currentMonthPeriod()
     return { startMonth: 1, year: Number(current.year), month: Number(current.month) }
   })
-  const { data, activities, loading, error, refresh } = useDashboardData(period)
+  const { data, activities, error, refresh, connection } = useDashboardData(period)
   function changePeriod(next: FiscalPeriod) {
     setPeriod({ ...next, startMonth: 1 })
   }
@@ -57,7 +56,7 @@ function AdminDashboard() {
     return () => window.clearInterval(timer)
   }, [])
 
-  if (loading && !data) {
+  if (!data && !error && connection !== 'offline') {
     return (
       <div className="w-full min-w-0 max-w-[1440px] mx-auto p-4 md:p-6 xl:p-8">
         <h1 className="text-2xl font-bold text-primary mb-1">Admin Dashboard</h1>
@@ -72,18 +71,11 @@ function AdminDashboard() {
     )
   }
 
-  if (error && !data) {
+  if (!data && (error || connection === 'offline')) {
     return (
       <div className="w-full min-w-0 max-w-[1440px] mx-auto p-4 md:p-6 xl:p-8">
-        <p className="text-red-600">{error}</p>
-        <button
-          onClick={() => {
-            refresh()
-            showToast('Refreshing dashboard…', 'info')
-          }}
-          className="btn-primary mt-2">
-          Retry
-        </button>
+        <h1 className="mb-3 text-2xl font-bold text-primary">Dashboard</h1>
+        <p role="alert" className="mb-4 text-sm text-gray-700">{connection === 'offline' ? 'You are offline. Dashboard data will load when your connection returns.' : error}</p>
       </div>
     )
   }
@@ -92,7 +84,7 @@ function AdminDashboard() {
 
   return (
     <div className="w-full min-w-0 max-w-[1440px] mx-auto p-4 md:p-6 xl:p-8">
-      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+      <header className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-teal-700 mb-2">MEAL control panel</p>
           <h1 className="text-2xl md:text-3xl font-bold text-primary">Dashboard</h1>
@@ -111,6 +103,7 @@ function AdminDashboard() {
       </div>
 
       <DashboardControlPanel data={data} now={now} />
+      <ProgramOverview rows={data.programSummaries} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 items-stretch gap-4 mb-4">
           <AttendanceTrendChart data={data.attendanceTrend} />

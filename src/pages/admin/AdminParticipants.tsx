@@ -1,6 +1,7 @@
 import ActivityDateFilter from '../../components/ActivityDateFilter'
 import { currentMonthPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { participationHistory, participationTotals, programKey } from '../../features/participants/participationHistory'
 import { fetchAdminParticipants } from '../../features/participants/participantService'
 import ParticipantModal from '../../features/participants/ParticipantModal'
 import type { Registration } from '../../types/registration'
@@ -36,6 +37,9 @@ function AdminParticipants() {
   const [statusFilter, setStatusFilter] = useState('')
   const [selected, setSelected] = useState<Registration | null>(null)
   const [ageGroupFilter, setAgeGroupFilter] = useState('')
+  const [programFilter, setProgramFilter] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const latestRequest = useRef(0)
 
  useEffect(() => {
     load()
@@ -46,25 +50,35 @@ function AdminParticipants() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registration_details' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'legacy_activities' }, () => load())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_log' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'programs' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_log' }, () => load())
       .subscribe()
 
     return () => {
+      latestRequest.current++
       supabase.removeChannel(channel)
     }
   }, [])
 
   async function load() {
+    const request = ++latestRequest.current
     setLoading(true)
-    const data = await fetchAdminParticipants()
-    setAll(data)
-    setLoading(false)
+    try {
+      const data = await fetchAdminParticipants(true)
+      if (request !== latestRequest.current) return
+      setAll(data)
+      setLoadError('')
+    } catch {
+      if (request === latestRequest.current) setLoadError('Unable to load participant records. Previously loaded records are retained; please retry.')
+    } finally {
+      if (request === latestRequest.current) setLoading(false)
+    }
   }
 
   const activityOptions = useMemo(() => {
     const seen = new Map<string, { label: string; fullLabel: string }>()
     all.forEach((p) => {
-      if (p.activityId && !seen.has(p.activityId) && matchesDatePeriod(p.activityStartDate, p.activityEndDate, period)) {
+      if (p.activityId && !seen.has(p.activityId) && (!programFilter || programKey(p) === programFilter) && matchesDatePeriod(p.activityStartDate, p.activityEndDate, period)) {
         const title = p.activityTitle.trim()
         const shortTitle = title.length > 24 ? title.slice(0, 23).trimEnd() + '…' : title
         const date = ' (' + activityDateLabel(p.activityStartDate, p.activityEndDate) + ')'
@@ -72,7 +86,7 @@ function AdminParticipants() {
       }
     })
     return Array.from(seen.entries())
-  }, [all, period])
+  }, [all, period, programFilter])
 
   const participantsInPeriod = useMemo(() => all.filter((p) => {
     const start = p.status === 'not_registered' ? manilaDate(p.registeredAt) ?? undefined : p.activityStartDate
@@ -99,9 +113,14 @@ function AdminParticipants() {
       const mA = !activityFilter || String(p.activityId) === activityFilter
       const mS = !statusFilter || p.status === statusFilter
       const mAge = !ageGroupFilter || getYouthAgeGroup(p.age) === ageGroupFilter
-      return mQ && mA && mS && mAge
+      const mProgram = !programFilter || programKey(p) === programFilter
+      return mQ && mA && mS && mAge && mProgram
     }).sort((a, b) => a.name.trim().localeCompare(b.name.trim(), 'en-PH', { sensitivity: 'base' }))
-  }, [participantsInPeriod, search, activityFilter, statusFilter, ageGroupFilter])
+  }, [participantsInPeriod, search, activityFilter, statusFilter, ageGroupFilter, programFilter])
+
+  const programOptions = [...new Map(participantsInPeriod.filter(row => programKey(row)).map(row => [programKey(row), row.program])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  const totals = participationTotals(filtered)
+  const selectedParticipant = selected ? all.find(row => row.id === selected.id) : undefined
 
   const countBy = (s: string) => filtered.filter((p) => p.status === s).length
   const attendanceRows = filtered.filter((p) => p.status !== 'not_registered' && p.activityId)
@@ -114,6 +133,7 @@ function AdminParticipants() {
   return (
     <div className="min-w-0 w-full p-4 md:p-8">
       <h1 className="text-2xl font-bold text-primary mb-6">Participants</h1>
+      {loadError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">{loadError} <button type="button" onClick={() => void load()} className="ml-2 min-h-11 font-semibold underline">Retry</button></p>}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {loading ? (
@@ -124,7 +144,7 @@ function AdminParticipants() {
           <>
             <StatBox label="Total" value={filtered.length} barColor="var(--color-primary)" />
             <StatBox label="Registered" value={countBy('registered')} barColor="var(--color-teal)" />
-            <StatBox label="Attended" value={countBy('attended')} barColor="var(--color-info)" />
+            <StatBox label="Attended / completed" value={totals.attended} barColor="var(--color-info)" />
             <StatBox label="Inactive" value={countBy('inactive')} barColor="var(--color-muted)" />
           </>
         )}
@@ -132,6 +152,7 @@ function AdminParticipants() {
 
       <ActivityDateFilter showHelp={false} value={period} onChange={(nextPeriod) => {
         setPeriod(nextPeriod)
+        if (programFilter && !all.some(p => programKey(p) === programFilter && matchesDatePeriod(p.activityStartDate, p.activityEndDate, nextPeriod))) setProgramFilter('')
         if (activityFilter && !all.some((p) => p.activityId === activityFilter && matchesDatePeriod(p.activityStartDate, p.activityEndDate, nextPeriod))) {
           setActivityFilter('')
         }
@@ -143,7 +164,7 @@ function AdminParticipants() {
           <Printer size={16} aria-hidden="true" /> Print attendance
         </button>} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] gap-3 mb-4">
         <div className="relative min-w-0">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -187,11 +208,16 @@ function AdminParticipants() {
           <option value="">All Age Groups</option>
           {YOUTH_AGE_GROUPS.map((group) => <option key={group.label} value={group.label}>{group.label} ({group.min}–{group.max} yrs)</option>)}
         </select>
+        <select aria-label="Program" value={programFilter} onChange={event => { setProgramFilter(event.target.value); setActivityFilter('') }} className="filter-select w-full min-w-0 truncate rounded-lg border border-gray-300 px-3 py-2 text-sm">
+          <option value="">All Programs</option>
+          {programOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
       </div>
 
       <p className="text-xs text-gray-500 mb-2">
         {loading ? 'Loading…' : `Showing ${filtered.length} of ${participantsInPeriod.length} participants`}
       </p>
+      {!loading && <p className="mb-4 text-xs text-gray-500">{totals.youths} distinct youths · {totals.registrations} activity registrations · {totals.absent} absent. Each activity registration has its own row. Open View for a youth’s full participation history.</p>}
 
       {/* Desktop table view */}
       <div className="panel !overflow-x-auto hidden md:block">
@@ -330,9 +356,10 @@ function AdminParticipants() {
         )}
       </div>
 
-      {selected && (
+      {selectedParticipant && (
         <ParticipantModal
-          participant={selected}
+          participant={selectedParticipant}
+          history={participationHistory(selectedParticipant, all)}
           onClose={() => setSelected(null)}
         />
       )}

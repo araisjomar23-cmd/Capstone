@@ -8,7 +8,7 @@ function sentimentLabel(value: Comment['sentiment']) {
 
 export default function FeedbackComment({ comment }: { comment: Comment }) {
   return (
-    <article className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <article className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h5 className="break-words text-sm font-medium text-gray-900">{comment.activityTitle}</h5>
@@ -19,7 +19,9 @@ export default function FeedbackComment({ comment }: { comment: Comment }) {
         </span>
       </div>
       <blockquote className="mt-3 whitespace-pre-wrap break-words border-l-2 border-gray-300 pl-3 text-sm text-gray-700">{comment.text}</blockquote>
-      <div className="mt-3 space-y-2 text-xs text-gray-600">
+      {comment.isSuggestion && <p className="mt-3 w-fit rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Suggestion</p>}
+      {comment.themes.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{comment.themes.map(theme => <span key={theme} className="rounded-md bg-gray-100 px-2 py-1 text-[10px] font-semibold capitalize text-gray-500">{theme}</span>)}</div>}
+      <details className="mt-3 border-t border-gray-100 pt-2 text-xs text-gray-600"><summary className="w-fit cursor-pointer py-2 font-semibold text-primary">View analysis & matched wording</summary><div className="mt-1 space-y-2 pb-1">
         <p><strong>How NLP reached this result: </strong>
           {comment.sentimentSource === 'rules' ? 'Matched language rules, including negation and emphasis.'
             : comment.sentimentSource === 'semantic' ? 'The multilingual model found a similar meaning to sentiment examples.'
@@ -45,7 +47,7 @@ export default function FeedbackComment({ comment }: { comment: Comment }) {
             ))}
           </ul>
         ) : <p>No specific feedback topic was identified.</p>}
-      </div>
+      </div></details>
     </article>
   )
 }

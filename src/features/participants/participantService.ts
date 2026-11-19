@@ -14,6 +14,7 @@ interface ProgramRecord {
 
 interface LegacyActivityRecord {
   id: string
+  program_id: string | null
   title: string | null
   status: string | null
   manually_closed: boolean | null
@@ -60,7 +61,7 @@ export async function fetchParticipants(strict = false): Promise<Registration[]>
       first_name, middle_name, last_name, suffix, city_municipality, province,
       status, registered_at, attended_at, notes, sectoral_group,
       legacy_activities (
-        id, title, start_date, end_date, start_time, end_time, status, manually_closed, date_text, venue,
+        id, program_id, title, start_date, end_date, start_time, end_time, status, manually_closed, date_text, venue,
         programs ( name )
       )
     `)
@@ -122,6 +123,7 @@ export async function fetchParticipants(strict = false): Promise<Registration[]>
       activityDate: activity?.date_text ?? '—',
       activityVenue: activity?.venue ?? '—',
       program: program?.name ?? '—',
+      programId: activity?.program_id || undefined,
       sectoralGroup: r.sectoral_group || 'None',
       attendanceHistory: attendanceByRegistration.get(r.id) || [],
     }
@@ -129,15 +131,16 @@ export async function fetchParticipants(strict = false): Promise<Registration[]>
 }
 
 /** Admin directory: includes completed participant profiles with no activity registration yet. */
-export async function fetchAdminParticipants(): Promise<Registration[]> {
+export async function fetchAdminParticipants(strict = false): Promise<Registration[]> {
   const [registered, profilesResult] = await Promise.all([
-    fetchParticipants(),
+    fetchParticipants(strict),
     supabase
       .from('participants')
       .select('user_uuid, email, first_name, middle_name, last_name, suffix, birthday, age, gender_identity, contact, barangay, city_municipality, province, organization, youth_classification, sectoral_group, created_at'),
   ])
 
   if (profilesResult.error) {
+    if (strict) throw new Error('Unable to load participant profiles: ' + profilesResult.error.message)
     console.error('fetchAdminParticipantProfiles error:', profilesResult.error.message)
     return registered
   }
@@ -171,6 +174,7 @@ export async function fetchAdminParticipants(): Promise<Registration[]> {
   const { data: registrationUsers, error: registrationUsersError } = await supabase
     .from('registrations')
     .select('user_uuid')
+  if (registrationUsersError && strict) throw new Error('Unable to verify participant registrations: ' + registrationUsersError.message)
   if (registrationUsersError) console.error('fetchAdminRegistrationUsers error:', registrationUsersError.message)
   for (const row of registrationUsers || []) registeredUsers.add(row.user_uuid)
 

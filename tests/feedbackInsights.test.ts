@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildFeedbackInsights } from '../src/features/reports/feedbackInsights.ts'
+import { buildAdvancedInsights } from '../src/features/reports/insightModel.ts'
 import type { ReportData } from '../src/features/reports/reportService.ts'
+
+test('missing comparison data never produces a fabricated month-over-month change', () => {
+  const current = { totalRegistered: 100, totalAttended: 80, insights: [], evalRows: [], activityRows: [], topBarangays: [], feedbackAnalysis: analysis() } as unknown as ReportData
+  assert.doesNotThrow(() => buildAdvancedInsights(current, null))
+  assert.ok(buildAdvancedInsights(current, null).every(value => !value.includes('compared with the previous month')))
+  const previous = { ...current, totalAttended: 50 }
+  assert.ok(buildAdvancedInsights(current, previous).some(value => value.includes('improved by 30 percentage points')))
+  assert.ok(buildAdvancedInsights(current, { ...previous, totalRegistered: 0 }).every(value => !value.includes('compared with the previous month')))
+})
 
 function analysis(overrides: Partial<ReportData['feedbackAnalysis']> = {}): ReportData['feedbackAnalysis'] {
   return {

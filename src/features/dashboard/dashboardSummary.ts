@@ -1,5 +1,5 @@
 import { manilaDate } from '../../lib/calendarDate'
-import type { DashboardData, AttendanceTrendDatum, StatusSlice, ActivityRegistrationDatum, BudgetDatum } from './useDashboardData'
+import type { DashboardData, AttendanceTrendDatum, StatusSlice, ActivityRegistrationDatum, BudgetDatum, ProgramSummary } from './useDashboardData'
 import type { Activity } from '../../types/activity'
 import type { Registration } from '../../types/registration'
 import type { EvaluationRow } from '../evaluations/evaluationService'
@@ -98,7 +98,32 @@ export function summarizeDashboard(snapshot: DashboardSnapshot, period: FiscalPe
     satisfactionByTitle.set(evaluation.activityId || evaluation.id, current)
   }
 
+  const programs = new Map<string, ProgramSummary>()
+  const programByActivity = new Map<string, ProgramSummary>()
+  for (const activity of acts) {
+    const id = activity.programId || activity.programName || 'unassigned'
+    const program = programs.get(id) ?? { id, name: activity.programName || 'Unassigned program', activities: 0, registrations: 0, attended: 0, allocated: 0, spent: 0, responses: 0, ratingTotal: 0 }
+    program.activities++
+    program.allocated += activity.budgetAlloc
+    program.spent += activity.budgetSpent
+    programs.set(id, program)
+    programByActivity.set(activity.id, program)
+  }
+  for (const registration of activeRegistrations) {
+    const program = programByActivity.get(registration.activityId)
+    if (!program) continue
+    program.registrations++
+    if (registration.status === 'attended' || registration.status === 'completed') program.attended++
+  }
+  for (const evaluation of rows) {
+    const program = programByActivity.get(evaluation.activityId)
+    if (!program) continue
+    program.responses++
+    program.ratingTotal += evaluation.rating
+  }
+
   return {
+    programSummaries: [...programs.values()].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
     totalReg,
     totalAtt,
     acts,

@@ -1,13 +1,19 @@
 const {test}=require('node:test')
 const assert=require('node:assert/strict')
 const fs=require('node:fs')
+const path=require('node:path')
 const ts=require('typescript')
 const React=require('react')
 const {renderToStaticMarkup}=require('react-dom/server')
 function load(file,mocks={}) {
   const output=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2023,jsx:ts.JsxEmit.ReactJSX}}).outputText
   const module={exports:{}}
-  new Function('require','module','exports',output)(name=>Object.hasOwn(mocks,name)?mocks[name]:require(name),module,module.exports)
+  new Function('require','module','exports',output)(name=>{
+    if(Object.hasOwn(mocks,name)) return mocks[name]
+    if(!name.startsWith('.')) return require(name)
+    const base=path.resolve(path.dirname(file),name)
+    return load([base,base+'.ts',base+'.tsx'].find(candidate=>fs.existsSync(candidate)),mocks)
+  },module,module.exports)
   return module.exports
 }
 const model=load('src/features/budget/approvedBudgetService.ts',{'../../lib/supabase':{supabase:{}}})

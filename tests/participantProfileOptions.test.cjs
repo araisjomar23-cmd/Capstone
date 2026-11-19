@@ -1,6 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const path = require('node:path')
 const ts = require('typescript')
 const React = require('react')
 const { renderToStaticMarkup } = require('react-dom/server')
@@ -8,7 +9,11 @@ const { renderToStaticMarkup } = require('react-dom/server')
 function load(file) {
   const module = { exports: {} }
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
-  new Function('require', 'module', 'exports', code)(require, module, module.exports)
+  new Function('require', 'module', 'exports', code)(name => {
+    if (!name.startsWith('.')) return require(name)
+    const base = path.resolve(path.dirname(file), name)
+    return load([base, base + '.ts', base + '.tsx'].find(candidate => fs.existsSync(candidate)))
+  }, module, module.exports)
   return module.exports
 }
 const { YOUTH_CLASSES, SECTORAL_GROUPS } = load('src/features/participants/profileOptions.ts')

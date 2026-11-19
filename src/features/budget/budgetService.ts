@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase'
 import { fetchActivities } from '../activities/activityService'
 import type { Activity } from '../../types/activity'
+import { budgetAmount, summarizeBudgets } from './budgetSummary'
 
 export interface BudgetEntry {
   id: string
@@ -61,7 +62,7 @@ interface BudgetEntryRecord {
 }
 
 export async function fetchBudgetOverview(): Promise<BudgetOverview> {
-  const acts = await fetchActivities()
+  const acts = await fetchActivities(true)
 
   const { data: entries, error } = await supabase
     .from('budget_entries')
@@ -80,7 +81,7 @@ export async function fetchBudgetOverview(): Promise<BudgetOverview> {
     activityId: e.activity_id,
     category: e.category || '',
     description: e.description || '',
-    amount: Number(e.amount) || 0,
+    amount: budgetAmount(Number(e.amount)) / 100,
     entryType: e.entry_type,
     recordedAt: e.recorded_at,
     recordedBy: e.recorded_by || 'Admin',
@@ -111,12 +112,21 @@ export async function fetchBudgetOverview(): Promise<BudgetOverview> {
     })
   }
 
-  const totalAlloc = acts.reduce((s, a) => s + a.budgetAlloc, 0)
-  const totalSpent = acts.reduce((s, a) => s + a.budgetSpent, 0)
-  const totalRemain = totalAlloc - totalSpent
+  // Use this same ledger read for cards, totals and expense detail. Activity
+  // loading performs a separate read that can be older than these entries.
+  const ledger = new Map<string, { allocated: number; spent: number }>()
+  for (const entry of allEntries) {
+    const total = ledger.get(entry.activityId) ?? { allocated: 0, spent: 0 }
+    total[entry.entryType === 'allocation' ? 'allocated' : 'spent'] += budgetAmount(entry.amount)
+    ledger.set(entry.activityId, total)
+  }
+  const activities = acts.map(activity => ({ ...activity, budgetAlloc: (ledger.get(activity.id)?.allocated ?? 0) / 100, budgetSpent: (ledger.get(activity.id)?.spent ?? 0) / 100 }))
+  const summary = summarizeBudgets(activities)
+  const totalAlloc = summary.allocated
+  const totalSpent = summary.spent
   const utilRate = totalAlloc > 0 ? Math.round((totalSpent / totalAlloc) * 100) : 0
 
-  return { totalAlloc, totalSpent, totalRemain, utilRate, activities: acts, entriesByActivity, auditByActivity }
+  return { totalAlloc, totalSpent, totalRemain: summary.remaining, utilRate, activities, entriesByActivity, auditByActivity }
 }
 
 export async function saveBudgetEntry(
