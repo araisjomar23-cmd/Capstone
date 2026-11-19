@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { usePickerPosition } from './usePickerPosition'
 
 interface DatePickerProps {
   value: string
@@ -34,6 +35,9 @@ function DatePicker({ value, onChange, className = 'input', placeholder = 'Selec
     return new Date(date.getFullYear(), date.getMonth(), 1)
   })
   const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const position = usePickerPosition(open, triggerRef, popupRef, Boolean(ariaLabel?.toLowerCase().startsWith('end')))
   const yearListRef = useRef<HTMLDivElement>(null)
   const selectedYearRef = useRef<HTMLButtonElement>(null)
   const today = toISODate(new Date())
@@ -86,8 +90,15 @@ function DatePicker({ value, onChange, className = 'input', placeholder = 'Selec
   }
 
   return (
-    <div className="relative w-full" ref={rootRef}>
+    <div className="relative w-full" ref={rootRef} onKeyDown={event => {
+      if (open && event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        setOpen(false)
+      }
+    }}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={showPicker}
         aria-label={ariaLabel || 'Choose date'}
@@ -104,22 +115,22 @@ function DatePicker({ value, onChange, className = 'input', placeholder = 'Selec
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Choose a date" className="absolute left-0 top-[calc(100%+8px)] z-[100] w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-gray-100 bg-white p-3 shadow-xl shadow-gray-900/10 sm:p-4">
-          <div className="mb-3 flex items-center justify-between">
+        <div ref={popupRef} role="dialog" aria-label="Choose a date" style={position} className="fixed z-[100] overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white p-3 shadow-xl shadow-gray-900/15">
+          <div className="mb-2 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">{choosingYear ? 'Select year' : 'Choose date'}</p>
               {!choosingYear && (
-                <button type="button" onClick={() => setChoosingYear(true)} className="mt-0.5 inline-flex items-center gap-1 text-sm font-bold text-gray-900 hover:text-primary sm:text-base">
+                <button type="button" onClick={() => setChoosingYear(true)} className="mt-0.5 inline-flex items-center gap-1 text-sm font-bold text-gray-900 hover:text-primary">
                   {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(visibleMonth)}
                   <ChevronDown size={15} />
                 </button>
               )}
             </div>
             <div className="flex gap-1">
-              <button type="button" onClick={() => shiftMonth(-1)} aria-label={choosingYear ? 'Previous 12 years' : 'Previous month'} className="grid size-8 place-items-center rounded-lg text-gray-600 hover:bg-gray-100 sm:size-9 sm:rounded-xl">
+              <button type="button" onClick={() => shiftMonth(-1)} aria-label={choosingYear ? 'Previous 12 years' : 'Previous month'} className="grid size-7 place-items-center rounded-lg text-gray-600 hover:bg-gray-100">
                 <ChevronLeft size={18} />
               </button>
-              <button type="button" onClick={() => shiftMonth(1)} aria-label={choosingYear ? 'Next 12 years' : 'Next month'} className="grid size-8 place-items-center rounded-lg text-gray-600 hover:bg-gray-100 sm:size-9 sm:rounded-xl">
+              <button type="button" onClick={() => shiftMonth(1)} aria-label={choosingYear ? 'Next 12 years' : 'Next month'} className="grid size-7 place-items-center rounded-lg text-gray-600 hover:bg-gray-100">
                 <ChevronRight size={18} />
               </button>
             </div>
@@ -160,7 +171,7 @@ function DatePicker({ value, onChange, className = 'input', placeholder = 'Selec
                       onClick={() => selectDate(date)}
                       aria-label={new Intl.DateTimeFormat('en-US', { dateStyle: 'full' }).format(date)}
                       aria-pressed={isSelected}
-                      className={`mx-auto grid size-8 place-items-center rounded-lg text-xs transition-colors sm:size-9 sm:rounded-xl sm:text-sm ${
+                      className={`mx-auto grid size-7 place-items-center rounded-lg text-xs transition-colors ${
                         isSelected
                           ? 'bg-primary font-semibold text-white shadow-sm'
                           : isToday
@@ -178,7 +189,7 @@ function DatePicker({ value, onChange, className = 'input', placeholder = 'Selec
             </>
           )}
 
-          <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-2">
+          <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2">
             <button type="button" onClick={() => { onChange(''); setOpen(false) }} className="rounded-lg px-2 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
               Clear date
             </button>

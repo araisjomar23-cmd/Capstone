@@ -15,6 +15,7 @@ export interface ProposalDocument {
   id: string; proposal_id: string; fingerprint: string; version: number
   files: { name: string; path: string; size: number; type: string }[]
   extraction: Extraction; created_at: string
+  approved_allocation?: number | string | null
 }
 export interface Proposal {
   id: string; activity_id: string | null; state: 'draft' | 'published'
@@ -46,6 +47,22 @@ export function eligibleOnBothDates(birthday: string, registeredDate: string, st
   return [registeredDate, startDate].every(date => { const age = ageOnDate(birthday, date); return age !== null && age >= 15 && age <= 30 })
 }
 export function budgetTotal(items: BudgetItem[]) { return Math.round(items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0) * 100) / 100 }
+// Extraction warnings are stored with the source document. Resolve field-related
+// warnings against the current draft so they do not become stale during review.
+export function activeProposalWarnings(warnings: string[], fields: ProposalFields) {
+  return warnings.flatMap(warning => {
+    if (warning.startsWith('Capacity was calculated from the beneficiary groups.')) return []
+    if (warning.startsWith('Exact dates were not found.')) {
+      const missing = [!fields.startDate.trim() && 'start date', !fields.endDate.trim() && 'end date'].filter(Boolean)
+      return missing.length ? [`Enter the activity's ${missing.join(' and ')}.`] : []
+    }
+    if (warning.startsWith('Confirm exact start/end times and write a participant-friendly public summary')) {
+      const missing = [!fields.startTime.trim() && 'start time', !fields.endTime.trim() && 'end time', !fields.summary.trim() && 'public summary'].filter(Boolean)
+      return missing.length ? [`Complete the ${missing.join(', ')} before publishing.`] : []
+    }
+    return [warning]
+  })
+}
 export function publicationIssues(fields: ProposalFields, now = Date.now()) {
   const errors: string[] = []
   for (const [key, label] of Object.entries({ title: 'Activity title', programId: 'Program', venue: 'Venue', summary: 'Public summary', rationale: 'Full description', startDate: 'Start date', endDate: 'End date', startTime: 'Start time', endTime: 'End time' })) {

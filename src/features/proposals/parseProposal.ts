@@ -47,7 +47,6 @@ export function parseProposal(pages: SourcePage[]): { fields: ProposalFields; ex
   const beneficiaries = fields.beneficiaries.split('(')[0].replace(/\b\d+\s*[MF]\b/gi, '')
   const counts = [...beneficiaries.matchAll(/\b(\d+)\s+(?=[A-Za-z])/g)].map(match => Number(match[1]))
   if (counts.length) { fields.slots = String(counts.reduce((a, b) => a + b, 0)); source('slots', fields.beneficiaries) }
-  if (counts.length > 1) warnings.push('Capacity was calculated from the beneficiary groups. Confirm the total and avoid counting overlapping groups twice.')
   const duration = lines.find(line => /^PPA\s*Duration/i.test(line)) ?? ''
   const iso = [...duration.matchAll(/\b(20\d{2}-\d{2}-\d{2})\b/g)].map(match => match[1])
   if (iso.length) { fields.startDate = iso[0]; fields.endDate = iso[1] || iso[0] }

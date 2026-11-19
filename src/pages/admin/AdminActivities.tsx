@@ -48,6 +48,7 @@ function AdminActivities() {
   const [toggling, setToggling] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [proposalId, setProposalId] = useState<string | null>(null)
+  const [creationOpen, setCreationOpen] = useState(false)
   const loadSequence = useRef(0)
   const viewedActivity = all.find((activity) => activity.id === viewingActivityId) || null
 
@@ -153,13 +154,13 @@ async function handleToggle(a: Activity) {
     <div className="p-4 md:p-8">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
       <h1 className="text-2xl font-bold text-primary">Activities</h1>
-      <button onClick={openCreateForm} className="btn-primary inline-flex items-center justify-center gap-1.5">
-        <Plus size={16} /> Create New Activity
+      <button type="button" onClick={() => { setViewingActivityId(null); setProposalId(null); setCreationOpen(true) }} className="btn-primary inline-flex items-center justify-center gap-1.5">
+        <Plus size={16} /> New Activity
       </button>
     </div>
 
       {loadError && <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{loadError} <button type="button" onClick={() => void load()} className="ml-2 font-semibold underline">Retry</button></div>}
-      <ProposalWorkspace onPublished={() => void load()} initialId={proposalId} onCloseInitial={() => setProposalId(null)} />
+      <ProposalWorkspace onPublished={() => void load()} initialId={proposalId} onCloseInitial={() => setProposalId(null)} creationOpen={creationOpen} onCloseCreation={() => setCreationOpen(false)} onManualCreate={openCreateForm} />
       <EligibilityReviewPanel refreshKey={all.map(a => a.updatedAt).join('|')} />
       <ActivityDateFilter value={period} onChange={setPeriod} dates={all.map((a) => ({ start: a.startDate, end: a.endDate }))} />
 

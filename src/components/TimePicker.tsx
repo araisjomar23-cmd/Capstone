@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Clock3 } from 'lucide-react'
+import { usePickerPosition } from './usePickerPosition'
 
 interface Props {
   value: string
@@ -15,6 +16,8 @@ export default function TimePicker({ value, onChange, className = 'input', 'aria
   const [mode, setMode] = useState<'hour' | 'minute'>('hour')
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
+  const popup = useRef<HTMLDivElement>(null)
+  const position = usePickerPosition(open, trigger, popup, label.toLowerCase().startsWith('end'))
   const id = useId()
   const hour = Number(draft.slice(0, 2))
   const minute = draft.slice(3, 5)
@@ -52,11 +55,12 @@ export default function TimePicker({ value, onChange, className = 'input', 'aria
     else setDraft(draft.slice(0, 3) + String(Math.round(turns * 60) % 60).padStart(2, '0'))
   }
 
-  const choiceClass = (selected: boolean) => `min-h-10 rounded-lg text-sm font-semibold transition-colors ${selected ? 'bg-primary text-white' : 'text-gray-600 hover:bg-primary-light hover:text-primary'}`
+  const choiceClass = (selected: boolean) => `min-h-8 rounded-lg text-xs font-semibold transition-colors ${selected ? 'bg-primary text-white' : 'text-gray-600 hover:bg-primary-light hover:text-primary'}`
 
   return (
     <div ref={root} className="relative w-full min-w-0" onKeyDown={(event) => {
       if (open && event.key === 'Escape') {
+        event.preventDefault()
         event.stopPropagation()
         close()
       }
@@ -72,18 +76,18 @@ export default function TimePicker({ value, onChange, className = 'input', 'aria
         <Clock3 size={17} className="shrink-0 text-gray-500" aria-hidden="true" />
       </button>
       {open && (
-        <div id={id} role="dialog" aria-label={`Choose ${label.toLowerCase()}`} className={`absolute top-[calc(100%+8px)] z-[100] w-[min(18rem,calc(100vw-3rem))] max-w-[calc(100vw-3rem)] ${label.toLowerCase().startsWith('end') ? 'right-0' : 'left-0'} rounded-2xl border border-gray-100 bg-white p-3 shadow-xl shadow-gray-900/10`}>
-          <p className="mb-3 text-xs font-semibold text-gray-500">{label}</p>
+        <div ref={popup} id={id} role="dialog" aria-label={`Choose ${label.toLowerCase()}`} style={position} className="fixed z-[100] overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white p-3 shadow-xl shadow-gray-900/15">
+          <p className="mb-2 text-xs font-semibold text-gray-500">{label}</p>
           <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-1" role="group" aria-label="Time period">
             {['AM', 'PM'].map((item) => <button key={item} type="button" aria-pressed={period === item} className={choiceClass(period === item)} onClick={() => setHour(hour % 12 + (item === 'PM' ? 12 : 0))}>{item}</button>)}
           </div>
-          <div className="my-3 flex items-center justify-center gap-1" role="group" aria-label="Choose hours or minutes">
+          <div className="my-2 flex items-center justify-center gap-1" role="group" aria-label="Choose hours or minutes">
             <button type="button" aria-label="Choose hour" aria-pressed={mode === 'hour'} className={choiceClass(mode === 'hour') + ' px-3 text-2xl'} onClick={() => setMode('hour')}>{String(hour % 12 || 12).padStart(2, '0')}</button>
             <span className="text-xl text-gray-400">:</span>
             <button type="button" aria-label="Choose minute" aria-pressed={mode === 'minute'} className={choiceClass(mode === 'minute') + ' px-3 text-2xl'} onClick={() => setMode('minute')}>{minute}</button>
           </div>
           <p className="text-center text-xs text-gray-500">{mode === 'hour' ? 'Choose the hour' : 'Choose the minute'}</p>
-          <svg viewBox="0 0 240 240" className="mx-auto mt-2 block w-full touch-none select-none rounded-full bg-gray-50 focus-visible:outline-primary" role="slider" tabIndex={0}
+          <svg viewBox="0 0 240 240" className="mx-auto mt-2 block w-full max-w-[176px] touch-none select-none rounded-full bg-gray-50 focus-visible:outline-primary" role="slider" tabIndex={0}
             aria-label={mode === 'hour' ? 'Hour' : 'Minute'} aria-valuemin={mode === 'hour' ? 1 : 0} aria-valuemax={mode === 'hour' ? 12 : 59} aria-valuenow={dialValue}
             onPointerDown={(event) => { event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); selectOnDial(event) }}
             onPointerMove={(event) => { if (event.buttons === 1) selectOnDial(event) }}
@@ -107,7 +111,7 @@ export default function TimePicker({ value, onChange, className = 'input', 'aria
             })}
             {mode === 'minute' && Number(minute) % 5 !== 0 && <circle cx={handX} cy={handY} r="3" fill="white" />}
           </svg>
-          <button type="button" className="btn-primary mt-3 w-full" onClick={() => { onChange(draft); close() }}>Set time</button>
+          <button type="button" className="btn-primary sticky bottom-0 mt-2 w-full !py-2 !text-xs" onClick={() => { onChange(draft); close() }}>Set time</button>
         </div>
       )}
     </div>

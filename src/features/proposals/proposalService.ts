@@ -74,11 +74,6 @@ export async function publishProposal(proposal: Proposal) {
   if (error) throw new Error(error.message)
   return String(data)
 }
-export async function createProposalProgram(name: string) {
-  const { data, error } = await supabase.rpc('ensure_ppa_program', { p_name: name })
-  if (error) throw new Error(error.message)
-  return String(data)
-}
 export async function documentUrl(path: string) {
   const { data, error } = await supabase.storage.from('ppa-documents').createSignedUrl(path, 600)
   if (error) throw new Error('Unable to open the signed source. Please retry.')

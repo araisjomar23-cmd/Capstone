@@ -26,6 +26,25 @@ test('PPA parser extracts the sample without inventing dates, times or public su
   assert.ok(extraction.warnings.some(warning=>warning.includes('differs')))
   assert.ok(fields.objectives.includes('leadership')); assert.ok(fields.outputs.includes('Nurture'))
 })
+test('extraction warnings resolve as draft fields are completed and return when cleared',()=>{
+  const warnings=[
+    'Exact dates were not found. A month or a duration is not a calendar schedule; supply the actual dates.',
+    'Confirm exact start/end times and write a participant-friendly public summary before publishing.',
+    'MEALS: the calculated amount differs from a document table value. Review the source and confirm the budget.',
+    'Capacity was calculated from the beneficiary groups. Confirm the total.',
+  ]
+  const fields={...structuredClone(model.emptyProposal),startDate:'2026-11-20',endDate:'2026-11-20',startTime:'09:00',endTime:'16:00',summary:'Join the youth summit.'}
+  assert.deepEqual(model.activeProposalWarnings(warnings,fields),[warnings[2]])
+  fields.summary='   '
+  assert.deepEqual(model.activeProposalWarnings(warnings,fields),['Complete the public summary before publishing.',warnings[2]])
+  fields.endDate=''
+  fields.startTime=''
+  const active=model.activeProposalWarnings(warnings,fields)
+  assert.equal(active[0],"Enter the activity's end date.")
+  assert.equal(active[1],'Complete the start time, public summary before publishing.')
+  assert.equal(warnings.length,4) // The original source extraction remains unchanged.
+})
+
 test('program matching accepts case and whitespace differences but rejects ambiguity',()=>{
   assert.equal(model.matchProgram(' capacity   DEVELOPMENT ',[{id:'a',name:'Capacity Development'}]),'a')
   assert.equal(model.matchProgram('Capacity Development',[{id:'a',name:'Capacity Development'},{id:'b',name:'capacity development'}]),'')
@@ -48,6 +67,7 @@ test('age is checked on both dates, including birthday boundaries',()=>{
 test('PPA database workflow: privacy, publication atomicity, history, and age guards',async t=>{
   const db=new PGlite(); t.after(()=>db.close())
   await db.exec(`
+    set time zone 'Asia/Manila';
     create role anon; create role authenticated;
     create schema auth; create schema storage;
     create table auth.users(id uuid primary key);
@@ -64,10 +84,14 @@ test('PPA database workflow: privacy, publication atomicity, history, and age gu
       preview_desc text default '',full_desc text default '',outcomes text[] default '{}',schedule text[] default '{}',
       manually_closed boolean default false,note text default '',slots integer default 0,taken integer default 0);
     create table public.activity_facilitators(activity_id uuid references public.legacy_activities,facilitator_id uuid references public.facilitators,primary key(activity_id,facilitator_id));
+    grant select on public.legacy_activities to authenticated;
     create table public.registrations(id uuid primary key default gen_random_uuid(),activity_id uuid references public.legacy_activities,user_uuid uuid,status text default 'registered',registered_at timestamptz default now());
     create table public.attendance_log(id uuid primary key,activity_id uuid,registration_id uuid,attendance_date date);
     create table public.evaluations(id uuid primary key,activity_id uuid,registration_id uuid);
     create table public.budget_entries(id uuid primary key default gen_random_uuid(),activity_id uuid,amount numeric check(amount>0),entry_type text,category text,description text);
+    alter table public.budget_entries enable row level security;
+    create policy admin_budget on public.budget_entries for all to authenticated using(public.is_legacy_admin()) with check(public.is_legacy_admin());
+    grant select,insert,update,delete on public.budget_entries to authenticated;
     create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
     create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,unique(bucket_id,name));
     create function storage.foldername(text) returns text[] language sql immutable as $$select string_to_array($1,'/')$$;
@@ -77,6 +101,8 @@ test('PPA database workflow: privacy, publication atomicity, history, and age gu
   await db.exec(fs.readFileSync('supabase/migrations/20261117000000_portal_notifications.sql','utf8'))
   await db.exec(fs.readFileSync('supabase/migrations/20261117010000_ppa_document_workflow.sql','utf8'))
   await db.exec(fs.readFileSync('supabase/migrations/20261117020000_approved_ppa_budgets.sql','utf8'))
+  await db.exec(fs.readFileSync('supabase/migrations/20261119000000_keep_fixed_cydo_program_catalog.sql','utf8'))
+  await db.exec(fs.readFileSync('supabase/migrations/20261119010000_lock_proposal_budget_allocation.sql','utf8'))
   await db.query('insert into auth.users values ($1),($2),($3)',[admin,participant,facilitator])
   await db.query("insert into admin_users values ($1,'superadmin'),($2,'facilitator')",[admin,facilitator])
   await db.query("insert into participants values ($1,(current_date-interval '20 years')::date)",[participant])
@@ -84,12 +110,19 @@ test('PPA database workflow: privacy, publication atomicity, history, and age gu
   await db.query("insert into programs values ($1,'Capacity Development',$2)",[program,admin])
   const claim=user=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[user])
   await claim(admin)
+  await t.test('activity imports cannot create programs outside the fixed CYDO catalog',async()=>{
+    const before=(await db.query('select count(*)::int n from programs')).rows[0].n
+    await assert.rejects(db.query("select ensure_ppa_program('Extra program')"),/10 established programs/)
+    assert.equal((await db.query('select count(*)::int n from programs')).rows[0].n,before)
+    await db.exec('set role authenticated')
+    try {await assert.rejects(db.query("insert into programs(name) values ('Extra program')"),/permission denied/)} finally {await db.exec('reset role')}
+  })
   const date=(await db.query("select (current_date+60)::text as start,(current_date+62)::text as end")).rows[0]
   const fields={...structuredClone(model.emptyProposal),title:'Youth Leadership',programId:program,programType:'Capacity Development',venue:'City Gym',slots:'300',startDate:date.start,endDate:date.end,startTime:'09:00',endTime:'17:00',summary:'Join a leadership workshop.',rationale:'Develop youth leadership.',objectives:'Build confidence',outputs:'New leadership skills',allocation:'500000',budgetItems:[{description:'Meals',quantity:1,unitCost:500000}],facilitatorIds:[facilitatorId]}
   const storagePath=`${admin}/test/signed.pdf`
   await db.query("insert into storage.objects(bucket_id,name) values ('ppa-documents',$1)",[storagePath])
   const files=[{path:storagePath,name:'signed.pdf',size:100,type:'application/pdf'}]
-  const importDoc=async(hash='a'.repeat(64),id=null,revision=null,sourceFields=fields)=> (await db.query('select public.import_ppa_document($1,$2,$3,$4,$5,$6) as id',[id,revision,hash,JSON.stringify(files),JSON.stringify({pages:[{page:1,text:'Signed PPA',method:'text'}],warnings:[],sources:{}}),JSON.stringify(sourceFields)])).rows[0].id
+  const importDoc=async(hash='a'.repeat(64),id=null,revision=null,sourceFields=fields)=> (await db.query('select public.import_ppa_document($1,$2,$3,$4,$5,$6) as id',[id,revision,hash,JSON.stringify(files),JSON.stringify({pages:[{page:1,text:'Signed PPA',method:'text'}],warnings:[],sources:{},suggestedFields:sourceFields}),JSON.stringify(sourceFields)])).rows[0].id
   const proposalId=await importDoc()
   const proposal=async()=> (await db.query('select * from ppa_proposals where id=$1',[proposalId])).rows[0]
   const count=async table=>Number((await db.query(`select count(*) as n from ${table}`)).rows[0].n)
@@ -210,5 +243,29 @@ test('PPA database workflow: privacy, publication atomicity, history, and age gu
     assert.equal((await db.query('select approved_budget_item_id from budget_entries where id=$1',[expenseId])).rows[0].approved_budget_item_id,lineId)
     assert.equal(await count('ppa_budget_versions'),4)
     assert.equal(await count('ppa_budget_items'),3)
+  })
+  await t.test('the source allocation cannot be changed through draft edits or direct budget writes',async()=>{
+    const p=await proposal()
+    assert.equal((await db.query('select approved_allocation from ppa_documents where proposal_id=$1 and version=$2',[proposalId,p.document_version])).rows[0].approved_allocation,'500000')
+    await assert.rejects(db.query('select save_ppa_draft($1,$2,$3)',[proposalId,p.revision,JSON.stringify({...p.fields,allocation:'50'})]),/read-only/)
+    await db.exec('set role authenticated')
+    try {
+      await assert.rejects(db.query("insert into budget_entries(activity_id,amount,entry_type) values($1,100,'allocation')",[activityId]),/row-level security/)
+      assert.equal((await db.query("update budget_entries set amount=50 where activity_id=$1 and entry_type='allocation' returning id",[activityId])).rows.length,0)
+      assert.equal((await db.query("delete from budget_entries where activity_id=$1 and entry_type='allocation' returning id",[activityId])).rows.length,0)
+    } finally {await db.exec('reset role')}
+    assert.equal((await db.query("select sum(amount) total from budget_entries where activity_id=$1 and entry_type='allocation'",[activityId])).rows[0].total,'500000')
+    await db.query("update budget_entries set description='Corrected supporting record' where id=$1",[expenseId])
+    await db.query('select retry_ppa_extraction($1,$2,$3)',[proposalId,p.revision,JSON.stringify({pages:[],suggestedFields:{allocation:'50'}})])
+    assert.equal((await db.query('select approved_allocation from ppa_documents where proposal_id=$1 and version=$2',[proposalId,p.document_version])).rows[0].approved_allocation,'500000')
+  })
+  await t.test('a revised source changes the private allocation, but the live allocation changes only on publication',async()=>{
+    const p=await proposal()
+    await importDoc('c'.repeat(64),proposalId,p.revision,{...fields,allocation:'600000',reviewNote:'Revised signed allocation.'})
+    const next=await proposal()
+    assert.equal(next.fields.allocation,'600000')
+    assert.equal((await db.query("select sum(amount) total from budget_entries where activity_id=$1 and entry_type='allocation'",[activityId])).rows[0].total,'500000')
+    await db.query('select publish_ppa_proposal($1,$2,true,true)',[proposalId,next.revision])
+    assert.equal((await db.query("select sum(amount) total from budget_entries where activity_id=$1 and entry_type='allocation'",[activityId])).rows[0].total,'600000')
   })
 })
