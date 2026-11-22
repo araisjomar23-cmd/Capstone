@@ -189,3 +189,117 @@ test('program summaries honor the selected period, count participation, and weig
   assert.match(html, /same youth may join more than once/)
   assert.doesNotMatch(html, /Last year/)
 })
+
+test('satisfaction chart uses real response counts and a fixed five-point scale, excluding unrated activities', () => {
+  const { ActivitySatisfactionChart } = load('src/features/dashboard/DashboardCharts.tsx')
+  const { BarChart, XAxis, Tooltip } = require('recharts')
+  const nodes = []
+  function visit(node) {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) return node.forEach(visit)
+    nodes.push(node); visit(node.props?.children)
+  }
+  const data = [{ name: 'No responses', responses: 0, averageRating: 0 }, { name: 'Youth workshop', responses: 4, averageRating: 4.25 }]
+  visit(ActivitySatisfactionChart({ data }))
+  assert.deepEqual(nodes.find(node => node.type === XAxis).props.domain, [0, 5])
+  assert.deepEqual(nodes.find(node => node.type === BarChart).props.data, [data[1]])
+  assert.equal(data.length, 2, 'the chart must not mutate the shared dashboard data')
+  const tooltip = nodes.find(node => node.type === Tooltip).props.content
+  const html = renderToStaticMarkup(React.cloneElement(tooltip, { active: true, payload: [{ payload: data[1] }] }))
+  assert.match(html, /4.3 \/ 5/)
+  assert.match(html, /4 evaluation responses/)
+  const empty = renderToStaticMarkup(React.createElement(ActivitySatisfactionChart, { data: [data[0]] }))
+  assert.match(empty, /No evaluation responses/)
+  assert.doesNotMatch(empty, /NaN|Infinity/)
+})
+
+test('admin dashboard leads with summary graphs and keeps detailed comparisons in one switchable panel', () => {
+  const { MemoryRouter } = require('react-router-dom')
+  const chart = label => () => React.createElement('div', null, label)
+  const Page = load('src/pages/admin/AdminDashboard.tsx', {
+    '../../features/dashboard/useDashboardData': { useDashboardData: () => ({ data: {
+      totalReg: 1, totalAtt: 1, thisWeek: 1, attRate: '100', totalBudgetAllocated: 100, totalBudgetSpent: 20,
+      evaluationStats: { totalResponses: 1, averageRating: 4 }, statusBreakdown: [], recentEvaluations: [],
+    }, activities: [], loading: false, error: null }) },
+    '../../features/dashboard/DashboardControlPanel': { __esModule: true, default: chart('Operational details') },
+    '../../features/dashboard/ProgramOverview': { __esModule: true, default: chart('Program details') },
+    '../../features/dashboard/DashboardCharts': {
+      ParticipationAreaChart: chart('Participation overview graph'), BudgetUsageChart: chart('Budget usage graph'),
+    },
+    './DashboardCharts': { ActivityRegistrationsChart: chart('Registration graph'), BudgetOverviewChart: chart('Budget graph'), ActivitySatisfactionChart: chart('Satisfaction graph') },
+  }).default
+  const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(Page)))
+  assert.match(html, /<h1[^>]*>Dashboard<\/h1>/)
+  assert.doesNotMatch(html, /Your programs, at a glance|dashboard-hero/)
+  assert.ok(html.indexOf('Participation overview graph') < html.indexOf('Registration graph'))
+  for (const title of ['Registration graph', 'Budget usage graph', 'Participation overview graph', 'Attendees by Sectoral Group']) {
+    assert.ok(html.indexOf(title) > html.indexOf('Performance charts'))
+    assert.ok(html.indexOf(title) < html.indexOf('Operational details'))
+  }
+  assert.doesNotMatch(html, /Budget graph|Satisfaction graph/)
+  assert.equal((html.match(/role="tab"/g) || []).length, 3)
+  assert.match(html, /Activity &amp; program details/)
+  assert.doesNotMatch(html, /<details[^>]*\bopen(?:=|\s|>)/)
+})
+
+test('activity comparison tabs render only the selected data view', () => {
+  let selected = 'registrations'
+  const graphs = { ActivityRegistrationsChart: () => React.createElement('div', null, 'Registration graph'), BudgetOverviewChart: () => React.createElement('div', null, 'Budget graph'), ActivitySatisfactionChart: () => React.createElement('div', null, 'Satisfaction graph') }
+  const Comparisons = load('src/features/dashboard/DashboardComparisons.tsx', { react: { useId: () => 'views', useState: () => [selected, next => { selected = next }] }, './DashboardCharts': graphs }).default
+  function find(node, role) {
+    if (!node || typeof node !== 'object') return []
+    if (Array.isArray(node)) return node.flatMap(child => find(child, role))
+    return [...(node.props?.role === role ? [node] : []), ...find(node.props?.children, role)]
+  }
+  for (const [index, text] of ['Registration graph', 'Budget graph', 'Satisfaction graph'].entries()) {
+    const tabs = find(Comparisons({ data: {} }), 'tab')
+    tabs[index].props.onClick()
+    const tree = Comparisons({ data: {} })
+    assert.equal(find(tree, 'tab').filter(tab => tab.props['aria-selected']).length, 1)
+    const html = renderToStaticMarkup(tree)
+    assert.match(html, new RegExp(text))
+    assert.equal((html.match(/(?:Registration|Budget|Satisfaction) graph/g) || []).length, 1)
+  }
+})
+
+test('budget ring reports overspending and missing allocation without hiding the actual amounts', () => {
+  const { BudgetUsageChart } = load('src/features/dashboard/DashboardCharts.tsx')
+  const over = renderToStaticMarkup(React.createElement(BudgetUsageChart, { allocated: 100, spent: 125 }))
+  assert.match(over, /125%/)
+  assert.match(over, /PHP 125/)
+  assert.match(over, /PHP -25/)
+  assert.match(over, /over allocation/)
+  const missing = renderToStaticMarkup(React.createElement(BudgetUsageChart, { allocated: 0, spent: 10 }))
+  assert.match(missing, /N\/A/)
+  assert.match(missing, /PHP 10/)
+  assert.doesNotMatch(missing, /NaN|Infinity/)
+})
+
+test('metric breakdown opens on hover, focus and tap, closes on Escape/blur, and handles missing denominators', () => {
+  let open = false
+  const Metric = load('src/features/dashboard/DashboardMetricCard.tsx', {
+    react: { useId: () => 'metric-detail', useState: () => [open, value => { open = value }] },
+  }).default
+  const props = { icon: null, color: '#0756a0', label: 'Budget remaining', value: 'PHP -50', caption: 'Spending exceeds allocation', details: [{ label: 'Allocated', value: 'PHP 0' }, { label: 'Spent', value: 'PHP 50' }], note: 'Recorded expenses only.', meter: { value: 50, total: 0, label: 'Budget used' }, to: '/admin/budget', linkLabel: 'View budget' }
+  function find(tree, predicate) {
+    if (!tree || typeof tree !== 'object') return undefined
+    if (Array.isArray(tree)) return tree.map(child => find(child, predicate)).find(Boolean)
+    return predicate(tree) ? tree : find(tree.props?.children, predicate)
+  }
+  const tooltip = tree => find(tree, node => node.props?.role === 'tooltip')
+  let tree = Metric(props)
+  assert.equal(tooltip(tree).props.hidden, true)
+  tree.props.onMouseEnter(); tree = Metric(props)
+  assert.equal(tooltip(tree).props.hidden, false)
+  tree.props.onKeyDown({ key: 'Escape' }); assert.equal(tooltip(Metric(props)).props.hidden, true)
+  tree.props.onFocusCapture(); assert.equal(tooltip(Metric(props)).props.hidden, false)
+  tree.props.onBlurCapture({ currentTarget: { contains: () => false }, relatedTarget: null })
+  tree = Metric(props)
+  find(tree, node => node.type === 'button').props.onClick()
+  assert.equal(tooltip(Metric(props)).props.hidden, false)
+  const { MemoryRouter } = require('react-router-dom')
+  const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, Metric(props)))
+  assert.match(html, /PHP -50/)
+  assert.match(html, /aria-describedby="metric-detail"/)
+  assert.doesNotMatch(html, /NaN|Infinity/)
+})

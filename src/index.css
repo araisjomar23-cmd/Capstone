@@ -29,6 +29,42 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.dashboard-workspace .dashboard-metric {
+  box-shadow: 0 1px 3px rgb(18 54 88 / 3%);
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+.dashboard-workspace .dashboard-metric:hover,
+.dashboard-workspace .dashboard-metric:focus-within {
+  z-index: 20;
+  border-color: #9bbbd9;
+  box-shadow: 0 3px 12px rgb(18 54 88 / 7%);
+}
+.dashboard-workspace .dashboard-chart {
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgb(18 54 88 / 3%);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.dashboard-workspace .dashboard-chart.stat-card { border-top: 1px solid #dce5ef; }
+.dashboard-workspace .dashboard-comparison .dashboard-chart.stat-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.dashboard-workspace .dashboard-chart:hover {
+  transform: none;
+  border-color: #afcbe5;
+  box-shadow: 0 8px 24px rgb(18 54 88 / 7%);
+}
+.dashboard-workspace .dashboard-chart .recharts-rectangle { transition: opacity 120ms ease; }
+.dashboard-workspace .recharts-tooltip-wrapper { z-index: 30; }
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-workspace .dashboard-metric,
+  .dashboard-workspace .dashboard-chart,
+  .dashboard-workspace .dashboard-chart .recharts-rectangle { transition: none; }
+  .dashboard-workspace .dashboard-metric:hover,
+  .dashboard-workspace .dashboard-metric:focus-within { transform: none; }
+}
+
 .activity-form-dialog fieldset label {
   display: block;
   margin-bottom: 8px;

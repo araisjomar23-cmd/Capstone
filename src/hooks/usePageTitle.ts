@@ -1,9 +1,8 @@
 import { useEffect } from 'react'
 
-export function usePageTitle(title?: string) {
+// Retain the optional argument for existing callers while keeping one system title.
+export function usePageTitle(_title?: string) {
   useEffect(() => {
-    if (title) {
-      document.title = title
-    }
-  }, [title])
+    document.title = 'PCYDO Prime'
+  }, [])
 }
