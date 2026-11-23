@@ -101,7 +101,7 @@ load()
           onClick={openModal}
           className="bg-primary text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90"
         >
-          + Add Facilitator
+          Add Facilitator
         </button>
       </div>
 
@@ -127,7 +127,7 @@ load()
                       <EmptyState
                         icon={<UserSquare2 size={22} />}
                         title="No facilitators yet"
-                        subtitle='Click "+ Add Facilitator" to create one.'
+                        subtitle='Click "Add Facilitator" to create one.'
                       />
                     </td>
                   </tr>
@@ -186,7 +186,7 @@ load()
             <EmptyState
               icon={<UserSquare2 size={22} />}
               title="No facilitators yet"
-              subtitle='Click "+ Add Facilitator" to create one.'
+              subtitle='Click "Add Facilitator" to create one.'
             />
           </div>
         ) : (

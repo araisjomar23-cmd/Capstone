@@ -76,13 +76,11 @@ function AdminParticipants() {
   }
 
   const activityOptions = useMemo(() => {
-    const seen = new Map<string, { label: string; fullLabel: string }>()
+    const seen = new Map<string, { title: string; label: string }>()
     all.forEach((p) => {
       if (p.activityId && !seen.has(p.activityId) && (!programFilter || programKey(p) === programFilter) && matchesDatePeriod(p.activityStartDate, p.activityEndDate, period)) {
         const title = p.activityTitle.trim()
-        const shortTitle = title.length > 24 ? title.slice(0, 23).trimEnd() + '…' : title
-        const date = ' (' + activityDateLabel(p.activityStartDate, p.activityEndDate) + ')'
-        seen.set(p.activityId, { label: shortTitle + date, fullLabel: title + date })
+        seen.set(p.activityId, { title, label: title.length > 24 ? title.slice(0, 23).trimEnd() + '…' : title })
       }
     })
     return Array.from(seen.entries())
@@ -175,19 +173,9 @@ function AdminParticipants() {
             className="input !pl-9"
           />
         </div>
-        <select
-          aria-label="Activity"
-          title={activityOptions.find(([id]) => id === activityFilter)?.[1].fullLabel ?? 'All Activities'}
-          value={activityFilter}
-          onChange={(e) => setActivityFilter(e.target.value)}
-          className="filter-select w-full min-w-0 truncate border border-gray-300 rounded-lg px-3 py-2 text-sm"
-        >
+        <select aria-label="Activity" title={activityOptions.find(([id]) => id === activityFilter)?.[1].title ?? 'All Activities'} value={activityFilter} onChange={event => setActivityFilter(event.target.value)} className="filter-select w-full min-w-0 truncate border border-gray-300 rounded-lg px-3 py-2 text-sm">
           <option value="">All Activities</option>
-          {activityOptions.map(([id, activity]) => (
-            <option key={id} value={id} title={activity.fullLabel} aria-label={activity.fullLabel}>
-              {activity.label}
-            </option>
-          ))}
+          {activityOptions.map(([id, activity]) => <option key={id} value={id} title={activity.title}>{activity.label}</option>)}
         </select>
         <select
           aria-label="Status"

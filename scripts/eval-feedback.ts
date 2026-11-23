@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { analyzeFeedback, type SuggestedSentiment } from '../src/features/evaluations/feedbackAnalyzer.ts'
 
-const labels: SuggestedSentiment[] = ['positive', 'negative', 'mixed', 'no-signal']
+const labels: SuggestedSentiment[] = ['positive', 'negative', 'mixed', 'no-signal', 'neutral']
 const splits = ['dev', 'test'] as const
 const sources = ['synthetic', 'real'] as const
 const csvUrl = new URL('../tests/data/feedback_labels.csv', import.meta.url)

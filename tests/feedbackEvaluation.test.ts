@@ -31,6 +31,8 @@ test('manual schema requires sentiment, valid topics and separate suggestion lab
   assert.equal(samples[0].sentiment, 'mixed')
   await writeFile(path, header + 'anon-1,please,Needs review,unknown,,\n')
   await assert.rejects(readFeedbackDataset(path, 'real'))
+  await writeFile(path, header + 'anon-1,Personal preference,Neutral,participants,false,\nanon-2,Unclear words,Uncertain,,false,\n')
+  assert.deepEqual((await readFeedbackDataset(path, 'real')).map(sample => sample.sentiment), ['neutral', 'no-signal'])
 })
 
 test('confusion, per-class F1, multi-label topic and suggestion metrics are independently counted', () => {
@@ -41,7 +43,7 @@ test('confusion, per-class F1, multi-label topic and suggestion metrics are inde
   ]
   const metrics = feedbackMetrics(samples, samples.map(sample => analyzeFeedback(sample.text)))
   assert.equal(metrics.correct, 2)
-  assert.deepEqual(metrics.confusionMatrix, [[1, 0, 0, 0], [0, 1, 0, 1], [0, 0, 0, 0], [0, 0, 0, 0]])
+  assert.deepEqual(metrics.confusionMatrix, [[1, 0, 0, 0, 0], [0, 1, 0, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
   const negative = metrics.perClass.find(row => row.label === 'negative')!
   assert.equal(negative.precision, 1)
   assert.equal(negative.recall, 0.5)

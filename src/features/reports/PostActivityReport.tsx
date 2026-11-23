@@ -6,8 +6,18 @@ import type { Activity } from '../../types/activity'
 import { postReportFieldIssue, postReportIssues, postReportLabels, type PostReportFields } from './postReportModel'
 import { loadPostReport, savePostReport, type SavedPostReport } from './postReportService'
 import ReportDocumentPreview from './ReportDocumentPreview'
+import ActivityDateFilter from '../../components/ActivityDateFilter'
+import { currentMonthPeriod, matchesDatePeriod, type DatePeriod } from '../../lib/activityDatePeriod'
 
 const summaryKeys = ['date', 'title', 'venue', 'beneficiaries', 'target', 'attended', 'allocation', 'highlights', 'office'] as const
+
+export function completedReportActivities(activities: Activity[], period: DatePeriod, programId = '', now = Date.now()) {
+  return activities.filter(item => getActivityLifecycleStatus(item, now) === 'completed'
+    && (!programId || item.programId === programId)
+    && matchesDatePeriod(item.startDate, item.endDate, period))
+    .sort((a, b) => b.startDate.localeCompare(a.startDate) || (b.startTime || '').localeCompare(a.startTime || '') || a.title.localeCompare(b.title) || a.id.localeCompare(b.id))
+}
+
 const steps: { title: string; short: string; description: string; icon: typeof Users; fields: (keyof PostReportFields)[] }[] = [
   { title: 'Activity details', short: 'Details', description: 'Review the event information and participation figures.', icon: ClipboardList, fields: ['title', 'date', 'venue', 'office', 'beneficiaries', 'target', 'attended', 'allocation'] },
   { title: 'Activity narrative', short: 'Narrative', description: 'Tell the story of the activity and what it accomplished.', icon: PencilLine, fields: ['highlights', 'background', 'objectives'] },
@@ -67,11 +77,21 @@ export default function PostActivityReport() {
   const [step, setStep] = useState(0)
   const [showIssues, setShowIssues] = useState(false)
   const [touched, setTouched] = useState<Partial<Record<keyof PostReportFields, boolean>>>({})
+  const [period, setPeriod] = useState(currentMonthPeriod)
+  const [programFilter, setProgramFilter] = useState('')
   const preview = useRef<HTMLDivElement>(null)
   const editorHeading = useRef<HTMLHeadingElement>(null)
   const editorPanel = useRef<HTMLDivElement>(null)
   const activity = activities.find(item => item.id === activityId)
   const completed = activity ? getActivityLifecycleStatus(activity) === 'completed' : false
+  const completedActivities = completedReportActivities(activities, { year: '', month: '' })
+  const selectableActivities = completedReportActivities(activities, period, programFilter)
+  const programs = [...new Map(completedActivities.map(item => [item.programId, item.programName])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
+
+  function changeFilters(nextPeriod: DatePeriod, nextProgram = programFilter) {
+    if (dirty && !window.confirm('Change filters and discard unsaved report changes?')) return
+    setPeriod(nextPeriod); setProgramFilter(nextProgram); setActivityId(''); setReport(null); setDirty(false); setError(''); setNotice('')
+  }
 
   useEffect(() => {
     let active = true
@@ -175,19 +195,24 @@ export default function PostActivityReport() {
     <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
       <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-light text-primary"><FileText size={21} /></span><div><h2 id="post-report-heading" className="text-lg font-bold text-gray-900">Activity post report</h2>
       <p className="mt-1 text-sm leading-relaxed text-gray-500">Select an activity, complete the details, and prepare your official report.</p></div></div>
-      <div className="mt-5 grid items-end gap-3 @min-[44rem]/reports:grid-cols-[minmax(0,1fr)_auto]"><div><label htmlFor="post-report-activity" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">Select activity</label>
-      <select id="post-report-activity" value={activityId} disabled={saving || loading} className="input min-h-12 w-full !bg-gray-50 !text-sm disabled:opacity-60" onChange={event => {
+      <fieldset disabled={saving || loading} className="mt-5 grid min-w-0 gap-3 border-b border-gray-100 pb-4 @min-[36rem]/reports:grid-cols-2">
+        <ActivityDateFilter compact showHelp={false} value={period} onChange={next => changeFilters(next)} dates={completedActivities.map(item => ({ start: item.startDate, end: item.endDate }))} />
+        <label className="block min-w-0 text-xs font-medium text-gray-600">Program<select value={programFilter} onChange={event => changeFilters(period, event.target.value)} className="filter-select input mt-1.5 min-h-11 w-full"><option value="">All programs</option>{programs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+      </fieldset>
+      <div className="mt-4 grid items-end gap-3 @min-[44rem]/reports:grid-cols-[minmax(0,1fr)_auto]"><div><label htmlFor="post-report-activity" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">Select completed activity</label>
+      <select id="post-report-activity" title={activity ? `${activity.title} · ${activity.date}` : 'Choose an activity'} aria-describedby="post-report-activity-help" value={activityId} disabled={saving || loading} className="filter-select input min-h-12 w-full min-w-0 truncate !bg-gray-50 !text-sm disabled:opacity-60" onChange={event => {
         if (dirty && !window.confirm('Switch activities and discard unsaved report changes?')) return
         setActivityId(event.target.value); setReport(null); setDirty(false); setError(''); setNotice('')
-      }}><option value="">Choose an activity to get started</option>{activities.map(item => <option key={item.id} value={item.id}>{item.title} · {item.date} · {getActivityLifecycleStatus(item)}</option>)}</select></div>
+      }}><option value="">Choose a completed activity</option>{selectableActivities.map(item => <option key={item.id} value={item.id} title={`${item.title} · ${item.date}`}>{item.title.length > 32 ? item.title.slice(0, 31).trimEnd() + '…' : item.title} · {item.date}</option>)}</select>
+      <p id="post-report-activity-help" className="mt-2 text-xs text-gray-500">{selectableActivities.length} completed {selectableActivities.length === 1 ? 'activity' : 'activities'} match your filters · Most recent first.</p></div>
       {activity && <div className={`inline-flex min-h-12 items-center gap-2 self-end rounded-xl px-4 text-xs font-semibold ${completed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{completed ? <CheckCircle2 size={16} /> : <CircleAlert size={16} />}{completed ? 'Activity completed' : 'Activity not yet completed'}</div>}</div>
       {activity && <p className="mt-3 flex items-center gap-1.5 text-xs text-gray-500"><MapPin size={13} className="shrink-0" /><span>{activity.venue} <span className="mx-1 text-gray-300">/</span> {activity.date}</span></p>}
-      {!loading && !activities.length && !error && <p className="mt-3 text-sm text-gray-500">No activities are available yet.</p>}
+      {!loading && !selectableActivities.length && !error && <p className="mt-3 text-sm text-gray-500">No completed activities match these filters. Try another month, year or program.</p>}
     </div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><CircleAlert size={18} className="mt-0.5 shrink-0" /><p>{error} {!report && <button type="button" className="ml-2 font-semibold underline" onClick={() => setRetry(value => value + 1)}>Retry</button>}</p></div>}
     {notice && <p role="status" className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-800"><CheckCircle2 size={18} className="shrink-0" />{notice}</p>}
     {loading && <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white p-12 text-sm text-gray-500"><LoaderCircle size={20} className="animate-spin text-primary" />Loading report data…</div>}
-    {!activityId && !loading && activities.length > 0 && <div className="rounded-2xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center"><span className="mx-auto grid size-14 place-items-center rounded-2xl border border-gray-200 bg-white text-primary"><ClipboardList size={26} /></span><h3 className="mt-4 font-bold text-gray-900">Your next report starts here</h3><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-gray-500">Choose an activity above. We’ll bring in the available details so you can focus on the results.</p></div>}
+    {!activityId && !loading && selectableActivities.length > 0 && <div className="rounded-2xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center"><span className="mx-auto grid size-14 place-items-center rounded-2xl border border-gray-200 bg-white text-primary"><ClipboardList size={26} /></span><h3 className="mt-4 font-bold text-gray-900">Your next report starts here</h3><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-gray-500">Choose a completed activity above. We’ll bring in the available details so you can focus on the results.</p></div>}
     {report && !loading && <>
       <div ref={editorPanel} className="scroll-mt-20 rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-5 py-5 sm:px-7">

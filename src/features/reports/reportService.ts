@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase'
-import { analyzeFeedbackHybrid, type SuggestedSentiment, type FeedbackTheme, type MatchedSentimentTerm } from '../evaluations/feedbackAnalyzer'
+import { analyzeFeedbackHybrid, type SuggestedSentiment, type FeedbackTheme, type MatchedSentimentTerm, type FeedbackContext } from '../evaluations/feedbackAnalyzer'
 import { buildFeedbackInsights } from './feedbackInsights'
+import { analyzeOverallEvaluation, type OverallEvaluationAnalysis } from '../evaluations/evaluationAnalysis'
 
 export interface ReportData {
   period: string
@@ -47,6 +48,8 @@ export interface ReportData {
       text: string
       sentiment: SuggestedSentiment
       isSuggestion?: boolean
+      context?: FeedbackContext
+      overallEvaluation?: OverallEvaluationAnalysis
       themes: string[]
       sentimentSource: 'rules' | 'semantic' | 'none'
       matchedTerms: MatchedSentimentTerm[]
@@ -56,11 +59,11 @@ export interface ReportData {
     semanticAssistedComments: number
     modelStatus: 'not-needed' | 'ready' | 'unavailable'
     modelError?: string
-    sentimentCounts: Record<SuggestedSentiment, number>
+    sentimentCounts: Record<Exclude<SuggestedSentiment, 'neutral'>, number> & { neutral?: number }
     themeCounts: {
       theme: string
       count: number
-      sentimentCounts: Record<SuggestedSentiment, number>
+      sentimentCounts: Record<Exclude<SuggestedSentiment, 'neutral'>, number> & { neutral?: number }
     }[]
   }
   insights: string[]
@@ -99,7 +102,7 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
   const { data: evals, error: evaluationsError } = activityIds.length
     ? await supabase
       .from('evaluations')
-      .select('id, activity_id, rating, would_recommend, feedback, submitted_at')
+      .select('id, activity_id, rating, would_recommend, feedback, responses, submitted_at')
       .in('activity_id', activityIds)
       .order('submitted_at', { ascending: false })
     : { data: null, error: null }
@@ -209,11 +212,12 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
       : 'No evaluation responses were collected during this period.'
 
   const writtenEvaluations = (evals || []).filter((evaluation: any) => String(evaluation.feedback || '').trim())
-  const comments = writtenEvaluations.map((evaluation: any) => String(evaluation.feedback).trim())
+  const comments = writtenEvaluations.map((evaluation: any) => String(evaluation.feedback))
   const sentimentCounts: Record<SuggestedSentiment, number> = {
     positive: 0,
     negative: 0,
     mixed: 0,
+    neutral: 0,
     'no-signal': 0,
   }
   const hybridResults = await analyzeFeedbackHybrid(comments)
@@ -223,7 +227,7 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
     for (const { theme, sentiment } of analysis.themes) {
       const counts = themeCounts.get(theme) || {
         count: 0,
-        sentimentCounts: { positive: 0, negative: 0, mixed: 0, 'no-signal': 0 },
+        sentimentCounts: { positive: 0, negative: 0, neutral: 0, mixed: 0, 'no-signal': 0 },
       }
       counts.count += 1
       counts.sentimentCounts[sentiment] += 1
@@ -238,6 +242,8 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
       text: comments[index],
       sentiment: hybridResults.analyses[index].label,
       isSuggestion: Boolean(hybridResults.analyses[index].isSuggestion),
+      context: hybridResults.analyses[index].context,
+      overallEvaluation: analyzeOverallEvaluation({ rating: evaluation.rating, responses: evaluation.responses, feedback: comments[index], wouldRecommend: evaluation.would_recommend }, hybridResults.analyses[index]),
       themes: hybridResults.analyses[index].themes.map(({ theme }) => theme),
       sentimentSource: hybridResults.sentimentSources[index],
       matchedTerms: hybridResults.analyses[index].matchedTerms,

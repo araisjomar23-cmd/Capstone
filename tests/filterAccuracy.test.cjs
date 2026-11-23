@@ -10,6 +10,7 @@ const { renderToStaticMarkup } = require('react-dom/server')
 function load(relative, mocks = {}) {
   if (/\.(jpeg|png)$/.test(relative)) return { default: relative }
   const file = path.resolve(relative)
+  if (file.endsWith('.json')) return { __esModule: true, default: JSON.parse(fs.readFileSync(file, 'utf8')) }
   const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX },
   }).outputText
@@ -121,6 +122,13 @@ test('Evaluations renders only feedback matching the date filter, with matching 
   assert.match(html, /Feedback new/)
   assert.doesNotMatch(html, /Feedback old/)
   assert.match(html, /Showing 1 of 2 evaluations/)
+})
+
+test('neutral recommendation answers are not displayed as negative recommendations', () => {
+  const row = { ...evaluations[1], rating: 3, wouldRecommend: false, responses: { q4: '3' } }
+  const html = renderPage('AdminEvaluations', [period, [row], false])
+  assert.match(html, /Neutral recommendation \(3\/5\)/)
+  assert.doesNotMatch(html, /Would not recommend/)
 })
 test('organization attendance template preserves columns, separates events and sorts by surname', () => {
   const { attendanceName } = load('src/features/participants/printAttendance.ts')
@@ -288,6 +296,15 @@ test('participant activity options follow the month and year, including overlapp
   assert.deepEqual(optionIds({ year: '2025', month: '11' }), ['last-year'])
   assert.deepEqual(optionIds({ year: '2026', month: '' }), ['october', 'november', 'overlap'])
   assert.deepEqual(optionIds({ year: '2027', month: '11' }), [])
+})
+
+test('participant activity dropdown uses native title-only options and abbreviates long titles', () => {
+  const activity = { ...activities[1], title: 'Karunungan Karavan: The Mobile Community Reading and Literacy Program' }
+  const html = renderPage('AdminParticipants', [period, [participant('long-name', activity)], false, '', '', '', null, ''])
+  const menu = html.match(/<select[^>]*aria-label="Activity"[^>]*>([^]*?)<\/select>/)[1]
+  assert.ok(menu.includes(`title="${activity.title}"`))
+  assert.ok(menu.includes(activity.title.slice(0, 23).trimEnd() + '…</option>'))
+  assert.doesNotMatch(menu, /Jul 1/)
 })
 
 test('participant total follows the selected month and year', () => {

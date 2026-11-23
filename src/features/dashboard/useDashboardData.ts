@@ -66,6 +66,7 @@ export interface DashboardData {
   liveCount: Record<string, number>
   all: Registration[]
   statusBreakdown: StatusSlice[]
+  ageBreakdown?: StatusSlice[]
   activityRegistrations: ActivityRegistrationDatum[]
   budgetOverview: BudgetDatum[]
   attendanceTrend: AttendanceTrendDatum[]

@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
 import DashboardControlPanel from '../../features/dashboard/DashboardControlPanel'
-import ProgramOverview from '../../features/dashboard/ProgramOverview'
 import DashboardMetricCard from '../../features/dashboard/DashboardMetricCard'
 import DashboardComparisons from '../../features/dashboard/DashboardComparisons'
 import type { DashboardData } from '../../features/dashboard/useDashboardData'
 import type { Activity } from '../../types/activity'
-import { ParticipationAreaChart, BudgetUsageChart } from '../../features/dashboard/DashboardCharts'
+import { ParticipationAreaChart } from '../../features/dashboard/DashboardCharts'
 import FiscalYearFilter from '../../features/dashboard/FiscalYearFilter'
 import { fiscalPeriodRange, type FiscalPeriod } from '../../lib/fiscalYear'
 import { currentMonthPeriod } from '../../lib/activityDatePeriod'
-import { Users, CheckCircle2, Star, CircleDollarSign, ArrowUpRight, ChevronDown } from 'lucide-react'
+import { Users, CheckCircle2, Star, CircleDollarSign, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   PieChart,
   Pie,
@@ -95,58 +93,86 @@ export function DashboardContent({ data, activities, period, changePeriod, now, 
     <div className="dashboard-workspace w-full min-w-0 max-w-[1440px] mx-auto p-4 md:p-6 xl:p-8">
       <header className="mb-5 flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 xl:flex-row xl:items-end">
         <div><p className="mb-1 text-[11px] font-semibold text-slate-500">Administration / Overview</p><h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1><p className="mt-1 text-xs text-slate-500">{fiscalPeriodRange(period)} · {data.acts?.length ?? 0} activities</p></div>
-        <div className="flex flex-wrap items-end gap-3"><FiscalYearFilter compact value={period} onChange={changePeriod} activities={activities} today={new Date(now).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })} /><Link to="/admin/reports" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-primary">View reports<ArrowUpRight size={14} aria-hidden="true" /></Link></div>
+        <FiscalYearFilter compact value={period} onChange={changePeriod} activities={activities} today={new Date(now).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })} />
       </header>
       {error && <div role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error} Showing the last loaded data. <button type="button" onClick={() => void refresh()} className="underline font-semibold">Retry</button></div>}
       <h2 className="sr-only">Overall performance</h2>
       <div className="grid grid-cols-1 min-[420px]:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
         <DashboardMetricCard icon={<Users size={22} aria-hidden="true" />} color="#0756a0" label="Registrations" value={count(data.totalReg)} caption={`${count(data.thisWeek)} added in the last 7 days`} meter={{ value: data.totalReg, total: data.totalSlots, label: 'Capacity filled' }}
           details={[{ label: 'Registrations', value: count(data.totalReg) }, { label: 'Available capacity', value: count(data.totalSlots) }, { label: 'Added in last 7 days', value: count(data.thisWeek) }]} note="Counts activity registrations in this period. One youth may join multiple activities; inactive registrations are excluded." to="/admin/participants" linkLabel="View participants" />
-        <DashboardMetricCard icon={<CheckCircle2 size={22} aria-hidden="true" />} color="#0756a0" label="Attendance" value={count(data.totalAtt)} caption={`${data.attRate}% of active registrations attended`} meter={{ value: data.totalAtt, total: data.totalReg, label: 'Attendance rate' }}
+        <DashboardMetricCard icon={<CheckCircle2 size={22} aria-hidden="true" />} color="#008b80" label="Attendance" value={count(data.totalAtt)} caption="Registrations with recorded attendance" meter={{ value: data.totalAtt, total: data.totalReg, label: 'Attendance rate' }}
           details={[{ label: 'Attended / completed', value: count(data.totalAtt) }, { label: 'Active registrations', value: count(data.totalReg) }, { label: 'Without recorded attendance', value: count(Math.max(0, data.totalReg - data.totalAtt)) }]} note="Based on attended or completed registration status. Daily check-ins are shown separately in the trend chart." to="/admin/attendance" linkLabel="View attendance" />
         <DashboardMetricCard icon={<CircleDollarSign size={22} aria-hidden="true" />} color={remaining < 0 ? '#b90813' : '#0756a0'} label="Budget remaining" value={compactRemaining} caption={remaining < 0 ? 'Spending exceeds the recorded allocation' : 'Available across the selected activities'} meter={{ value: data.totalBudgetSpent, total: data.totalBudgetAllocated, label: 'Budget used' }}
           details={[{ label: 'Allocated', value: money(data.totalBudgetAllocated) }, { label: 'Spent', value: money(data.totalBudgetSpent) }, { label: 'Remaining', value: money(remaining) }]} note="Remaining = allocation minus recorded expenses. K = thousand; M = million. Exact amounts are listed above. Utilization is unavailable without an allocation." to="/admin/budget" linkLabel="View budget" />
-        <DashboardMetricCard icon={<Star size={22} aria-hidden="true" />} color="#0756a0" label="Satisfaction" value={responses ? `${data.evaluationStats.averageRating.toFixed(1)} / 5` : '—'} caption={`${count(responses)} evaluation ${responses === 1 ? 'response' : 'responses'}`} meter={responses ? { value: data.evaluationStats.averageRating, total: 5, label: 'Rating scale' } : undefined}
+        <DashboardMetricCard icon={<Star size={22} aria-hidden="true" />} color="#a16207" label="Satisfaction" value={responses ? `${data.evaluationStats.averageRating.toFixed(1)} / 5` : '—'} caption={`${count(responses)} evaluation ${responses === 1 ? 'response' : 'responses'}`}
           details={[{ label: 'Evaluation responses', value: count(responses) }, { label: 'Average rating', value: responses ? `${data.evaluationStats.averageRating.toFixed(1)} / 5` : 'No responses' }, { label: 'Would recommend', value: responses ? `${data.evaluationStats.recommendRate ?? 0}%` : 'No responses' }]} note="Calculated from submitted numerical ratings. Written-comment sentiment is analyzed separately." to="/admin/evaluations" linkLabel="View evaluations" />
       </div>
 
       <section aria-labelledby="dashboard-charts-title" className="mb-6 min-w-0">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 id="dashboard-charts-title" className="text-sm font-bold text-slate-800">Performance charts</h2><p className="text-[11px] text-slate-500">Hover a graph for exact values</p></div>
+        <h2 id="dashboard-charts-title" className="sr-only">Performance charts</h2>
         <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(16rem,1fr)]">
           <ParticipationAreaChart data={data.attendanceTrend} />
-          <BudgetUsageChart allocated={data.totalBudgetAllocated} spent={data.totalBudgetSpent} />
+          <RegistrationStatusChart data={data.statusBreakdown} ages={data.ageBreakdown} />
         </div>
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(16rem,1fr)]">
-          <DashboardComparisons data={data} />
-          <RegistrationStatusChart data={data.statusBreakdown} />
-        </div>
+        <DashboardComparisons data={data} />
       </section>
-      <details className="group rounded-xl border border-slate-200 bg-white">
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">Activity & program details<ChevronDown size={17} aria-hidden="true" className="transition-transform group-open:rotate-180" /></summary>
-        <div className="border-t border-slate-100 p-4"><DashboardControlPanel data={data} now={now} /><ProgramOverview rows={data.programSummaries} /><RecentEvaluationsFeed rows={data.recentEvaluations} /></div>
-      </details>
+      <DashboardControlPanel data={data} now={now} />
     </div>
   )
 }
 
-function RegistrationStatusChart({
-  data,
+export function RegistrationStatusChart({
+  data: sectors, ages = [],
 }: {
   data: { status: string; label: string; value: number }[]
+  ages?: { status: string; label: string; value: number }[]
 }) {
+  const [slide, setSlide] = useState(0)
+  const card = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const element = card.current
+    if (!element) return
+    let accumulated = 0
+    let lastSwitch = -Infinity
+    const reset = () => { accumulated = 0 }
+    const wheel = (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return
+      event.preventDefault()
+      const time = performance.now()
+      if (time - lastSwitch < 650) return
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1)
+      accumulated = Math.sign(delta) === Math.sign(accumulated) ? accumulated + delta : delta
+      if (Math.abs(accumulated) < 40) return
+      setSlide(current => current === 0 ? 1 : 0)
+      lastSwitch = time
+      accumulated = 0
+    }
+    element.addEventListener('wheel', wheel, { passive: false })
+    element.addEventListener('pointerleave', reset)
+    return () => { element.removeEventListener('wheel', wheel); element.removeEventListener('pointerleave', reset) }
+  }, [])
+  const isAge = slide === 1
+  const data = isAge ? ages : sectors
+  const excluded = sectors.reduce((sum, row) => sum + row.value, 0) - ages.reduce((sum, row) => sum + row.value, 0)
   const isEmpty = data.length === 0 || data.every((d) => d.value === 0)
   const total = data.reduce((sum, entry) => sum + entry.value, 0)
 
   return (
-    <div className="dashboard-chart stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
-      <h2 className="text-sm font-bold text-slate-800 mb-1">Attendees by Sectoral Group</h2>
-      <p className="text-xs text-slate-500">Who your activities are reaching · Share of recorded attendees.</p>
+    <div ref={card} role="region" aria-label="Attendee demographics" aria-roledescription="carousel" className="group/demographics dashboard-chart stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
+      <div className="flex items-start justify-between gap-2">
+        <div aria-live="polite" aria-atomic="true"><div key={slide} className="demographics-slide-title"><h2 className="text-sm font-bold text-slate-800 mb-1">{isAge ? 'Attendees by Age' : 'Attendees by Sectoral Group'}</h2><p className="text-xs text-slate-500">{isAge ? 'Three youth age brackets · Ages 15–30' : 'Share of recorded attendees'}</p></div></div>
+        <div className="flex shrink-0 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/demographics:opacity-100 sm:group-focus-within/demographics:opacity-100">
+          <button type="button" aria-label="Previous demographics chart" onClick={() => setSlide(current => current === 0 ? 1 : 0)} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><ChevronLeft size={16} aria-hidden="true" /></button>
+          <button type="button" aria-label="Next demographics chart" onClick={() => setSlide(current => current === 0 ? 1 : 0)} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><ChevronRight size={16} aria-hidden="true" /></button>
+        </div>
+      </div>
+      <div key={slide} className="demographics-slide flex min-h-80 flex-1 flex-col" data-view={isAge ? 'age' : 'sector'}>
       {isEmpty ? (
-        <p className="text-sm text-gray-500 py-12 text-center flex-1 flex items-center justify-center min-h-64">No attendees yet in the selected period. Sectoral groups appear after participants check in.</p>
+        <p className="text-sm text-gray-500 py-12 text-center flex-1 flex items-center justify-center min-h-64">{isAge ? 'No recorded attendees aged 15–30 in the selected period.' : 'No attendees yet in the selected period. Sectoral groups appear after participants check in.'}</p>
       ) : (
-        <div className="flex-1 flex flex-col min-[480px]:flex-row items-center justify-center gap-4 py-4">
-          <div className="w-full min-[480px]:w-[55%] min-w-0" role="img" aria-label={`Sectoral group distribution across ${total} attendees. Slice labels show each group's percentage of the total.`}>
-          <ResponsiveContainer width="100%" height={250}>
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 py-3">
+          <div className="w-full max-w-56 min-w-0" role="img" aria-label={`${isAge ? 'Age bracket' : 'Sectoral group'} distribution across ${total} attendees. Slice labels show each group's percentage of the total.`}>
+          <ResponsiveContainer width="100%" height={200}>
           <PieChart accessibilityLayer>
             <Pie
               isAnimationActive={false}
@@ -178,7 +204,7 @@ function RegistrationStatusChart({
           </PieChart>
           </ResponsiveContainer>
           </div>
-          <ul className="w-full min-[480px]:flex-1 min-w-0 space-y-3" aria-label="Sectoral group legend">
+          <ul className="grid w-full min-w-0 grid-cols-1 gap-1 min-[420px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2" aria-label={isAge ? 'Age bracket legend' : 'Sectoral group legend'}>
             {data.map((entry, index) => (
               <li key={entry.status} className="flex items-start gap-2.5 rounded-lg p-2 text-xs transition-colors hover:bg-slate-50">
                 <span className="size-2.5 shrink-0 rounded-full mt-1" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} aria-hidden="true" />
@@ -188,55 +214,15 @@ function RegistrationStatusChart({
           </ul>
         </div>
       )}
-      {!isEmpty && <p className="text-xs text-gray-500 mt-2">Each slice shows its share of total attendees (100%). Hover a slice for attendee counts and percentages.</p>}
-    </div>
-  )
-}
-
-function RecentEvaluationsFeed({
-  rows,
-}: {
-  rows: { id: string; rating: number; feedback: string; submittedAt: string; participantName: string; activityTitle: string }[]
-}) {
-  const isEmpty = rows.length === 0
-
-  return (
-    <div className="stat-card min-w-0 !p-4 sm:!p-5 flex flex-col">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h2 className="text-sm font-semibold text-gray-600">Recent Evaluations</h2>
-        <Link to="/admin/evaluations" className="text-xs font-semibold text-primary min-h-11 inline-flex items-center">View all evaluations</Link>
+      {isAge && excluded > 0 && <p className="mt-2 text-[11px] text-slate-500">{excluded} {excluded === 1 ? 'attendee has an unknown age or is' : 'attendees have an unknown age or are'} outside ages 15–30. Percentages cover the three brackets only.</p>}
       </div>
-      {isEmpty ? (
-        <p className="text-sm text-gray-400 py-12 text-center flex-1 flex items-center justify-center min-h-48">No evaluations submitted yet.</p>
-      ) : (
-        <ul className="divide-y divide-gray-100">
-          {rows.map((r) => (
-            <li key={r.id} className="py-3 flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">{r.participantName}</p>
-                <p className="text-xs text-gray-400 truncate">{r.activityTitle}</p>
-                {r.feedback && <p className="text-xs text-gray-500 mt-1 truncate">{r.feedback}</p>}
-              </div>
-              <div className="flex-shrink-0 text-right">
-                <div className="flex items-center gap-0.5 justify-end">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      size={12}
-                      className={i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}
-                    />
-                  ))}
-                </div>
-                <p className="text-[11px] text-gray-400 mt-1">
-                  {new Date(r.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <p className="text-[10px] text-slate-400">Hover & scroll to switch views</p>
+        <div className="flex gap-1" aria-label="Demographics views">{['Sectoral groups', 'Age brackets'].map((label, index) => <button key={label} type="button" aria-label={`Show ${label.toLowerCase()}`} aria-pressed={slide === index} onClick={() => setSlide(index)} className="grid size-8 place-items-center rounded-md hover:bg-slate-50"><span aria-hidden="true" className={`h-1.5 rounded-full transition-all ${slide === index ? 'w-5 bg-primary' : 'w-1.5 bg-slate-300'}`} /></button>)}</div>
+      </div>
     </div>
   )
 }
+
 
 export default AdminDashboard

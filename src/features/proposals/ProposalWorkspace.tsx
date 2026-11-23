@@ -7,6 +7,7 @@ import DatePicker from '../../components/DatePicker'
 import TimePicker from '../../components/TimePicker'
 import { activeProposalWarnings, budgetTotal, emptyProposal, publicationIssues, PROPOSAL_ACCEPT, validateUploadSet, type Proposal, type ProposalDocument, type ProposalFields } from './proposalModel'
 import { documentUrl, getProposal, importProposal, listProposals, publishProposal, saveProposal } from './proposalService'
+import ProposalBuilder from './ProposalBuilder'
 
 function Notice({ children, error = false }: { children: ReactNode; error?: boolean }) {
   return <div role={error ? 'alert' : 'status'} className={`flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed ${error ? 'border-red-200 bg-red-50 text-red-800' : 'border-blue-100 bg-blue-50 text-primary'}`}><AlertCircle size={16} className="shrink-0 mt-0.5" /><div>{children}</div></div>
@@ -32,12 +33,14 @@ function UploadFiles({ files, setFiles, disabled }: { files: File[]; setFiles: (
   </div>
 }
 
-export default function ProposalWorkspace({ onPublished, initialId, onCloseInitial, creationOpen = false, onCloseCreation, onManualCreate }: {
+export default function ProposalWorkspace({ onPublished, initialId, onCloseInitial, creationOpen = false, onCloseCreation }: {
   onPublished: () => void; initialId?: string | null; onCloseInitial?: () => void
   creationOpen?: boolean; onCloseCreation?: () => void; onManualCreate?: () => void
 }) {
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [selected, setSelected] = useState<string | null>(null)
+  const [building, setBuilding] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState('')
@@ -53,17 +56,18 @@ export default function ProposalWorkspace({ onPublished, initialId, onCloseIniti
     abort.current = new AbortController()
     try {
       const result = await importProposal(files, abort.current.signal, setProgress)
-      onCloseCreation?.(); setSelected(result.id); setFiles([]); setRefresh(value => value + 1)
+      onCloseCreation?.(); setUploadOpen(false); setSelected(result.id); setFiles([]); setRefresh(value => value + 1)
       if (result.duplicate) setNotice('This document was already uploaded. Its existing proposal has been opened.')
     } catch (err) { if ((err as Error).name !== 'AbortError') setError((err as Error).message) }
     finally { setBusy(false); setProgress('') }
   }
   const activeId = initialId || selected
   return <section className="mb-4">
-    {creationOpen && <NewActivityDialog files={files} setFiles={setFiles} busy={busy} progress={progress} error={error}
-      onClose={() => { if (!busy) { setFiles([]); setError(''); onCloseCreation?.() } }}
-      onManual={() => { setFiles([]); setError(''); onCloseCreation?.(); onManualCreate?.() }}
+    {(creationOpen || uploadOpen) && <NewActivityDialog initialUpload={uploadOpen} files={files} setFiles={setFiles} busy={busy} progress={progress} error={error}
+      onClose={() => { if (!busy) { setFiles([]); setError(''); setUploadOpen(false); onCloseCreation?.() } }}
+      onManual={() => { setFiles([]); setError(''); setUploadOpen(false); onCloseCreation?.(); setBuilding(true) }}
       onUpload={() => void upload()} onCancelProcessing={() => abort.current?.abort()} />}
+    {building && <ProposalBuilder onClose={() => setBuilding(false)} onUpload={() => { setBuilding(false); setUploadOpen(true) }} />}
     {notice && <div className="mt-3"><Notice>{notice}</Notice></div>}
     {error && <div className="mt-3"><Notice error>{error} <button className="font-semibold underline" onClick={() => setRefresh(value => value + 1)}>Reload proposals</button></Notice></div>}
     {proposals.length > 0 && <details className="rounded-xl border border-gray-200 bg-white px-4 py-3"><summary className="cursor-pointer text-xs font-semibold text-primary">Saved proposals ({proposals.length}) · Continue a draft or view history</summary><div className="mt-3 max-h-64 space-y-2 overflow-y-auto">{proposals.map(proposal => <button key={proposal.id} type="button" onClick={() => setSelected(proposal.id)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-200 p-3 text-left hover:border-primary/40 hover:bg-primary-light/30"><div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{proposal.fields.title || 'Untitled PPA draft'}</p><p className="mt-1 text-xs text-gray-500">Updated {new Date(proposal.updated_at).toLocaleDateString('en-PH')}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${proposal.state === 'published' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-800'}`}>{proposal.state === 'published' ? 'Published' : proposal.activity_id ? 'Revision draft' : 'Private draft'}</span></button>)}</div></details>}
@@ -71,12 +75,13 @@ export default function ProposalWorkspace({ onPublished, initialId, onCloseIniti
   </section>
 }
 
-function NewActivityDialog({ files, setFiles, busy, progress, error, onClose, onManual, onUpload, onCancelProcessing }: {
+function NewActivityDialog({ files, setFiles, busy, progress, error, onClose, onManual, onUpload, onCancelProcessing, initialUpload = false }: {
   files: File[]; setFiles: (files: File[]) => void; busy: boolean; progress: string; error: string
   onClose: () => void; onManual: () => void; onUpload: () => void; onCancelProcessing: () => void
+  initialUpload?: boolean
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
-  const [mode, setMode] = useState<'choose' | 'upload'>('choose')
+  const [mode, setMode] = useState<'choose' | 'upload'>(initialUpload ? 'upload' : 'choose')
   const title = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     dialog.current?.showModal()
@@ -90,7 +95,7 @@ function NewActivityDialog({ files, setFiles, busy, progress, error, onClose, on
       <header className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-5 py-5 sm:px-6"><div><p className="text-[10px] font-bold uppercase tracking-widest text-teal">Activities</p><h2 ref={title} tabIndex={-1} id="new-activity-title" className="mt-1 text-xl font-bold text-gray-900 outline-none">{mode === 'choose' ? 'Create a new activity' : 'Upload your proposal'}</h2><p id="new-activity-description" className="mt-2 text-sm leading-relaxed text-gray-500">{mode === 'choose' ? 'How would you like to get started?' : 'We’ll read the document and fill in activity details for you to review.'}</p></div><button type="button" aria-label="Close new activity" onClick={onClose} disabled={busy} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40"><X size={20} /></button></header>
       <div className="overflow-y-auto p-5 sm:p-6">{mode === 'choose' ? <div className="grid gap-4 sm:grid-cols-2">
         <button type="button" onClick={() => setMode('upload')} className="group flex flex-col items-start rounded-2xl border border-primary/25 bg-primary-light/30 p-5 text-left transition-colors hover:border-primary hover:bg-primary-light/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span className="mb-5 rounded-xl bg-white p-3 text-primary shadow-sm"><Upload size={24} /></span><h3 className="text-base font-bold text-gray-900">Upload proposal</h3><p className="mt-2 text-sm leading-relaxed text-gray-500">Use a signed PPA document to prefill activity details and the approved budget.</p><span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-primary">Choose a document <ArrowRight size={15} /></span></button>
-        <button type="button" onClick={onManual} className="group flex flex-col items-start rounded-2xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-primary/40 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span className="mb-5 rounded-xl bg-gray-100 p-3 text-gray-600"><PencilLine size={24} /></span><h3 className="text-base font-bold text-gray-900">Create manually</h3><p className="mt-2 text-sm leading-relaxed text-gray-500">Start with a blank form and enter the activity information yourself.</p><span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-primary">Open activity form <ArrowRight size={15} /></span></button>
+        <button type="button" onClick={onManual} className="group flex flex-col items-start rounded-2xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-primary/40 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span className="mb-5 rounded-xl bg-gray-100 p-3 text-gray-600"><PencilLine size={24} /></span><h3 className="text-base font-bold text-gray-900">Create manually</h3><p className="mt-2 text-sm leading-relaxed text-gray-500">Write your PPA proposal here, download Word or PDF, then have it signed and upload the signed copy.</p><span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-primary">Open proposal builder <ArrowRight size={15} /></span></button>
       </div> : <div className="space-y-4"><UploadFiles files={files} setFiles={setFiles} disabled={busy} /><p className="text-xs leading-relaxed text-gray-500">Uploading creates a private draft. Review the details and confirm the signed approval before publishing.</p>{error && <Notice error>{error}</Notice>}{busy && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3"><p className="inline-flex min-w-0 items-center gap-2 text-xs text-primary"><LoaderCircle size={16} className="shrink-0 animate-spin" />{progress || 'Processing document…'}</p><button type="button" onClick={onCancelProcessing} className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600">Cancel processing</button></div>}</div>}</div>
       <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:px-6">{mode === 'choose' ? <><span className="text-xs text-gray-500">You can review details before publishing.</span><button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-100">Cancel</button></> : <><button type="button" disabled={busy} onClick={() => setMode('choose')} className="inline-flex items-center gap-2 rounded-lg px-2 py-2.5 text-xs font-semibold text-gray-600 disabled:opacity-40"><ArrowLeft size={15} />Back</button><button type="button" disabled={busy || !files.length} onClick={onUpload} className="btn-primary inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <FileText size={16} />}{busy ? 'Reading proposal…' : 'Read proposal & continue'}</button></>}</footer>
     </div>

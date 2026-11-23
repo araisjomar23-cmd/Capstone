@@ -10,7 +10,7 @@
     "test:feedback": "node --experimental-strip-types --test tests/feedbackAnalyzer.test.ts",
     "eval:feedback": "node --experimental-strip-types scripts/eval-feedback.ts",
     "eval:nlp": "node --experimental-strip-types scripts/eval-bisaya-feedback.ts",
-    "test:nlp": "node --experimental-strip-types --test tests/feedbackAnalyzer.test.ts tests/feedbackInsights.test.ts tests/bisayaFeedback.test.ts tests/feedbackEvaluation.test.ts",
+    "test:nlp": "node --experimental-strip-types --test tests/feedbackAnalyzer.test.ts tests/feedbackInsights.test.ts tests/bisayaFeedback.test.ts tests/feedbackEvaluation.test.ts tests/contextualFeedback.test.ts tests/overallEvaluation.test.ts tests/feedbackComment.test.cjs",
     "preview": "vite preview",
     "db:new": "supabase migration new",
     "db:status": "supabase migration list --linked",
@@ -21,7 +21,7 @@
     "test:participants": "node --test tests/participantTracking.test.cjs tests/participantProfileOptions.test.cjs tests/filterAccuracy.test.cjs",
     "test:budget": "node --test tests/budgetMonitoring.test.cjs tests/approvedBudget.test.cjs tests/filterAccuracy.test.cjs tests/ppaWorkflow.test.cjs",
     "test:notifications": "node --test tests/notifications.test.cjs",
-    "test:ppa": "node --test tests/ppaWorkflow.test.cjs"
+    "test:ppa": "node --test tests/ppaWorkflow.test.cjs tests/proposalBuilder.test.cjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",

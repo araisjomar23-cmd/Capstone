@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { EvaluationRow } from './evaluationService'
+import EvaluationAnalysisDetails from './EvaluationAnalysisDetails'
 
 const SECTIONS = [
   {
@@ -83,6 +84,7 @@ export default function EvaluationResponseDetails({ evaluation }: { evaluation: 
           </button>
         </div>
       <div className="space-y-5 p-4 sm:p-6">
+        <EvaluationAnalysisDetails evaluation={evaluation} enabled={open} />
         {Object.keys(responses).length === 0 && (
           <p className="text-sm text-gray-500">Detailed form answers were not saved for this evaluation. The overall rating and any comments are shown below.</p>
         )}

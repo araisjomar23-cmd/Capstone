@@ -213,7 +213,7 @@ test('satisfaction chart uses real response counts and a fixed five-point scale,
   assert.doesNotMatch(empty, /NaN|Infinity/)
 })
 
-test('admin dashboard leads with summary graphs and keeps detailed comparisons in one switchable panel', () => {
+test('admin dashboard keeps distinct graphs and direct operational details without duplicate summaries', () => {
   const { MemoryRouter } = require('react-router-dom')
   const chart = label => () => React.createElement('div', null, label)
   const Page = load('src/pages/admin/AdminDashboard.tsx', {
@@ -232,17 +232,76 @@ test('admin dashboard leads with summary graphs and keeps detailed comparisons i
   assert.match(html, /<h1[^>]*>Dashboard<\/h1>/)
   assert.doesNotMatch(html, /Your programs, at a glance|dashboard-hero/)
   assert.ok(html.indexOf('Participation overview graph') < html.indexOf('Registration graph'))
-  for (const title of ['Registration graph', 'Budget usage graph', 'Participation overview graph', 'Attendees by Sectoral Group']) {
+  for (const title of ['Registration graph', 'Participation overview graph', 'Attendees by Sectoral Group']) {
     assert.ok(html.indexOf(title) > html.indexOf('Performance charts'))
     assert.ok(html.indexOf(title) < html.indexOf('Operational details'))
   }
   assert.doesNotMatch(html, /Budget graph|Satisfaction graph/)
   assert.equal((html.match(/role="tab"/g) || []).length, 3)
-  assert.match(html, /Activity &amp; program details/)
-  assert.doesNotMatch(html, /<details[^>]*\bopen(?:=|\s|>)/)
+  assert.doesNotMatch(html, /Budget usage graph|Program details|Recent Evaluations|Rating scale|<details/)
+  assert.match(html, /Operational details/)
+})
+
+test('operational overview keeps upcoming activities visible and shows alert cards only for actual issues', () => {
+  const { MemoryRouter } = require('react-router-dom')
+  const ControlPanel = load('src/features/dashboard/DashboardControlPanel.tsx').default
+  const now = Date.parse('2026-11-22T04:00:00Z')
+  const activity = { id: 'workshop', title: 'Upcoming workshop', startDate: '2026-11-25', endDate: '2026-11-25', status: 'upcoming', slots: 10, budgetAlloc: 100, budgetSpent: 20 }
+  const render = data => renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(ControlPanel, { data, now })))
+  const healthy = render({ acts: [activity], liveCount: {} })
+  assert.match(healthy, /Upcoming workshop/)
+  assert.match(healthy, /No budget or capacity issues flagged/)
+  assert.doesNotMatch(healthy, /Needs attention/)
+  const flagged = render({ acts: [{ ...activity, budgetSpent: 125 }], liveCount: { workshop: 10 } })
+  assert.match(flagged, /Needs attention/)
+  assert.match(flagged, /Activities over budget/)
+  assert.match(flagged, /Activities at capacity/)
+  assert.doesNotMatch(flagged, /No budget or capacity issues flagged/)
+})
+
+test('attendee ages use inclusive youth brackets and respect attendance and period filters', () => {
+  const { summarizeDashboard } = load('src/features/dashboard/dashboardSummary.ts')
+  const acts = [{ id: 'current', startDate: '2026-11-01', slots: 20, budgetAlloc: 0, budgetSpent: 0 }, { id: 'old', startDate: '2026-10-01', slots: 20, budgetAlloc: 0, budgetSpent: 0 }]
+  const all = [15, '17', 18, 24, 25, 30, '—', 14, 31].map((age, index) => ({ id: String(index), activityId: 'current', age, status: index % 2 ? 'completed' : 'attended', registeredAt: '2026-11-01' }))
+  all.push({ id: 'not-attended', activityId: 'current', age: 18, status: 'registered', registeredAt: '2026-11-01' }, { id: 'inactive', activityId: 'current', age: 18, status: 'inactive', registeredAt: '2026-11-01' }, { id: 'old', activityId: 'old', age: 18, status: 'attended', registeredAt: '2026-10-01' })
+  const result = summarizeDashboard({ acts, all, evaluations: [] }, { year: 2026, startMonth: 1, month: 11 })
+  assert.deepEqual(result.ageBreakdown.map(row => [row.label, row.value]), [['Child Youth (15–17)', 2], ['Core Youth (18–24)', 2], ['Adult Youth (25–30)', 2]])
+  assert.equal(result.totalAtt, 9, 'unknown/outside ages remain in the overall attendance count')
+})
+
+test('demographics starts with sectors and switches to ages using scoped wheel gestures or controls', () => {
+  let slide = 0, effect
+  const listeners = new Map()
+  const element = { clientHeight: 400, addEventListener(name, fn, options) { listeners.set(name, fn); if (name === 'wheel') assert.equal(options.passive, false) }, removeEventListener(name) { listeners.delete(name) } }
+  const { RegistrationStatusChart } = load('src/pages/admin/AdminDashboard.tsx', { '../../features/dashboard/useDashboardData': {}, react: { useState: () => [slide, value => { slide = typeof value === 'function' ? value(slide) : value }], useRef: () => ({ current: element }), useEffect: fn => { effect = fn } } })
+  const props = { data: [{ status: 'Other', label: 'Other', value: 3 }], ages: [{ status: 'Child Youth', label: 'Child Youth (15–17)', value: 1 }, { status: 'Core Youth', label: 'Core Youth (18–24)', value: 1 }, { status: 'Adult Youth', label: 'Adult Youth (25–30)', value: 0 }] }
+  const render = () => renderToStaticMarkup(RegistrationStatusChart(props))
+  assert.match(render(), /Attendees by Sectoral Group/)
+  assert.doesNotMatch(render(), /Attendees by Age/)
+  const cleanup = effect()
+  let prevented = 0
+  const wheel = extra => listeners.get('wheel')({ deltaY: 100, deltaX: 0, deltaMode: 0, ctrlKey: false, preventDefault() { prevented++ }, ...extra })
+  wheel({ ctrlKey: true }); wheel({ deltaX: 150 }); assert.equal(prevented, 0)
+  wheel({ deltaY: 10 }); assert.equal(slide, 0)
+  wheel(); assert.equal(slide, 1)
+  wheel(); assert.equal(slide, 1, 'trackpad event bursts must not immediately flip back')
+  const age = render()
+  for (const label of ['Attendees by Age', 'Child Youth', 'Core Youth', 'Adult Youth', 'unknown age']) assert.ok(age.includes(label))
+  assert.doesNotMatch(age, /NaN|Infinity/)
+  function button(node, label) {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) return node.map(child => button(child, label)).find(Boolean)
+    return node.props?.['aria-label'] === label ? node : button(node.props?.children, label)
+  }
+  button(RegistrationStatusChart(props), 'Previous demographics chart').props.onClick()
+  assert.equal(slide, 0)
+  button(RegistrationStatusChart(props), 'Show age brackets').props.onClick()
+  assert.equal(slide, 1)
+  cleanup(); assert.equal(listeners.size, 0)
 })
 
 test('activity comparison tabs render only the selected data view', () => {
+  const { MemoryRouter } = require('react-router-dom')
   let selected = 'registrations'
   const graphs = { ActivityRegistrationsChart: () => React.createElement('div', null, 'Registration graph'), BudgetOverviewChart: () => React.createElement('div', null, 'Budget graph'), ActivitySatisfactionChart: () => React.createElement('div', null, 'Satisfaction graph') }
   const Comparisons = load('src/features/dashboard/DashboardComparisons.tsx', { react: { useId: () => 'views', useState: () => [selected, next => { selected = next }] }, './DashboardCharts': graphs }).default
@@ -256,9 +315,10 @@ test('activity comparison tabs render only the selected data view', () => {
     tabs[index].props.onClick()
     const tree = Comparisons({ data: {} })
     assert.equal(find(tree, 'tab').filter(tab => tab.props['aria-selected']).length, 1)
-    const html = renderToStaticMarkup(tree)
+    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, tree))
     assert.match(html, new RegExp(text))
     assert.equal((html.match(/(?:Registration|Budget|Satisfaction) graph/g) || []).length, 1)
+    assert.match(html, new RegExp(['View participants', 'Manage budgets', 'View evaluations'][index]))
   }
 })
 

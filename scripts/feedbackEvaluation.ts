@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import type { FeedbackAnalysis, SuggestedSentiment } from '../src/features/evaluations/feedbackAnalyzer.ts'
 
-export const SENTIMENTS: SuggestedSentiment[] = ['positive', 'negative', 'mixed', 'no-signal']
-export const TOPICS = ['venue', 'schedule', 'food', 'facilitators', 'content']
+export const SENTIMENTS: SuggestedSentiment[] = ['positive', 'negative', 'mixed', 'no-signal', 'neutral']
+export const TOPICS = ['venue', 'schedule', 'food', 'facilitators', 'content', 'participants']
 export interface FeedbackSample {
   id: string; text: string; sentiment: SuggestedSentiment; topics: string[] | null
   isSuggestion: boolean | null; source: 'synthetic' | 'real'; split: string
@@ -43,7 +43,7 @@ export async function readFeedbackDataset(path: string, kind: 'synthetic' | 'rea
     if (row.length !== header.length) throw new Error(`Wrong column count at data row ${index + 1}`)
     const text = row[real ? 1 : 0].trim()
     const label = row[real || legacy ? 2 : 1].trim().toLowerCase()
-    const sentiment = ['needs review', 'neutral', 'no-signal'].includes(label) ? 'no-signal' : label as SuggestedSentiment
+    const sentiment = ['needs review', 'uncertain', 'no-signal'].includes(label) ? 'no-signal' : label as SuggestedSentiment
     const source = real ? 'real' : legacy ? row[4] : row[5].startsWith('synthetic') ? 'synthetic' : row[5]
     if (!text || !SENTIMENTS.includes(sentiment) || source !== kind) throw new Error(`Invalid text, label, or provenance at data row ${index + 1}`)
     const topics = legacy ? null : row[real ? 3 : 2].toLowerCase().split(/[;|]/).map(value => value.trim()).filter(Boolean)

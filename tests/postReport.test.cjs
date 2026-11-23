@@ -12,12 +12,45 @@ function load(file, mocks = {}) {
   return module.exports
 }
 const model = load('src/features/reports/postReportModel.ts')
+const datePeriod = load('src/lib/activityDatePeriod.ts', { './calendarDate': load('src/lib/calendarDate.ts') })
 const paper = load('src/features/reports/PostActivityReport.tsx', {
-  '../activities/activityService': {}, '../activities/activityLifecycle': {},
+  '../activities/activityService': {}, '../activities/activityLifecycle': load('src/features/activities/activityLifecycle.ts'),
   './postReportModel': model, './postReportService': {},
   './ReportDocumentPreview': { default: () => null },
+  '../../components/ActivityDateFilter': { default: () => null },
+  '../../lib/activityDatePeriod': datePeriod,
 })
 const activity = { title: 'Youth summit', venue: 'City gym', date: 'Nov 18, 2026', slots: 300, budgetAlloc: 500000, fullDesc: 'Activity background' }
+
+test('post report selection excludes upcoming and ongoing activities and sorts completed runs newest first', () => {
+  const rows = [
+    { id: 'late', title: 'Future run', startDate: '2027-02-01', endDate: '2027-02-01' },
+    { id: 'old', title: 'Previous run', startDate: '2026-10-01', endDate: '2026-10-01' },
+    { id: 'new', title: 'Recent run', startDate: '2026-11-21', endDate: '2026-11-21' },
+    { id: 'live', title: 'In progress', startDate: '2026-11-23', endDate: '2026-11-23' },
+    { id: 'soon', title: 'Next run', startDate: '2026-11-25', endDate: '2026-11-25' },
+  ]
+  const before = rows.map(row => row.id)
+  const result = paper.completedReportActivities(rows, { year: '', month: '' }, '', Date.parse('2026-11-23T12:00:00+08:00'))
+  assert.deepEqual(result.map(row => row.id), ['new', 'old'])
+  assert.deepEqual(rows.map(row => row.id), before)
+  assert.deepEqual(paper.completedReportActivities([], { year: '', month: '' }), [])
+})
+
+test('completed report options combine month, year and program filters', () => {
+  const rows = [
+    { id: 'one', title: 'November education', programId: 'education', startDate: '2026-11-12', endDate: '2026-11-12' },
+    { id: 'two', title: 'November environment', programId: 'environment', startDate: '2026-11-13', endDate: '2026-11-13' },
+    { id: 'three', title: 'October education', programId: 'education', startDate: '2026-10-20', endDate: '2026-10-20' },
+    { id: 'four', title: 'Last year', programId: 'education', startDate: '2025-11-12', endDate: '2025-11-12' },
+  ]
+  const now = Date.parse('2026-11-23T12:00:00+08:00')
+  const ids = (period, program = '') => paper.completedReportActivities(rows, period, program, now).map(row => row.id)
+  assert.deepEqual(ids({ year: '2026', month: '11' }), ['two', 'one'])
+  assert.deepEqual(ids({ year: '2026', month: '11' }, 'education'), ['one'])
+  assert.deepEqual(ids({ year: '2026', month: '' }, 'education'), ['one', 'three'])
+  assert.deepEqual(ids({ year: '2027', month: '11' }), [])
+})
 
 test('post reports use recorded attendance and published context without inventing outcomes or signatories', () => {
   const fields = model.createPostReport(activity, 128, { beneficiaries: 'Youth leaders', rationale: 'Approved rationale', objectives: 'Build leadership' })

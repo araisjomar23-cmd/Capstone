@@ -1,8 +1,18 @@
 import rawLexicon from './feedbackLexicon.json' with { type: 'json' }
 import semanticReferences from './feedbackSemanticReferences.json' with { type: 'json' }
 
-export type SuggestedSentiment = 'positive' | 'negative' | 'mixed' | 'no-signal'
+// Keep no-signal as the existing API key; the interface displays it as Uncertain.
+export type SuggestedSentiment = 'positive' | 'negative' | 'neutral' | 'mixed' | 'no-signal'
 export type SentimentPolarity = 'positive' | 'negative'
+export type FeedbackIntent = 'praise' | 'complaint' | 'suggestion' | 'request' | 'personal-preference' | 'general-observation' | 'unclear'
+export interface FeedbackContext {
+  intents: FeedbackIntent[]
+  requestType?: 'personal-preference' | 'program-improvement' | 'unspecified'
+  relevance: 'high' | 'medium' | 'low' | 'uncertain'
+  actionability: 'actionable' | 'not-directly-actionable' | 'needs-manual-review'
+  evidence: { kind: 'request' | 'preference' | 'subject'; phrase: string }[]
+  personalPreferenceOnly: boolean
+}
 
 export interface MatchedSentimentTerm {
   term: string
@@ -26,6 +36,7 @@ export interface FeedbackAnalysis {
   score: number
   matchedTerms: MatchedSentimentTerm[]
   themes: FeedbackTheme[]
+  context?: FeedbackContext
 }
 
 export interface HybridFeedbackBatch {
@@ -56,6 +67,7 @@ interface FeedbackLexicon {
   suggestionMarkers: string[]
   feedbackContext: string[]
   ambiguousThemeTerms: Record<string, string[]>
+  context: { requestMarkers: string[]; preferenceMarkers: string[]; appearanceTerms: string[]; participantTerms: string[]; observationMarkers: string[]; politeSuffixes: string[] }
 }
 
 const lexicon = rawLexicon as FeedbackLexicon
@@ -185,13 +197,14 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+const normalizedVariants = Object.entries(lexicon.spellingVariants)
+  .map(([variant, canonical]) => [baseNormalize(variant), baseNormalize(canonical)] as const)
+  .sort(([a], [b]) => b.length - a.length)
+
 function normalize(text: string): string {
   let normalized = baseNormalize(text)
-  const variants = Object.entries(lexicon.spellingVariants)
-    .map(([variant, canonical]) => [baseNormalize(variant), baseNormalize(canonical)] as const)
-    .sort(([a], [b]) => b.length - a.length)
 
-  for (const [variant, canonical] of variants) {
+  for (const [variant, canonical] of normalizedVariants) {
     if (!variant) continue
     normalized = normalized.replace(
       new RegExp(`(^| )${escapeRegExp(variant)}(?= |$)`, 'gu'),
@@ -340,7 +353,7 @@ function findMatchesWithPositions(
   return matches
 }
 
-export function analyzeFeedback(text: string): FeedbackAnalysis {
+function analyzeFeedbackRules(text: string): FeedbackAnalysis {
   if (!feedbackTokensOf(text).length) return { label: 'no-signal', score: 0, matchedTerms: [], themes: [] }
   const candidates = [
     ...lexicon.positive.map(term => ({ ...term, sentiment: 'positive' as const })),
@@ -356,18 +369,22 @@ export function analyzeFeedback(text: string): FeedbackAnalysis {
   for (const clause of splitFeedbackClauses(text)) {
     const tokens = feedbackTokensOf(clause.text)
     const suggestion = hasPhrase(tokens, lexicon.suggestionMarkers)
+    const request = hasPhrase(tokens, lexicon.context.requestMarkers)
     isSuggestion ||= suggestion
     const exceptions = new Set<number>()
     for (const phrase of lexicon.negationExceptions) findPhraseIndexes(tokens, tokensOf(phrase)).forEach(index => exceptions.add(index))
     // A wish or request does not assert that the current activity is good/bad.
     // Separate assertions after punctuation, contrast, or "kay/because" still count.
-    const matches = suggestion ? [] : findMatchesWithPositions(tokens, candidates, exceptions)
+    const matches = suggestion || request || hasPhrase(tokens, lexicon.context.preferenceMarkers) ? [] : findMatchesWithPositions(tokens, candidates, exceptions)
     if (clause.continuation) for (const item of matches) item.match.weight = Number((item.match.weight * 1.3).toFixed(2))
     matchedTerms.push(...matches.map(item => item.match))
     positiveAssertion ||= matches.some(item => item.match.sentiment === 'positive' && !item.match.ambiguous)
     negativeAssertion ||= matches.some(item => item.match.sentiment === 'negative' && !item.match.ambiguous)
     const found = Object.entries(lexicon.themes).map(([theme, phrases]) => ({ theme, occurrences: phrases.flatMap(phrase =>
-      findPhraseStarts(tokens, tokensOf(phrase)).filter(start => !(phrase === 'time' && tokens[start - 1] === 'next')).map(start => ({ phrase, start, end: start + tokensOf(phrase).length }))
+      findPhraseStarts(tokens, tokensOf(phrase)).filter(start => !(phrase === 'time' && tokens[start - 1] === 'next'))
+        // Being the recipient of snacks does not make participants the subject.
+        .filter(start => theme !== 'participants' || !['for', 'para'].includes(tokens[start - 1]) && !tokens.slice(Math.max(0, start - 3), start).includes('para'))
+        .map(start => ({ phrase, start, end: start + tokensOf(phrase).length }))
     ) })).filter(item => item.occurrences.length)
     const explicit = found.filter(item => item.occurrences.some(occurrence => !lexicon.ambiguousThemeTerms[item.theme]?.includes(occurrence.phrase)))
     let selected = found.filter(item => !explicit.length || explicit.some(other => other.theme === item.theme))
@@ -408,6 +425,110 @@ export function analyzeFeedback(text: string): FeedbackAnalysis {
   return { label, score, matchedTerms, themes, ...(isSuggestion ? { isSuggestion: true } : {}) }
 }
 
+// Locate normalized phrases while retaining exact spans from the original text.
+// These spans support explanations; embedding similarities never supply word evidence.
+function phraseEvidence(text: string, phrases: string[]) {
+  const words = [...text.matchAll(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)].flatMap(match =>
+    tokensOf(match[0]).map(token => ({ token, start: match.index!, end: match.index! + match[0].length })))
+  return phrases.flatMap(phrase => findPhraseStarts(words.map(word => word.token), tokensOf(phrase)).map(start => {
+    const end = start + tokensOf(phrase).length - 1
+    return { phrase: text.slice(words[start].start, words[end].end), start, end, from: words[start].start, to: words[end].end }
+  })).sort((a, b) => a.start - b.start || b.end - a.end)
+}
+
+function withFeedbackContext(text: string, analysis: FeedbackAnalysis): FeedbackAnalysis {
+  if (!text.trim()) return analysis
+  const intents = new Set<FeedbackIntent>()
+  const evidence: FeedbackContext['evidence'] = []
+  let preferenceClauses = 0, requestDetected = false, preferenceDetected = false, programRequestDetected = false
+  const originalClauses = splitFeedbackClauses(text)
+  const meaningfulClauses = originalClauses.filter(clause => !tokensOf(clause.text).every(token => lexicon.context.politeSuffixes.includes(token)))
+  const clauses = meaningfulClauses.length ? meaningfulClauses : originalClauses
+  for (const clause of clauses) {
+    const requests = phraseEvidence(clause.text, lexicon.context.requestMarkers)
+    const preferences = phraseEvidence(clause.text, lexicon.context.preferenceMarkers)
+    const wishes = phraseEvidence(clause.text, lexicon.suggestionMarkers)
+    const subjects = phraseEvidence(clause.text, [...lexicon.context.participantTerms, ...lexicon.themes.facilitators])
+    const appearances = phraseEvidence(clause.text, lexicon.context.appearanceTerms)
+    const pair = appearances.flatMap(appearance => subjects.filter(subject => Math.max(subject.start - appearance.end, appearance.start - subject.end) <= 3).map(subject => ({ appearance, subject })))[0]
+    const negatedAppearance = pair && hasPhrase(tokensOf(clause.text).slice(Math.max(0, pair.appearance.start - 4), pair.appearance.start), lexicon.negators)
+    // Merely naming the training/venue around an appearance request does not
+    // turn that request into a supported program improvement.
+    const clauseProgramTopic = !pair && Object.entries(lexicon.themes).some(([theme, phrases]) => theme !== 'participants' && hasPhrase(feedbackTokensOf(clause.text), phrases))
+    if ((requests.length || wishes.length || preferences.length) && clauseProgramTopic) programRequestDetected = true
+    if (requests.length || wishes.length) {
+      requestDetected = true
+      evidence.push({ kind: 'request', phrase: (requests[0] ?? wishes[0]).phrase })
+    }
+    if (preferences.length || (pair && (requests.length || wishes.length))) preferenceDetected = true
+    const understoodTail = pair && tokensOf(clause.text.slice(Math.max(pair.appearance.to, pair.subject.to))).every(token => lexicon.context.politeSuffixes.includes(token))
+    if (pair && !negatedAppearance && understoodTail && (requests.length || wishes.length || preferences.length)) {
+      preferenceClauses++
+      evidence.push({ kind: 'preference', phrase: clause.text.slice(Math.min(pair.appearance.from, pair.subject.from), Math.max(pair.appearance.to, pair.subject.to)) })
+    }
+  }
+  const programTopics = analysis.themes.filter(theme => theme.theme !== 'participants')
+  const personalPreferenceOnly = preferenceClauses > 0 && preferenceClauses === clauses.length && !analysis.matchedTerms.length && !programTopics.some(theme => theme.theme !== 'facilitators')
+  if (requestDetected) intents.add('request')
+  if (preferenceDetected) intents.add('personal-preference')
+  if (analysis.matchedTerms.some(term => term.sentiment === 'positive' && !term.ambiguous)) intents.add('praise')
+  if (analysis.matchedTerms.some(term => term.sentiment === 'negative' && !term.ambiguous)) intents.add('complaint')
+  if (personalPreferenceOnly) {
+    analysis.label = 'neutral'
+    analysis.score = 0
+    analysis.isSuggestion = false
+    analysis.themes.forEach(theme => { theme.sentiment = 'neutral'; theme.score = 0 })
+  } else if (programRequestDetected) {
+    analysis.isSuggestion = true
+    if (preferenceDetected && analysis.label === 'no-signal' && !analysis.matchedTerms.length) analysis.label = 'neutral'
+  }
+  else if (preferenceDetected) analysis.isSuggestion = false
+  if (requestDetected && !programTopics.length && !hasPhrase(feedbackTokensOf(text), lexicon.feedbackContext)) analysis.isSuggestion = false
+  if (analysis.isSuggestion) intents.add('suggestion')
+  if (!intents.size && hasPhrase(feedbackTokensOf(text), lexicon.context.observationMarkers)) intents.add('general-observation')
+  if (!intents.size) intents.add('unclear')
+  const hasSubject = analysis.themes.length > 0 || hasPhrase(feedbackTokensOf(text), lexicon.feedbackContext)
+  const programImprovement = !personalPreferenceOnly && programTopics.length > 0 && (intents.has('complaint') || analysis.isSuggestion === true)
+  const relevance: FeedbackContext['relevance'] = personalPreferenceOnly ? 'low' : programImprovement || hasSubject && (intents.has('praise') || intents.has('complaint')) ? 'high' : hasSubject ? 'medium' : 'uncertain'
+  const actionability: FeedbackContext['actionability'] = personalPreferenceOnly ? 'not-directly-actionable' : programImprovement ? 'actionable' : intents.has('praise') || intents.has('general-observation') ? 'not-directly-actionable' : 'needs-manual-review'
+  return { ...analysis, context: {
+    intents: [...intents], relevance, actionability, personalPreferenceOnly,
+    ...(requestDetected ? { requestType: preferenceClauses && !programRequestDetected ? 'personal-preference' : programRequestDetected ? 'program-improvement' : 'unspecified' } : {}),
+    evidence: evidence.filter((item, index) => evidence.findIndex(other => other.kind === item.kind && other.phrase === item.phrase) === index),
+  } }
+}
+
+export function analyzeFeedback(text: string): FeedbackAnalysis {
+  return withFeedbackContext(text, analyzeFeedbackRules(text))
+}
+
+export function explainFeedback(text: string, analysis: FeedbackAnalysis, source: 'rules' | 'semantic' | 'none'): string[] {
+  const context = analysis.context
+  if (context?.personalPreferenceOnly) {
+    const request = context.evidence.find(item => item.kind === 'request' && text.includes(item.phrase))
+    const preference = context.evidence.find(item => item.kind === 'preference' && text.includes(item.phrase))
+    return [
+      `The participant expresses a personal preference for ${analysis.themes.some(theme => theme.theme === 'participants') ? 'participants' : 'facilitators'} they consider attractive${preference ? `, expressed in “${preference.phrase}”` : ''}.`,
+      ...(request ? [`“${request.phrase}” indicates a request.`] : []),
+      `The subject is ${analysis.themes.some(theme => theme.theme === 'participants') ? 'participants' : 'facilitators'}. This wording does not evaluate the program’s quality or effectiveness, so its sentiment is Neutral.`,
+      'Program relevance is Low. The request is not directly actionable as a program improvement; it does not justify appearance-based selection or an official program recommendation.',
+    ]
+  }
+  const reasons = [analysis.label === 'neutral' ? 'The comment states a preference without evaluating current program quality, so its sentiment is Neutral.' : source === 'semantic'
+    ? 'The multilingual model found similarity to sentiment reference examples. Similarity is not a calibrated probability and provides no word-level evidence.'
+    : analysis.matchedTerms.length ? `Language rules found ${analysis.label === 'mixed' ? 'both positive and negative' : analysis.label} signals, accounting for negation and emphasis.`
+      : 'Sentiment is Uncertain because there is insufficient evaluative evidence. A request alone does not establish praise or dissatisfaction.']
+  if (analysis.themes.length) reasons.push(`Detected subjects: ${analysis.themes.map(theme => theme.theme).join(', ')}. Topic matching is independent of sentiment.`)
+  else reasons.push('No reliable feedback subject was identified.')
+  if (context) {
+    context.evidence.filter(item => item.kind === 'request' && text.includes(item.phrase)).forEach(item => reasons.push(`“${item.phrase}” indicates a request; a request is treated as a program suggestion only when a program-related subject is supported.`))
+    context.evidence.filter(item => item.kind === 'preference' && text.includes(item.phrase)).forEach(item => reasons.push(`“${item.phrase}” expresses an appearance preference; this does not justify appearance-based selection.`))
+    reasons.push(`Program relevance: ${context.relevance}. ${context.actionability === 'actionable' ? 'A program-related issue or proposed change is present; staff should verify the original wording before acting.' : context.actionability === 'not-directly-actionable' ? 'No direct program improvement is established by this comment.' : 'Actionability needs manual review; the text does not establish a sufficiently clear program improvement.'}`)
+  }
+  // Original text remains available alongside these reasons; never paraphrase it as model evidence.
+  return reasons
+}
+
 /**
  * Adds local multilingual semantic similarities to the Bisaya-aware rules.
  * Feedback text is embedded in the browser; only model weights are downloaded.
@@ -434,10 +555,11 @@ export async function analyzeFeedbackHybrid(comments: string[], options: Feedbac
       if (!vector) return
 
       let assisted = false
+      if (analysis.context?.personalPreferenceOnly) return
       const context = hasPhrase(feedbackTokensOf(comments[index]), lexicon.feedbackContext)
       if (!context && !analysis.themes.length && !analysis.matchedTerms.length) return
       const semanticSentiment = classifySemanticSentiment(vector, prototypeVectors.sentiments, thresholds.sentimentMargin)
-      if (analysis.label === 'no-signal' && !analysis.isSuggestion && semanticSentiment) {
+      if (analysis.label === 'no-signal' && !analysis.isSuggestion && !analysis.context?.intents.some(intent => intent === 'request' || intent === 'personal-preference') && semanticSentiment) {
         sentimentSources[index] = 'semantic'
         analysis.label = semanticSentiment.label
         analysis.score = semanticSentiment.label === 'positive'
@@ -465,6 +587,7 @@ export async function analyzeFeedbackHybrid(comments: string[], options: Feedbac
       }
 
       if (assisted) semanticAssistedComments += 1
+      analyses[index] = withFeedbackContext(comments[index], analysis)
     })
 
     return { analyses, sentimentSources, semanticAssistedComments, modelStatus: 'ready' }

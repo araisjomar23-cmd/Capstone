@@ -78,9 +78,9 @@ test('hybrid preserves clear rule sentiment, suggestion neutrality and off-topic
   const comments = ['Dili nindot ang programa.', 'Lami ang snacks pero kulang.', 'Unta dugangan pa ang oras sa workshop.', 'I want more pogi participants.', 'A singular experience at the event.']
   const result = await analyzeFeedbackHybrid(comments, { embedder: fakeEmbedder })
   assert.equal(result.modelStatus, 'ready')
-  assert.deepEqual(result.analyses.map(item => item.label), ['negative', 'mixed', 'no-signal', 'no-signal', 'positive'])
-  assert.deepEqual(result.analyses[3].themes, [])
-  assert.deepEqual(result.sentimentSources, ['rules', 'rules', 'none', 'none', 'semantic'])
+  assert.deepEqual(result.analyses.map(item => item.label), ['negative', 'mixed', 'no-signal', 'neutral', 'positive'])
+  assert.deepEqual(result.analyses[3].themes.map(theme => theme.theme), ['participants'])
+  assert.deepEqual(result.sentimentSources, ['rules', 'rules', 'none', 'rules', 'semantic'])
   assert.equal(result.analyses[1].themes.find(theme => theme.theme === 'food')?.sentiment, 'mixed')
 })
 

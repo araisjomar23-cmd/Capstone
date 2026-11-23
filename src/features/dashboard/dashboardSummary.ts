@@ -1,4 +1,5 @@
 import { manilaDate } from '../../lib/calendarDate'
+import { YOUTH_AGE_GROUPS, getYouthAgeGroup } from '../../lib/youthAgeGroups'
 import type { DashboardData, AttendanceTrendDatum, StatusSlice, ActivityRegistrationDatum, BudgetDatum, ProgramSummary } from './useDashboardData'
 import type { Activity } from '../../types/activity'
 import type { Registration } from '../../types/registration'
@@ -70,6 +71,13 @@ export function summarizeDashboard(snapshot: DashboardSnapshot, period: FiscalPe
     .map(([status, value]) => ({ status, label: status, value }))
     .sort((a, b) => b.value - a.value)
 
+  const attendees = activeRegistrations.filter(p => p.status === 'attended' || p.status === 'completed')
+  const ageBreakdown: StatusSlice[] = YOUTH_AGE_GROUPS.map(group => ({
+    status: group.label,
+    label: `${group.label} (${group.min}–${group.max})`,
+    value: attendees.filter(p => getYouthAgeGroup(p.age) === group.label).length,
+  }))
+
   const activityRegistrations: ActivityRegistrationDatum[] = acts
     .map((a) => ({
       name: a.title,
@@ -137,6 +145,7 @@ export function summarizeDashboard(snapshot: DashboardSnapshot, period: FiscalPe
     liveCount,
     all,
     statusBreakdown,
+    ageBreakdown,
     activityRegistrations,
     budgetOverview,
     attendanceTrend,

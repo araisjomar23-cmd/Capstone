@@ -5,7 +5,8 @@ import { useMemo } from 'react'
 import { fetchEvaluations } from '../../features/evaluations/evaluationService'
 import type { EvaluationRow } from '../../features/evaluations/evaluationService'
 import EvaluationResponseDetails from '../../features/evaluations/EvaluationResponseDetails'
-import { ThumbsUp, ThumbsDown } from 'lucide-react'
+import { evaluationRecommendation } from '../../features/evaluations/evaluationAnalysis'
+import { ThumbsUp, ThumbsDown, Minus } from 'lucide-react'
 import { Star } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState'
 import { MessageSquareText } from 'lucide-react'
@@ -138,7 +139,9 @@ function AdminEvaluations() {
                 title="No feedback found"
                 subtitle="Try clearing the date filters, or wait for participants to submit evaluations."/>
             ) : (
-            filtered.map((r) => (
+            filtered.map((r) => {
+              const recommendation = evaluationRecommendation(r)
+              return (
               <div key={r.id} className="p-4">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-1">
                   <div className="min-w-0">
@@ -150,12 +153,8 @@ function AdminEvaluations() {
                 </div>
                 {r.feedback && <p className="text-sm text-gray-600 mt-2 break-words">{r.feedback}</p>}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-                  <span className={`text-xs font-medium ${r.wouldRecommend ? 'text-green-600' : 'text-gray-400'}`}>
-                    {r.wouldRecommend ? (
-                    <span className="inline-flex items-center gap-1"><ThumbsUp size={12} /> Would recommend</span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1"><ThumbsDown size={12} /> Would not recommend</span>
-                  )}
+                  <span className={`inline-flex items-center gap-1 text-xs font-medium ${recommendation.tone === 'positive' ? 'text-green-600' : 'text-gray-500'}`}>
+                    {recommendation.tone === 'positive' ? <ThumbsUp size={12} /> : recommendation.tone === 'negative' ? <ThumbsDown size={12} /> : <Minus size={12} />}{recommendation.label}
                   </span>
                   <span className="text-xs text-gray-300">
                     {new Date(r.submittedAt).toLocaleDateString('en-PH', {
@@ -167,7 +166,7 @@ function AdminEvaluations() {
                 </div>
                 <EvaluationResponseDetails evaluation={r} />
               </div>
-            ))
+            )})
           )}
         </div>
       </div>

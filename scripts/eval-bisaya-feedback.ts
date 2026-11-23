@@ -79,7 +79,7 @@ if (calibrate) {
   if (!calibration.length || !heldout.length) {
     console.log('Real calibration/held-out rows are missing. Thresholds remain 0.035 and 0.82; no model was loaded and no real-world accuracy was measured.')
   } else if (!hasCoverage(calibration) || !hasCoverage(heldout)) {
-    console.log('Insufficient coverage of all four sentiments and positive/negative labels for all five topics. Reporting defaults descriptively; no threshold selection.')
+    console.log('Insufficient coverage of all five sentiments and positive/negative labels for all six topics. Reporting defaults descriptively; no threshold selection.')
     printMetrics('Real calibration baseline', calibration, await predict(calibration))
     printMetrics('Real held-out baseline (incomplete coverage)', heldout, await predict(heldout))
   } else {

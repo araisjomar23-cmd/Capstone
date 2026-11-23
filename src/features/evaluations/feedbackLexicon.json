@@ -256,6 +256,17 @@
       "praktikal",
       "kalisod",
       "topics"
+    ],
+    "participants": [
+      "participant",
+      "participants",
+      "attendee",
+      "attendees",
+      "partisipante",
+      "mga partisipante",
+      "kauban",
+      "kalahok",
+      "mga kalahok"
     ]
   },
   "negators": [
@@ -398,5 +409,80 @@
     "training",
     "experience",
     "session"
-  ]
+  ],
+  "context": {
+    "requestMarkers": [
+      "i want more",
+      "i want",
+      "we want",
+      "can we have",
+      "could we have",
+      "gusto ko ng",
+      "gusto ko",
+      "gusto namin",
+      "gusto unta nako",
+      "gusto nako",
+      "unta dugangan",
+      "please add",
+      "palihog dugangi"
+    ],
+    "preferenceMarkers": [
+      "i prefer",
+      "we prefer",
+      "i would like",
+      "mas gusto ko",
+      "mas ganahan ko",
+      "ganahan ko og",
+      "ganahan ko ug"
+    ],
+    "appearanceTerms": [
+      "pogi",
+      "poging",
+      "gwapo",
+      "gwapong",
+      "guwapo",
+      "guwapong",
+      "gwapa",
+      "gwapang",
+      "magandang",
+      "attractive",
+      "handsome",
+      "good looking",
+      "maganda"
+    ],
+    "participantTerms": [
+      "participant",
+      "participants",
+      "attendee",
+      "attendees",
+      "partisipante",
+      "mga partisipante",
+      "kauban",
+      "kalahok",
+      "mga kalahok"
+    ],
+    "observationMarkers": [
+      "there were",
+      "there are",
+      "joined",
+      "attended",
+      "participants were",
+      "participants ang",
+      "may mga"
+    ],
+    "politeSuffixes": [
+      "please",
+      "po",
+      "lang",
+      "unta",
+      "sana",
+      "hehe",
+      "haha",
+      "lol",
+      "thanks",
+      "salamat",
+      "gyud",
+      "kaayo"
+    ]
+  }
 }
