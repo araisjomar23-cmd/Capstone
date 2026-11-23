@@ -69,7 +69,7 @@ export default function ActivityQrGallery({ activities, now: clockNow, onRefresh
               >
                 {ACTIVITY_STATUS_DISPLAY[getActivityDisplayStatus(a, clockNow)].label}
               </span>
-              <span className="text-xs font-semibold text-primary">View QR →</span>
+              <span className="text-xs font-semibold text-primary">View QR</span>
               </div>
             </button>
           ))}
@@ -83,9 +83,11 @@ export default function ActivityQrGallery({ activities, now: clockNow, onRefresh
         <div role="dialog" aria-modal="true" aria-label="Attendance and evaluation QR" className="fixed inset-0 z-50 bg-white overflow-y-auto p-6">
           <button
             onClick={() => setSelectedQrActivityId(null)}
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary"
+            aria-label="Back to all activities"
+            title="Back to all activities"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-primary transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <ArrowLeft size={18} /> Back to all activities
+            <ArrowLeft size={26} aria-hidden="true" />
           </button>
 
           <div className="flex min-h-[80vh] flex-col items-center justify-center text-center py-8">

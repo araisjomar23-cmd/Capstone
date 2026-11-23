@@ -174,7 +174,7 @@ export default function ParticipantSignup() {
           </div>
         </aside>
         <section className="flex flex-col justify-center px-8 py-10 sm:px-12" aria-labelledby="signup-title">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline min-h-11 mb-4"><ArrowLeft size={16} aria-hidden="true" /> Back to home</Link>
+          <Link to="/" aria-label="Back to home" title="Back to home" className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg text-primary transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><ArrowLeft size={26} aria-hidden="true" /></Link>
           <h1 id="signup-title" className="text-3xl font-extrabold text-gray-900 mb-1">Create Account</h1>
           <p className="text-sm text-gray-500 mb-8">Sign up to join youth activities and track your evaluations.</p>
 

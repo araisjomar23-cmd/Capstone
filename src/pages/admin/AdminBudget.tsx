@@ -13,7 +13,6 @@ import type { BudgetEntry } from '../../features/budget/budgetService'
 import { supabase } from '../../lib/supabase'
 import ApprovedBudgetPanel from '../../features/budget/ApprovedBudgetPanel'
 import { fetchApprovedBudgets, type ApprovedBudgetVersion } from '../../features/budget/approvedBudgetService'
-import ProposalBudgetPreview from '../../features/budget/ProposalBudgetPreview'
 
 const EXPENSE_CATEGORIES = [
   'Food & Catering',
@@ -111,7 +110,7 @@ function AdminBudget() {
 
   return (
     <div className="min-w-0 p-4 md:p-8" aria-busy={loading}>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold text-primary">Budget Monitor</h1><ProposalBudgetPreview /></div>
+      <h1 className="mb-6 text-2xl font-bold text-primary">Budget Monitor</h1>
 
       {loadError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">{loadError} Showing previously loaded records. <button type="button" onClick={() => void load()} className="min-h-11 font-semibold underline">Retry</button></p>}
       <ActivityDateFilter value={period} onChange={(next) => { setPeriod(next); setSelectedActivityId(null) }} dates={data.activities.map((a) => ({ start: a.startDate, end: a.endDate }))}
@@ -131,9 +130,11 @@ function AdminBudget() {
         <div>
           <button
             onClick={() => setSelectedActivityId(null)}
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary mb-4"
+            aria-label="Back to all activities"
+            title="Back to all activities"
+            className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg text-primary transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <ArrowLeft size={16} /> Back to all activities
+            <ArrowLeft size={26} aria-hidden="true" />
           </button>
           <ActivityBudgetDetail
             key={selectedActivity.id}

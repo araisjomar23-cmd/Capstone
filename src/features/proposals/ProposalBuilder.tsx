@@ -4,11 +4,14 @@ import { fetchPrograms } from '../activities/activityService'
 import type { Program } from '../../types/program'
 import { budgetTotal, emptyProposal, type ProposalFields } from './proposalModel'
 import { defaultSignatories, downloadProposalWord, printProposalPdf, proposalExportIssues } from './proposalExport'
+import { useConfirmation } from '../../components/ConfirmationProvider'
 
 const steps = ['Activity details', 'Proposal content', 'Budget', 'Signatories & download']
 export default function ProposalBuilder({ onClose, onUpload }: { onClose: () => void; onUpload: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const content = useRef<HTMLDivElement>(null)
+  const leaving = useRef(false)
+  const confirm = useConfirmation()
   const [fields, setFields] = useState<ProposalFields>(() => structuredClone(emptyProposal))
   const [signatories, setSignatories] = useState(() => structuredClone(defaultSignatories))
   const [programs, setPrograms] = useState<Program[]>([])
@@ -24,16 +27,34 @@ export default function ProposalBuilder({ onClose, onUpload }: { onClose: () => 
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     let active = true
-    fetchPrograms().then(rows => { if (active) setPrograms(rows) }).catch(() => { if (active) setProgramError('Programs could not be loaded. Enter the PPA type manually.') })
+    fetchPrograms().then(rows => {
+      if (!active) return
+      setPrograms(rows)
+      if (!rows.length) setProgramError('Programs are unavailable. Enter the PPA type / program name manually.')
+    }).catch(() => { if (active) setProgramError('Programs could not be loaded. Enter the PPA type / program name manually.') })
     return () => { active = false; document.body.style.overflow = overflow }
   }, [])
   function change<K extends keyof ProposalFields>(key: K, value: ProposalFields[K]) {
     setFields(previous => ({ ...previous, [key]: value })); setDirty(true); setExported(false); setNotice('')
   }
-  function close() {
-    if (dirty && !window.confirm('Close this proposal builder? Download the Word file first to keep your work. This form is not saved online.')) return
-    onClose()
+  async function leave(destination: 'close' | 'upload') {
+    if (leaving.current) return
+    leaving.current = true
+    try {
+      if (dirty && !await confirm({
+        title: destination === 'close' ? 'Close proposal builder?' : 'Open proposal upload?',
+        message: 'Download the Word file first to keep your work. This form is not saved online, so any changes you have not downloaded will be lost.',
+        confirmLabel: destination === 'close' ? 'Close proposal' : 'Open upload',
+        cancelLabel: 'Keep editing',
+        tone: 'danger',
+      })) return
+      if (destination === 'close') onClose()
+      else onUpload()
+    } finally {
+      leaving.current = false
+    }
   }
+  function close() { void leave('close') }
   function navigate(next: number) { setStep(next); content.current?.scrollTo({ top: 0 }); content.current?.focus() }
   function field(key: keyof ProposalFields, label: string, type = 'text', rows = 0) {
     const props = { id: `builder-${key}`, value: String(fields[key]), className: 'input mt-1.5', onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => change(key, event.target.value as never), maxLength: 20000 }
@@ -56,9 +77,20 @@ export default function ProposalBuilder({ onClose, onUpload }: { onClose: () => 
       <div ref={content} tabIndex={-1} className="min-h-0 overflow-y-auto p-5 outline-none sm:p-6">
         <p className="mb-5 rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">This is an unsigned proposal. Download to keep a copy; closing this form does not save it online. Downloading does not create an activity or approve its budget.</p>
         {step === 0 && <div className="grid gap-4 sm:grid-cols-2">
-          {field('title', 'PPA title')}
-          <label className="text-xs font-semibold text-slate-700">Program (optional)<select className="input mt-1.5" value={fields.programId} onChange={event => { const program = programs.find(row => row.id === event.target.value); setFields(previous => ({ ...previous, programId: program?.id || '', programType: program?.name || previous.programType })); setDirty(true); setExported(false) }}><option value="">Choose a program</option>{programs.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select>{programError && <span className="mt-1 block font-normal text-amber-700">{programError}</span>}</label>
-          {field('programType', 'PPA type / program name')}{field('venue', 'PPA area / venue')}{field('slots', 'Target participants', 'number')}{field('proponent', 'PPA proponent')}
+          <div className="sm:col-span-2">{field('title', 'PPA title')}</div>
+          <label htmlFor="builder-program" className="block min-w-0 text-xs font-semibold text-slate-700">
+            PPA type / program name
+            {programError ? <input id="builder-program" className="input mt-1.5" value={fields.programType} onChange={event => change('programType', event.target.value)} maxLength={20000} aria-describedby="builder-program-message" /> : <select id="builder-program" className="input mt-1.5" value={fields.programId} onChange={event => {
+              const program = programs.find(row => row.id === event.target.value)
+              setFields(previous => ({ ...previous, programId: program?.id || '', programType: program?.name || '' }))
+              setDirty(true); setExported(false); setNotice('')
+            }}>
+              <option value="">Choose a program</option>
+              {programs.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
+            </select>}
+            {programError && <span id="builder-program-message" className="mt-1 block font-normal text-amber-700">{programError}</span>}
+          </label>
+          {field('venue', 'PPA area / venue')}{field('slots', 'Target participants', 'number')}{field('proponent', 'PPA proponent')}
           {field('startDate', 'Start date', 'date')}{field('endDate', 'End date', 'date')}{field('startTime', 'Start time', 'time')}{field('endTime', 'End time', 'time')}
           {field('beneficiaries', 'Beneficiaries / group breakdown', 'text', 3)}{field('implementingOffice', 'Implementing office')}{field('fundingSource', 'Source of funds')}
         </div>}
@@ -69,7 +101,7 @@ export default function ProposalBuilder({ onClose, onUpload }: { onClose: () => 
           <button type="button" onClick={() => change('budgetItems', [...fields.budgetItems, { description: '', quantity: 1, unitCost: 0 }])} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-4 text-xs font-semibold text-primary"><Plus size={15} />Add expense</button>
           <div className="flex flex-wrap justify-between gap-3 rounded-xl bg-primary-light p-4 text-sm font-bold text-primary"><span>Planned total</span><span>PHP {Number.isFinite(budgetTotal(fields.budgetItems)) ? budgetTotal(fields.budgetItems).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span></div>
         </div>}
-        {step === 3 && <div className="space-y-5"><p className="text-xs text-slate-500">Edit the roles, names and positions of the signatories. Signature lines remain blank for signing.</p>{signatories.map((person, index) => <div key={index} className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-2">{(['role', 'name', 'position'] as const).map(key => <label key={key} className={`text-xs font-semibold text-slate-700 ${key === 'role' ? 'sm:col-span-2' : ''}`}>{key === 'role' ? 'Signing role' : key === 'name' ? 'Full name / credentials' : 'Position'}<input className="input mt-1.5" maxLength={250} value={person[key]} onChange={event => { setSignatories(previous => previous.map((row, i) => i === index ? { ...row, [key]: event.target.value } : row)); setDirty(true); setExported(false); setNotice('') }} /></label>)}</div>)}<div className="flex flex-wrap gap-3"><button type="button" onClick={() => exportFile('word')} className="btn-primary inline-flex items-center gap-2"><Download size={16} />Download Word (.docx)</button><button type="button" onClick={() => exportFile('pdf')} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 px-4 text-xs font-semibold text-slate-700"><Printer size={16} />Print / Save PDF</button></div><p className="text-xs leading-relaxed text-slate-500">Word remains editable. PDF uses your browser’s print dialog: select Save as PDF. Check the downloaded document before obtaining signatures.</p>{exported && <button type="button" onClick={() => { if (!dirty || window.confirm('Open proposal upload? Make sure you saved your document before leaving.')) onUpload() }} className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-primary"><Upload size={16} />I have a signed copy — open upload</button>}</div>}
+        {step === 3 && <div className="space-y-5"><p className="text-xs text-slate-500">Edit the roles, names and positions of the signatories. Signature lines remain blank for signing.</p>{signatories.map((person, index) => <div key={index} className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-2">{(['role', 'name', 'position'] as const).map(key => <label key={key} className={`text-xs font-semibold text-slate-700 ${key === 'role' ? 'sm:col-span-2' : ''}`}>{key === 'role' ? 'Signing role' : key === 'name' ? 'Full name / credentials' : 'Position'}<input className="input mt-1.5" maxLength={250} value={person[key]} onChange={event => { setSignatories(previous => previous.map((row, i) => i === index ? { ...row, [key]: event.target.value } : row)); setDirty(true); setExported(false); setNotice('') }} /></label>)}</div>)}<div className="flex flex-wrap gap-3"><button type="button" onClick={() => exportFile('word')} className="btn-primary inline-flex items-center gap-2"><Download size={16} />Download Word (.docx)</button><button type="button" onClick={() => exportFile('pdf')} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 px-4 text-xs font-semibold text-slate-700"><Printer size={16} />Print / Save PDF</button></div><p className="text-xs leading-relaxed text-slate-500">Word remains editable. PDF uses your browser’s print dialog: select Save as PDF. Check the downloaded document before obtaining signatures.</p>{exported && <button type="button" onClick={() => { void leave('upload') }} className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-primary"><Upload size={16} />I have a signed copy — open upload</button>}</div>}
         {issues.length > 0 && <div role="alert" className="mt-5 rounded-xl bg-amber-50 p-4 text-xs text-amber-900"><p className="font-bold">Complete these details before downloading:</p><ul className="mt-2 list-disc space-y-1 pl-4">{issues.map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
         {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}{notice && <p role="status" className="mt-4 rounded-xl bg-teal-50 p-4 text-xs text-teal-800">{notice}</p>}
       </div>

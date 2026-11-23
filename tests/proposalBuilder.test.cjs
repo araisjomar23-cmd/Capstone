@@ -94,7 +94,7 @@ test('PDF export opens the print document and cleans up its frame after printing
 
 test('manual proposal form exports documents and never provides direct publication', () => {
   let step = 0, index = 0
-  const Builder = load('src/features/proposals/ProposalBuilder.tsx', { '../activities/activityService': { fetchPrograms: async () => [] }, react: { ...React, useEffect: () => {}, useRef: () => ({ current: null }), useState: initial => [index++ === 4 ? step : typeof initial === 'function' ? initial() : initial, () => {}] } }).default
+  const Builder = load('src/features/proposals/ProposalBuilder.tsx', { '../../components/ConfirmationProvider': { useConfirmation: () => async () => true }, '../activities/activityService': { fetchPrograms: async () => [] }, react: { ...React, useEffect: () => {}, useRef: () => ({ current: null }), useState: initial => [index++ === 4 ? step : typeof initial === 'function' ? initial() : initial, () => {}] } }).default
   const render = () => { index = 0; return renderToStaticMarkup(React.createElement(Builder, { onClose() {}, onUpload() {} })) }
   assert.match(render(), /PPA title/)
   step = 3
@@ -103,4 +103,73 @@ test('manual proposal form exports documents and never provides direct publicati
   assert.match(html, /Print \/ Save PDF/)
   assert.match(html, /does not create an activity/)
   assert.doesNotMatch(html, /Publish activity|Create Activity/)
+})
+
+function builderCloseHarness(approve = async () => false) {
+  const states = [], refs = [], confirmations = []
+  let stateIndex = 0, refIndex = 0, closed = 0, tree
+  const Builder = load('src/features/proposals/ProposalBuilder.tsx', {
+    '../activities/activityService': { fetchPrograms: async () => [] },
+    '../../components/ConfirmationProvider': { useConfirmation: () => options => { confirmations.push(options); return approve() } },
+    react: {
+      ...React, useEffect() {},
+      useRef(initial) { const index = refIndex++; return refs[index] ||= { current: initial } },
+      useState(initial) {
+        const index = stateIndex++
+        if (!(index in states)) states[index] = typeof initial === 'function' ? initial() : initial
+        return [states[index], value => { states[index] = typeof value === 'function' ? value(states[index]) : value }]
+      },
+    },
+  }).default
+  function render() { stateIndex = 0; refIndex = 0; tree = Builder({ onClose() { closed++ }, onUpload() {} }); return tree }
+  function find(predicate, node = tree) {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) return node.map(child => find(predicate, child)).find(Boolean)
+    return predicate(node) ? node : find(predicate, node.props?.children ?? null)
+  }
+  render()
+  return {
+    confirmations, closed: () => closed,
+    editTitle(value) { find(node => node.props?.id === 'builder-title').props.onChange({ target: { value } }); render() },
+    title: () => find(node => node.props?.id === 'builder-title').props.value,
+    close() { find(node => node.props?.['aria-label'] === 'Close proposal builder').props.onClick() },
+    escape() { tree.props.onCancel({ preventDefault() {} }) },
+  }
+}
+
+test('an untouched proposal closes without an unsaved-work warning', () => {
+  const form = builderCloseHarness()
+  form.close()
+  assert.equal(form.closed(), 1)
+  assert.deepEqual(form.confirmations, [])
+})
+
+for (const action of ['close', 'escape']) {
+  test(`Keep editing preserves the proposal after ${action}`, async () => {
+    const form = builderCloseHarness()
+    form.editTitle('Youth workshop')
+    form[action]()
+    await new Promise(setImmediate)
+    assert.equal(form.closed(), 0)
+    assert.equal(form.title(), 'Youth workshop')
+    assert.equal(form.confirmations[0].cancelLabel, 'Keep editing')
+    assert.equal(form.confirmations[0].confirmLabel, 'Close proposal')
+    assert.match(form.confirmations[0].message, /not saved online/)
+    form[action]()
+    await new Promise(setImmediate)
+    assert.equal(form.confirmations.length, 2)
+  })
+}
+
+test('closing an edited proposal waits for one app confirmation before discarding it', async () => {
+  let answer
+  const form = builderCloseHarness(() => new Promise(resolve => { answer = resolve }))
+  form.editTitle('Youth workshop')
+  form.close()
+  form.close()
+  assert.equal(form.confirmations.length, 1)
+  assert.equal(form.closed(), 0)
+  answer(true)
+  await new Promise(setImmediate)
+  assert.equal(form.closed(), 1)
 })
