@@ -155,3 +155,49 @@ test('suggestions alone can answer Comments / Suggestions without a forced extra
   assert.match(f.submissions[0].feedback, /hands-on/)
   assert.match(f.submissions[0].feedback, /real-life examples/)
 })
+
+function findRating(tree, name) {
+  if (!tree || typeof tree !== 'object') return
+  if (Array.isArray(tree)) return tree.map(node => findRating(node, name)).find(Boolean)
+  if (tree.type === 'input' && tree.props.name === name && tree.props.value === 'Good') return tree
+  return findRating(tree.props?.children, name)
+}
+
+test('clicking a rating scrolls to the next question and preserves answers and comments', async () => {
+  const f = await flow(registration, { ...answers }, true, 'Keep my comment.')
+  const rating = findRating(f.tree, 'assessment_content')
+  const previousWindow = global.window
+  const scrolled = []
+  global.window = { matchMedia: () => ({matches: false}) }
+  try {
+    rating.props.onChange()
+    rating.props.onClick({detail: 1, currentTarget: {closest: () => ({nextElementSibling: {scrollIntoView: options => scrolled.push(options)}})}})
+    assert.deepEqual(scrolled, [{behavior:'smooth',block:'start'}])
+    assert.equal(f.state[3].assessment_content, 'Good')
+    assert.equal(f.state[3].assessment_speaker, 'Excellent')
+    assert.equal(f.state[4], 'Keep my comment.')
+    assert.equal(f.submissions.length, 0)
+  } finally { global.window = previousWindow }
+})
+
+test('the final rating advances to comments and respects reduced motion', async () => {
+  const f = await flow(registration)
+  const previousWindow = global.window, previousDocument = global.document
+  const scrolled = []
+  global.window = { matchMedia: () => ({matches: true}) }
+  global.document = {getElementById(id) {assert.equal(id, 'evaluation-comments'); return {scrollIntoView: options => scrolled.push(options)}}}
+  try {
+    findRating(f.tree, 'assessment_speaker').props.onClick({detail:1,currentTarget:{closest:()=>({nextElementSibling:null})}})
+    assert.deepEqual(scrolled, [{behavior:'instant',block:'start'}])
+    assert.equal(f.submissions.length, 0)
+  } finally { global.window = previousWindow; global.document = previousDocument }
+})
+
+test('keyboard rating selection keeps normal radio-group navigation without automatic scrolling', async () => {
+  const f = await flow(registration)
+  const rating = findRating(f.tree, 'assessment_content')
+  rating.props.onChange()
+  rating.props.onClick({detail:0,currentTarget:{closest(){throw new Error('Keyboard input must not move the viewport')}}})
+  assert.equal(f.state[3].assessment_content, 'Good')
+  assert.equal(f.submissions.length, 0)
+})

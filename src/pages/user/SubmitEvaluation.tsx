@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { recordAttendanceForSubmittedEvaluation, submitEvaluation } from '../../features/evaluations/evaluationService'
 import { useSearchParams } from 'react-router-dom'
@@ -79,6 +80,18 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
 
   function setAnswer(key: string, value: string) {
     setAnswers((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function moveToNextQuestion(event: MouseEvent<HTMLInputElement>) {
+    // Keyboard/assistive clicks have detail 0. Keep normal radio-key navigation
+    // in the current question; only a mouse click or tap advances the viewport.
+    if (event.detail === 0) return
+    const nextQuestion = event.currentTarget.closest('fieldset')?.nextElementSibling as HTMLElement | null
+    const target = nextQuestion ?? document.getElementById('evaluation-comments')
+    target?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    })
   }
 
   function toggleSuggestion(id: string) {
@@ -174,13 +187,13 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
 
         <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6" aria-labelledby="ratings-heading">
           <h2 id="ratings-heading" className="font-bold text-gray-900">Your assessment</h2>
-          <p className="mt-1 text-sm text-gray-500">Choose one rating for each question, from Poor to Excellent.</p>
+          <p className="mt-1 text-sm text-gray-500">Choose one rating for each question, from Poor to Excellent. Click or tap an answer to move to the next question.</p>
           <div className="mt-6 divide-y divide-gray-100">
-            {ASSESSMENT_QUESTIONS.map((question, index) => <fieldset key={question.key} className="min-w-0 py-5 first:pt-0 last:pb-0">
+            {ASSESSMENT_QUESTIONS.map((question, index) => <fieldset key={question.key} className="min-w-0 scroll-mt-36 py-5 first:pt-0 last:pb-0">
               <legend className="float-left mb-3 w-full text-sm font-medium leading-relaxed text-gray-800"><span aria-hidden="true" className="mr-2 text-gray-400">{index + 1}.</span>{question.label} <span aria-hidden="true" className="text-red-600">*</span></legend>
               <div className="clear-both grid grid-cols-5 gap-1.5 sm:gap-3">
                 {ASSESSMENT_OPTIONS.map(option => <label key={option} className="relative min-w-0 cursor-pointer">
-                  <input type="radio" name={question.key} value={option} required checked={answers[question.key] === option} onChange={() => setAnswer(question.key, option)} className="peer sr-only" />
+                  <input type="radio" name={question.key} value={option} required checked={answers[question.key] === option} onChange={() => setAnswer(question.key, option)} onClick={moveToNextQuestion} className="peer sr-only" />
                   <span className="flex min-h-16 h-full flex-col items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-1 py-2 text-center text-[11px] font-medium leading-tight text-gray-600 transition-colors hover:border-blue-300 hover:bg-blue-50/50 peer-checked:border-primary peer-checked:bg-primary-light peer-checked:text-primary peer-checked:font-bold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary sm:text-sm">
                     <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded-full border ${answers[question.key] === option ? 'border-primary bg-primary' : 'border-gray-300'}`}>{answers[question.key] === option && <Check size={10} className="text-white" />}</span>
                     {option}
@@ -191,7 +204,7 @@ function SubmitEvaluation({ markAttendedOnSubmit = false }: { markAttendedOnSubm
           </div>
         </section>
 
-        <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <section id="evaluation-comments" className="scroll-mt-36 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
           <h2 className="font-bold text-gray-900">Comments / Suggestions <span aria-hidden="true" className="text-red-600">*</span></h2>
           <p id="suggestions-help" className="mt-1 text-sm leading-relaxed text-gray-500">Select suggestions to add them to your comment below. You can choose several and add your own thoughts.</p>
           <fieldset className="mt-5" aria-describedby="suggestions-help">
