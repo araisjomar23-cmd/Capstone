@@ -21,6 +21,7 @@
     "test:participants": "node --test tests/participantTracking.test.cjs tests/participantProfileOptions.test.cjs tests/filterAccuracy.test.cjs",
     "test:budget": "node --test tests/budgetMonitoring.test.cjs tests/approvedBudget.test.cjs tests/filterAccuracy.test.cjs tests/ppaWorkflow.test.cjs",
     "test:notifications": "node --test tests/notifications.test.cjs",
+    "test:captcha": "node --test tests/captcha.test.cjs tests/passwordRecovery.test.cjs",
     "test:ppa": "node --test tests/ppaWorkflow.test.cjs tests/proposalBuilder.test.cjs"
   },
   "dependencies": {

@@ -4,6 +4,9 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import cydoLogo from '../../assets/CYDO LOGO.jpg'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { AlertCircle, ArrowLeft, Check, CalendarCheck2, Users, Wallet, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import CaptchaChallenge from '../../components/CaptchaChallenge'
+import { useCaptcha } from '../../hooks/useCaptcha'
+import { authenticationError, captchaRequiredMessage } from '../../lib/turnstile'
 
 const MIN_PASSWORD_LENGTH = 6
 
@@ -88,6 +91,8 @@ export default function ParticipantSignup() {
   const [searchParams] = useSearchParams()
   const activityId = searchParams.get('activity')
   const requestedReturnTo = searchParams.get('returnTo')
+  const captcha = useCaptcha()
+  const submitLock = useRef(false)
 
   const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword
@@ -102,6 +107,7 @@ export default function ParticipantSignup() {
 
   async function handleSignup(e: FormEvent) {
     e.preventDefault()
+    if (submitLock.current) return
     setError('')
 
     const emailInput = formRef.current?.elements.namedItem('email') as HTMLInputElement | null
@@ -122,26 +128,36 @@ export default function ParticipantSignup() {
       return
     }
 
+    const captchaToken = captcha.getToken()
+    if (captcha.enabled && !captchaToken) { setError(captchaRequiredMessage); return }
+    submitLock.current = true
     setLoading(true)
-    const { data, error: signupError } = await supabase.auth.signUp({ email: email.trim(), password })
-    setLoading(false)
+    try {
+      const { data, error: signupError } = await supabase.auth.signUp({ email: email.trim(), password, ...(captchaToken ? { options: { captchaToken } } : {}) })
 
-    if (signupError) {
-      setError(/email.*(invalid|format)|invalid.*email/i.test(signupError.message)
-        ? 'Enter a valid email address, such as name@example.com.'
-        : signupError.message)
-      return
-    }
-
-    if (data.session) {
-      const profileParams = new URLSearchParams()
-      if (requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')) {
-        profileParams.set('returnTo', requestedReturnTo)
-      } else if (activityId) {
-        profileParams.set('activity', activityId)
+      if (signupError) {
+        setError(authenticationError(signupError, /email.*(invalid|format)|invalid.*email/i.test(signupError.message)
+          ? 'Enter a valid email address, such as name@example.com.'
+          : signupError.message))
+        return
       }
-      const profileQuery = profileParams.size ? `?${profileParams.toString()}` : ''
-      navigate(`/participant/complete-profile${profileQuery}`)
+
+      if (data.session) {
+        const profileParams = new URLSearchParams()
+        if (requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')) {
+          profileParams.set('returnTo', requestedReturnTo)
+        } else if (activityId) {
+          profileParams.set('activity', activityId)
+        }
+        const profileQuery = profileParams.size ? `?${profileParams.toString()}` : ''
+        navigate(`/participant/complete-profile${profileQuery}`)
+      }
+    } catch {
+      setError('Could not connect. Check your internet connection and try again.')
+    } finally {
+      captcha.reset()
+      submitLock.current = false
+      setLoading(false)
     }
   }
 
@@ -224,6 +240,8 @@ export default function ParticipantSignup() {
             <p className="flex items-center gap-1.5 text-xs text-brand-green" role="status"><Check size={15} /> Passwords match</p>
           )}
 
+          <CaptchaChallenge action="signup" resetKey={captcha.resetKey} onToken={captcha.onToken} />
+
           {error && (
             <div id="signup-error" role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">
               <AlertCircle size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-red-600" />
@@ -236,7 +254,7 @@ export default function ParticipantSignup() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !captcha.ready}
             className="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-xl py-3 font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading && <Spinner />}

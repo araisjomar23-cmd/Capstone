@@ -57,7 +57,8 @@ export interface CreateFacilitatorPayload {
 }
 
 export async function createFacilitatorAccount(
-  payload: CreateFacilitatorPayload
+  payload: CreateFacilitatorPayload,
+  captchaToken?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const {
     data: { session: adminSession },
@@ -66,6 +67,7 @@ export async function createFacilitatorAccount(
   const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
     email: payload.email,
     password: payload.password,
+    ...(captchaToken ? { options: { captchaToken } } : {}),
   })
 
   if (signUpErr) {

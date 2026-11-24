@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabase'
 
-export async function loginAdmin(email: string, password: string) {
-  return await supabase.auth.signInWithPassword({ email, password })
+export async function loginAdmin(email: string, password: string, captchaToken?: string) {
+  return await supabase.auth.signInWithPassword({ email, password, ...(captchaToken ? { options: { captchaToken } } : {}) })
 }
 
 // FIX: Explicitly remove the tracking flag when logging out

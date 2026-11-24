@@ -24,6 +24,21 @@ supabase/
 
 Keep `.env.local`, `node_modules/`, and `dist/` at the project root. `.env.local` contains machine-specific Supabase settings and is excluded from version control.
 
+## CAPTCHA activation
+
+The account forms support Cloudflare Turnstile using its official browser SDK, with no additional npm dependency. Participant signup, shared login, password-reset emails, and facilitator account creation send the proof to Supabase Auth. Supabase performs server-side verification when CAPTCHA is enabled there. Password updates through an authenticated recovery session retain their existing flow.
+
+The integration is inactive until `VITE_TURNSTILE_SITE_KEY` is configured. This lets the existing forms keep working during setup; it does **not** mean CAPTCHA protection is already active. See [.env.example](.env.example). The widget handles expired tokens, retries and narrow screens, and refreshes its proof after each authentication attempt. Proofs are not stored in participant or facilitator records.
+
+Activate in this order:
+
+1. Create a Managed Turnstile widget in Cloudflare for the production hostname `prime-meal.vercel.app`. Add only the preview or local hostnames you actually use. Keep its secret private; do not put it in a `VITE_` variable or commit it.
+2. Set the public `VITE_TURNSTILE_SITE_KEY` in `.env.local` for local testing and the matching Vercel environment variables. Restart Vite locally; redeploy the frontend after changing a Vercel build variable. Use real widget keys for production, not Cloudflare's development test keys.
+3. Verify the deployed signup, login, reset-email and Add Facilitator forms display and complete the security check. Then configure the matching secret in Supabase **Authentication → Bot and Abuse Protection**, choose Turnstile and enable CAPTCHA verification. Enabling it before the updated forms are deployed can interrupt authentication.
+4. With designated test accounts, verify normal signup, staff/participant login, reset emails, facilitator creation, expired-proof retries and QR redirects on desktop and phone. Reject invalid or missing proofs at Supabase. Do not create fake participants in the live dataset for load testing.
+
+Run `npm run test:captcha` for the offline regressions. These verify form behavior, proof forwarding, expiry/retry handling, SDK loading and widget cleanup; they do not replace a live test with your actual widget and Supabase settings. No database migration is needed. Vercel's firewall Log/Challenge setting is separate from Supabase Auth CAPTCHA protection. See the [Supabase CAPTCHA guide](https://supabase.com/docs/guides/auth/auth-captcha) and [Cloudflare SPA rendering guide](https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/).
+
 ## Supabase setup and migrations
 
 1. Create a Supabase project and enable email/password authentication under **Authentication → Providers**.

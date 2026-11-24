@@ -3,11 +3,16 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const ts = require('typescript')
 
-function harness(mode, overrides = {}) {
+const verification = { exports: {} }
+new Function('exports', ts.transpileModule(fs.readFileSync('src/lib/turnstile.ts', 'utf8').replaceAll('import.meta.env', '({})'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(verification.exports)
+
+function harness(mode, overrides = {}, captcha = { enabled: false, ready: true, resetKey: 0, onToken() {}, getToken() {}, reset() {} }) {
   const values = []
   const effects = []
   const calls = []
   let cursor = 0
+  let refCursor = 0
+  const refs = []
   let first = true
   const auth = {
     getSession: async () => ({ data: { session: mode === 'reset' ? { user: { id: 'test-user' } } : null }, error: null }),
@@ -24,10 +29,14 @@ function harness(mode, overrides = {}) {
         return [values[index], value => { values[index] = typeof value === 'function' ? value(values[index]) : value }]
       },
       useEffect(effect) { if (first) effects.push(effect) },
+      useRef(value) { return refs[refCursor++] ||= { current: value } },
     },
     'react-router-dom': { Link: 'a' },
     '../../lib/supabase': { supabase: { auth } },
     '../../hooks/usePageTitle': { usePageTitle() {} },
+    '../../hooks/useCaptcha': { useCaptcha: () => captcha },
+    '../../components/CaptchaChallenge': { __esModule: true, default: () => null },
+    '../../lib/turnstile': verification.exports,
     '../../assets/CYDO LOGO.jpg': { default: '' },
     'lucide-react': new Proxy({}, { get: () => () => null }),
   }
@@ -38,6 +47,7 @@ function harness(mode, overrides = {}) {
   const wrapper = module.exports.default({ mode })
   function render() {
     cursor = 0
+    refCursor = 0
     const nodes = []
     function visit(node) {
       if (!node || typeof node !== 'object') return
@@ -135,4 +145,34 @@ test('network failures leave the form available for retry', async () => {
   assert.match(form.values[6], /Check your internet/)
   assert.equal(form.values[4], false)
   assert.equal(form.values[5], false)
+})
+
+test('a reset-email request requires verification when CAPTCHA is configured', async () => {
+  const form = harness('request', {}, { enabled: true, ready: false, resetKey: 0, onToken() {}, getToken() {}, reset() {} })
+  form.input('recovery-email', 'user@example.com')
+  await form.submit()
+  assert.deepEqual(form.calls, [])
+  assert.match(form.values[6], /complete the security check/)
+})
+
+test('reset emails forward the proof to Supabase and reset it after a rejected request', async () => {
+  let token = 'proof-for-one-request', resets = 0
+  const captcha = { enabled: true, ready: true, resetKey: 0, onToken() {}, getToken: () => token, reset() { token = undefined; resets++ } }
+  const form = harness('request', { resetPasswordForEmail: async (...args) => { form.calls.push(['request', ...args]); return { error: { code: 'captcha_failed' } } } }, captcha)
+  form.input('recovery-email', 'user@example.com')
+  await form.submit()
+  assert.deepEqual(form.calls, [['request', 'user@example.com', { redirectTo: 'https://prime.example/reset-password', captchaToken: 'proof-for-one-request' }]])
+  assert.equal(resets, 1)
+  assert.match(form.values[6], /security check expired/)
+  await form.submit()
+  assert.equal(form.calls.length, 1)
+})
+
+test('an authenticated password update does not require a second CAPTCHA', async () => {
+  const form = harness('reset', {}, { enabled: true, ready: false, resetKey: 0, onToken() {}, getToken() {}, reset() { assert.fail('Password updates must not consume a CAPTCHA') } })
+  await Promise.resolve()
+  form.input('new-password', 'new-password')
+  form.input('confirm-password', 'new-password')
+  await form.submit()
+  assert.deepEqual(form.calls, [['update', { password: 'new-password' }], ['signOut', { scope: 'local' }]])
 })

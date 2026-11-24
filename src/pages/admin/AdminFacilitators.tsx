@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   fetchFacilitatorsList,
   createFacilitatorAccount,
@@ -11,6 +11,9 @@ import { useConfirmation } from '../../components/ConfirmationProvider'
 import { SkeletonTableRows } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { UserSquare2 } from 'lucide-react'
+import CaptchaChallenge from '../../components/CaptchaChallenge'
+import { useCaptcha } from '../../hooks/useCaptcha'
+import { authenticationError, captchaRequiredMessage } from '../../lib/turnstile'
 
 const emptyForm = { name: '', initials: '', email: '', password: '' }
 
@@ -23,6 +26,8 @@ function AdminFacilitators() {
   const [form, setForm] = useState(emptyForm)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const captcha = useCaptcha()
+  const submitLock = useRef(false)
 
   useEffect(() => {
     load()
@@ -36,6 +41,7 @@ function AdminFacilitators() {
   }
 
   function openModal() {
+    captcha.reset()
     setForm(emptyForm)
     setFormError('')
     setModalOpen(true)
@@ -47,6 +53,7 @@ function AdminFacilitators() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submitLock.current) return
     setFormError('')
 
     if (!form.name.trim()) return setFormError('Full name is required.')
@@ -55,23 +62,33 @@ function AdminFacilitators() {
     if (!form.password || form.password.length < 8)
       return setFormError('Password must be at least 8 characters.')
 
+    const captchaToken = captcha.getToken()
+    if (captcha.enabled && !captchaToken) return setFormError(captchaRequiredMessage)
+    submitLock.current = true
     setSubmitting(true)
-    const result = await createFacilitatorAccount({
-      name: form.name.trim(),
-      initials: form.initials.trim().toUpperCase(),
-      email: form.email.trim(),
-      password: form.password,
-    })
-    setSubmitting(false)
+    try {
+      const result = await createFacilitatorAccount({
+        name: form.name.trim(),
+        initials: form.initials.trim().toUpperCase(),
+        email: form.email.trim(),
+        password: form.password,
+      }, captchaToken)
 
-    if (!result.ok) {
-  setFormError(result.error || 'Failed to create facilitator.')
-  return
-}
+      if (!result.ok) {
+        setFormError(authenticationError({ message: result.error }, result.error || 'Failed to create facilitator.'))
+        return
+      }
 
-setModalOpen(false)
-showToast('Facilitator account created successfully.', 'success')
-load()
+      setModalOpen(false)
+      showToast('Facilitator account created successfully.', 'success')
+      void load()
+    } catch {
+      setFormError('Could not connect. Check your internet connection and try again.')
+    } finally {
+      captcha.reset()
+      submitLock.current = false
+      setSubmitting(false)
+    }
   }
 
   async function handleDelete(id: string) {
@@ -291,12 +308,13 @@ load()
                 <p className="text-[11px] text-gray-400 mt-1">At least 8 characters</p>
               </div>
 
-              {formError && <p className="text-sm text-red-500">{formError}</p>}
+              <CaptchaChallenge action="facilitator-signup" resetKey={captcha.resetKey} onToken={captcha.onToken} />
+              {formError && <p role="alert" className="text-sm text-red-500">{formError}</p>}
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !captcha.ready}
                   className="flex-1 bg-primary text-white rounded-lg py-2.5 font-medium disabled:opacity-50"
                 >
                   {submitting ? 'Creating…' : 'Create Account'}

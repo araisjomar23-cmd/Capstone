@@ -1,9 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Mail } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import logo from '../../assets/CYDO LOGO.jpg'
+import CaptchaChallenge from '../../components/CaptchaChallenge'
+import { useCaptcha } from '../../hooks/useCaptcha'
+import { authenticationError, captchaRequiredMessage } from '../../lib/turnstile'
 
 export default function PasswordRecovery({ mode }: { mode: 'request' | 'reset' }) {
   // Separate route instances keep form and success state from leaking between modes.
@@ -21,6 +24,8 @@ function RecoveryForm({ mode }: { mode: 'request' | 'reset' }) {
   const [complete, setComplete] = useState(false)
   const [error, setError] = useState('')
   const [sessionState, setSessionState] = useState<'checking' | 'ready' | 'invalid'>(resetting ? 'checking' : 'ready')
+  const captcha = useCaptcha()
+  const submitLock = useRef(false)
 
   useEffect(() => {
     if (!resetting) return
@@ -36,7 +41,7 @@ function RecoveryForm({ mode }: { mode: 'request' | 'reset' }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (busy || sessionState !== 'ready') return
+    if (submitLock.current || busy || sessionState !== 'ready') return
     setError('')
     if (resetting && password.length < 6) {
       setError('Your password must contain at least 6 characters.')
@@ -46,6 +51,9 @@ function RecoveryForm({ mode }: { mode: 'request' | 'reset' }) {
       setError('The passwords do not match. Please enter them again.')
       return
     }
+    const captchaToken = captcha.getToken()
+    if (!resetting && captcha.enabled && !captchaToken) { setError(captchaRequiredMessage); return }
+    submitLock.current = true
     setBusy(true)
     try {
       if (resetting) {
@@ -70,11 +78,10 @@ function RecoveryForm({ mode }: { mode: 'request' | 'reset' }) {
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: new URL('/reset-password', window.location.origin).href,
+          ...(captchaToken ? { captchaToken } : {}),
         })
         if (error) {
-          setError(error.status === 429
-            ? 'Too many requests. Please wait a few minutes before trying again.'
-            : 'We could not send the reset email. Please try again in a few minutes.')
+          setError(authenticationError(error, 'We could not send the reset email. Please try again in a few minutes.'))
           return
         }
       }
@@ -82,6 +89,8 @@ function RecoveryForm({ mode }: { mode: 'request' | 'reset' }) {
     } catch {
       setError('Could not connect. Check your internet connection and try again.')
     } finally {
+      if (!resetting) captcha.reset()
+      submitLock.current = false
       setBusy(false)
     }
   }
@@ -126,8 +135,9 @@ function RecoveryForm({ mode }: { mode: 'request' | 'reset' }) {
                 <input id="recovery-email" type="email" placeholder=" " autoComplete="email" className="input" required value={email} onChange={e => setEmail(e.target.value)} disabled={busy} />
                 <label htmlFor="recovery-email">Email address</label>
               </div>}
+              {!resetting && <CaptchaChallenge action="password-reset" resetKey={captcha.resetKey} onToken={captcha.onToken} />}
               {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-xl p-3">{error}</p>}
-              <button type="submit" disabled={busy} className="btn-primary w-full min-h-11">{busy ? (resetting ? 'Updating password…' : 'Sending reset link…') : resetting ? 'Update password' : 'Send reset link'}</button>
+              <button type="submit" disabled={busy || (!resetting && !captcha.ready)} className="btn-primary w-full min-h-11">{busy ? (resetting ? 'Updating password…' : 'Sending reset link…') : resetting ? 'Update password' : 'Send reset link'}</button>
             </form>
           </>}
         {complete && error && <p role="alert" className="text-sm text-red-700 mt-4">{error}</p>}

@@ -6,6 +6,9 @@ import logo from '../../assets/CYDO LOGO.jpg'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../features/auth/AuthContext'
+import CaptchaChallenge from '../../components/CaptchaChallenge'
+import { useCaptcha } from '../../hooks/useCaptcha'
+import { authenticationError, captchaRequiredMessage } from '../../lib/turnstile'
 
 const FEATURES = [
   { icon: CalendarCheck2, label: 'Discover Youth Programs' },
@@ -35,6 +38,8 @@ function AdminLogin() {
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
+  const captcha = useCaptcha()
+  const submitLock = useRef(false)
 
   useEffect(() => {
     if (authLoading) return
@@ -51,6 +56,7 @@ function AdminLogin() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submitLock.current) return
     setError('')
     setMissingFields({ email: !email.trim(), password: !password })
 
@@ -63,59 +69,56 @@ function AdminLogin() {
       return
     }
 
+    const captchaToken = captcha.getToken()
+    if (captcha.enabled && !captchaToken) { setError(captchaRequiredMessage); return }
+    submitLock.current = true
     setLoading(true)
 
-    // FIX 3: Safe execution block for authentication
-    const { data, error: loginError } = await loginAdmin(email.trim(), password)
+    try {
+      const { data, error: loginError } = await loginAdmin(email.trim(), password, captchaToken)
 
-    if (loginError) {
+      if (loginError) {
+        setError(authenticationError(loginError, 'The email or password is incorrect. Check your details and try again.'))
+        return
+      }
+
+      const userId = data.user?.id
+      if (!userId) {
+        setError('Could not identify user. Please try again.')
+        return
+      }
+
+      if (rememberMe) localStorage.setItem('cydo_remembered_email', email.trim())
+      else localStorage.removeItem('cydo_remembered_email')
+
+      const role = await getAdminRole(userId)
+
+      if (role === 'superadmin') {
+        navigate('/admin')
+        return
+      }
+
+      if (role === 'facilitator') {
+        navigate('/admin/facilitator-portal')
+        return
+      }
+
+      const { data: participant } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('user_uuid', userId)
+        .maybeSingle()
+
+      const pendingRedirect = isSafeReturnTo(requestedReturnTo) ? requestedReturnTo : sessionStorage.getItem('postLoginRedirect')
+      sessionStorage.removeItem('postLoginRedirect')
+
+      navigate(participant ? pendingRedirect || '/participant' : '/participant/complete-profile')
+    } catch {
+      setError('Could not connect. Check your internet connection and try again.')
+    } finally {
+      captcha.reset()
+      submitLock.current = false
       setLoading(false)
-      setError('The email or password is incorrect. Check your details and try again.')
-      return
-    }
-
-    const userId = data.user?.id
-    if (!userId) {
-      setLoading(false)
-      setError('Could not identify user. Please try again.')
-      return
-    }
-
-    if (rememberMe) {
-      localStorage.setItem('cydo_remembered_email', email.trim())
-    } else {
-      localStorage.removeItem('cydo_remembered_email')
-    }
-
-    const role = await getAdminRole(userId)
-
-    if (role === 'superadmin') {
-      setLoading(false)
-      navigate('/admin')
-      return
-    }
-
-    if (role === 'facilitator') {
-      setLoading(false)
-      navigate('/admin/facilitator-portal')
-      return
-    }
-
-    const { data: participant } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('user_uuid', userId)
-      .maybeSingle()
-
-    const pendingRedirect = isSafeReturnTo(requestedReturnTo) ? requestedReturnTo : sessionStorage.getItem('postLoginRedirect')
-    sessionStorage.removeItem('postLoginRedirect')
-
-    setLoading(false)
-
-    if (participant) {
-      navigate(pendingRedirect || '/participant')
-    } else {
-      navigate('/participant/complete-profile')
     }
   }
 
@@ -256,6 +259,8 @@ function AdminLogin() {
               </Link>
             </div>
 
+            <CaptchaChallenge action="login" resetKey={captcha.resetKey} onToken={captcha.onToken} />
+
             {error && (
               <div id="login-error" role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">
                 <AlertCircle size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-red-600" />
@@ -268,7 +273,7 @@ function AdminLogin() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !captcha.ready}
               className="w-full bg-primary text-white rounded-xl py-3 font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {loading ? 'Signing in…' : 'Sign In'}
