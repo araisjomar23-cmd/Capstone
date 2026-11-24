@@ -130,6 +130,29 @@ test('neutral recommendation answers are not displayed as negative recommendatio
   assert.match(html, /Neutral recommendation \(3\/5\)/)
   assert.doesNotMatch(html, /Would not recommend/)
 })
+
+test('dashboard and evaluations exclude the new assessment form from recommendation totals', () => {
+  const { ASSESSMENT_QUESTIONS, ASSESSMENT_VERSION } = load('src/features/evaluations/organizationEvaluation.ts')
+  const responses = { form_version: ASSESSMENT_VERSION, facilitator_name: 'Example', ...Object.fromEntries(ASSESSMENT_QUESTIONS.map(q => [q.key, 'Good'])), assessment_content: 'Excellent' }
+  const row = { ...evaluations[1], rating: 3, wouldRecommend: false, responses }
+  const result = summarizeDashboard({ acts: activities, all: participants, evaluations: [evaluations[1], row] }, { year: 'all', startMonth: 1 })
+  assert.equal(result.evaluationStats.recommendRate, 100)
+  assert.equal(result.evaluationStats.recommendResponses, 1)
+  assert.equal(result.activitySatisfaction[0].averageRating, (5 + 23 / 7) / 2)
+  const html = renderPage('AdminEvaluations', [period, [{...row, rating: 23 / 7}], false])
+  assert.match(html, /Assessment 3.3\/5/)
+  assert.match(html, /Recommendation not asked in this form/)
+  assert.doesNotMatch(html, /Would not recommend|>0%</)
+})
+
+test('admin feedback displays edited comments and counts only suggestions still present', () => {
+  const feedback = 'My edited feedback.\nPlease allow more time for questions and discussion.'
+  const row = {...evaluations[1],feedback,responses:{form_version:'cydo-assessment-v1',feedback_format:'editable-suggestions-v1',selected_suggestions:'["hands-on","questions"]',written_comment:'Outdated text'}}
+  const html = renderPage('AdminEvaluations', [period, [row], false])
+  assert.match(html, /My edited feedback/)
+  assert.match(html, /Includes 1 quick suggestion selected by the participant/)
+  assert.doesNotMatch(html, /Outdated text|hands-on/)
+})
 test('organization attendance template preserves columns, separates events and sorts by surname', () => {
   const { attendanceName } = load('src/features/participants/printAttendance.ts')
   assert.deepEqual(attendanceName({ name: 'Erica Gonzales Luridan' }), { first: 'Erica', middle: 'G.', last: 'Luridan' })

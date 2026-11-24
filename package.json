@@ -12,6 +12,7 @@
     "eval:nlp": "node --experimental-strip-types scripts/eval-bisaya-feedback.ts",
     "test:nlp": "node --experimental-strip-types --test tests/feedbackAnalyzer.test.ts tests/feedbackInsights.test.ts tests/bisayaFeedback.test.ts tests/feedbackEvaluation.test.ts tests/contextualFeedback.test.ts tests/overallEvaluation.test.ts tests/feedbackComment.test.cjs",
     "preview": "vite preview",
+    "preview:evaluation": "node scripts/preview-evaluation.mjs",
     "db:new": "supabase migration new",
     "db:status": "supabase migration list --linked",
     "db:push": "supabase db push --linked",
@@ -22,6 +23,7 @@
     "test:budget": "node --test tests/budgetMonitoring.test.cjs tests/approvedBudget.test.cjs tests/filterAccuracy.test.cjs tests/ppaWorkflow.test.cjs",
     "test:notifications": "node --test tests/notifications.test.cjs",
     "test:captcha": "node --test tests/captcha.test.cjs tests/passwordRecovery.test.cjs",
+    "test:evaluations": "node --experimental-strip-types --test tests/evaluationAttendanceFlow.test.cjs tests/organizationEvaluation.test.ts tests/organizationEvaluationDatabase.test.cjs tests/overallEvaluation.test.ts tests/feedbackComment.test.cjs tests/filterAccuracy.test.cjs",
     "test:ppa": "node --test tests/ppaWorkflow.test.cjs tests/proposalBuilder.test.cjs"
   },
   "dependencies": {

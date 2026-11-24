@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { evaluationScore, recommendationStats } from './organizationEvaluation'
 
 export interface EvaluationRow {
   id: string
@@ -18,6 +19,7 @@ export interface EvaluationStats {
   totalResponses: number
   averageRating: number
   recommendRate: number
+  recommendResponses?: number
 }
 
 export async function fetchEvaluations(strict = false): Promise<{ stats: EvaluationStats; rows: EvaluationRow[] }> {
@@ -56,7 +58,7 @@ export async function fetchEvaluations(strict = false): Promise<{ stats: Evaluat
     const reg = regMap[e.registration_id]
     return {
       id: e.id,
-      rating: e.rating,
+      rating: evaluationScore(e) ?? e.rating,
       feedback: e.feedback || '',
       responses: e.responses && typeof e.responses === 'object' && !Array.isArray(e.responses)
         ? Object.fromEntries(Object.entries(e.responses).map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value) ?? '']))
@@ -73,11 +75,9 @@ export async function fetchEvaluations(strict = false): Promise<{ stats: Evaluat
 
   const totalResponses = rows.length
   const averageRating = totalResponses > 0 ? rows.reduce((s, r) => s + r.rating, 0) / totalResponses : 0
-  const recommendCount = rows.filter((r) => r.wouldRecommend).length
-  const recommendRate = totalResponses > 0 ? Math.round((recommendCount / totalResponses) * 100) : 0
 
   return {
-    stats: { totalResponses, averageRating: Math.round(averageRating * 10) / 10, recommendRate },
+    stats: { totalResponses, averageRating: Math.round(averageRating * 10) / 10, ...recommendationStats(rows) },
     rows,
   }
 }

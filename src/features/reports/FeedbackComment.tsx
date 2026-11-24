@@ -1,6 +1,7 @@
 import type { ReportData } from './reportService'
 import { explainFeedback } from '../evaluations/feedbackAnalyzer'
 import OverallEvaluationSummary from '../evaluations/OverallEvaluationSummary'
+import FeedbackSuggestionNote from '../evaluations/FeedbackSuggestionNote'
 
 type Comment = ReportData['feedbackAnalysis']['comments'][number]
 
@@ -24,6 +25,7 @@ export default function FeedbackComment({ comment }: { comment: Comment }) {
         </span>
       </div>
       <blockquote className="mt-3 whitespace-pre-wrap break-words border-l-2 border-gray-300 pl-3 text-sm text-gray-700">{comment.text}</blockquote>
+      <FeedbackSuggestionNote count={comment.quickSuggestionCount} />
       {context ? <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Feedback intent">{context.intents.map(intent => <span key={intent} className="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">{label(intent)}</span>)}</div> : comment.isSuggestion && <p className="mt-3 w-fit rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Suggestion</p>}
       {comment.themes.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{comment.themes.map(theme => <span key={theme} className="rounded-md bg-gray-100 px-2 py-1 text-[10px] font-semibold capitalize text-gray-500">{theme}</span>)}</div>}
       {context && <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs"><div><dt className="text-gray-500">Program relevance</dt><dd className="mt-1 font-medium text-gray-700">{label(context.relevance)}</dd></div><div><dt className="text-gray-500">Actionability</dt><dd className="mt-1 font-medium text-gray-700">{label(context.actionability)}</dd></div>{context.requestType && <div><dt className="text-gray-500">Request type</dt><dd className="mt-1 font-medium text-gray-700">{label(context.requestType)}</dd></div>}</dl>}
@@ -52,7 +54,7 @@ export default function FeedbackComment({ comment }: { comment: Comment }) {
           </ul>
         ) : <p>No specific feedback topic was identified.</p>}
       </div></details>
-      {comment.overallEvaluation && <details className="mt-3 border-t border-gray-100 pt-2"><summary className="w-fit cursor-pointer py-2 text-xs font-semibold text-primary">Full evaluation context · {comment.overallEvaluation.ratingLabel}{comment.overallEvaluation.rating !== null ? ` (${comment.overallEvaluation.rating}/5)` : ''}</summary><div className="mt-2"><OverallEvaluationSummary analysis={comment.overallEvaluation} /></div></details>}
+      {comment.overallEvaluation && <details className="mt-3 border-t border-gray-100 pt-2"><summary className="w-fit cursor-pointer py-2 text-xs font-semibold text-primary">Full evaluation context · {comment.overallEvaluation.ratingLabel}{comment.overallEvaluation.rating !== null ? ` (${comment.overallEvaluation.rating.toFixed(1)}/5)` : ''}</summary><div className="mt-2"><OverallEvaluationSummary analysis={comment.overallEvaluation} /></div></details>}
     </article>
   )
 }

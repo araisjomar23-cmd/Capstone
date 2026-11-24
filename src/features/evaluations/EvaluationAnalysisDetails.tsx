@@ -4,6 +4,7 @@ import { analyzeOverallEvaluation } from './evaluationAnalysis'
 import type { EvaluationRow } from './evaluationService'
 import OverallEvaluationSummary from './OverallEvaluationSummary'
 import FeedbackComment from '../reports/FeedbackComment'
+import { recordedAssessmentSuggestions } from './organizationEvaluation'
 
 export default function EvaluationAnalysisDetails({ evaluation, enabled }: { evaluation: EvaluationRow; enabled: boolean }) {
   const text = evaluation.feedback || ''
@@ -22,7 +23,7 @@ export default function EvaluationAnalysisDetails({ evaluation, enabled }: { eva
   const overall = analyzeOverallEvaluation(evaluation, current.analysis)
   return <section aria-label="Full evaluation analysis" className="space-y-4">
     <h3 className="text-sm font-bold text-primary">Full Evaluation Analysis</h3>
-    <div><h4 className="mb-2 text-xs font-bold text-slate-700">NLP Comment Analysis</h4>{text.trim() ? <FeedbackComment comment={{ id: evaluation.id, activityTitle: evaluation.activityTitle, submittedAt: evaluation.submittedAt, text, sentiment: current.analysis.label, isSuggestion: current.analysis.isSuggestion, context: current.analysis.context, themes: current.analysis.themes.map(theme => theme.theme), sentimentSource: current.source, matchedTerms: current.analysis.matchedTerms, themeDetails: current.analysis.themes }} /> : <p className="text-sm text-slate-500">No written comment was recorded. Structured evaluation answers are summarized below.</p>}</div>
+    <div><h4 className="mb-2 text-xs font-bold text-slate-700">NLP Comment Analysis</h4>{text.trim() ? <FeedbackComment comment={{ id: evaluation.id, activityTitle: evaluation.activityTitle, submittedAt: evaluation.submittedAt, text, quickSuggestionCount: recordedAssessmentSuggestions(evaluation.responses, text).length, sentiment: current.analysis.label, isSuggestion: current.analysis.isSuggestion, context: current.analysis.context, themes: current.analysis.themes.map(theme => theme.theme), sentimentSource: current.source, matchedTerms: current.analysis.matchedTerms, themeDetails: current.analysis.themes }} /> : <p className="text-sm text-slate-500">No written comment was recorded. Structured evaluation answers are summarized below.</p>}</div>
     <OverallEvaluationSummary analysis={overall} showEvidence={false} />
   </section>
 }

@@ -4,6 +4,7 @@ import type { DashboardData, AttendanceTrendDatum, StatusSlice, ActivityRegistra
 import type { Activity } from '../../types/activity'
 import type { Registration } from '../../types/registration'
 import type { EvaluationRow } from '../evaluations/evaluationService'
+import { evaluationScore, recommendationStats } from '../evaluations/organizationEvaluation'
 import { inFiscalPeriod, type FiscalPeriod } from '../../lib/fiscalYear'
 
 export interface DashboardSnapshot { acts: Activity[]; all: Registration[]; evaluations: EvaluationRow[] }
@@ -33,12 +34,13 @@ export function summarizeDashboard(snapshot: DashboardSnapshot, period: FiscalPe
   const acts = snapshot.acts.filter((activity) => inFiscalPeriod(activity.startDate, period))
   const activityIds = new Set(acts.map((activity) => activity.id))
   const all = period.year === 'all' && !period.month ? snapshot.all : snapshot.all.filter((registration) => activityIds.has(registration.activityId))
-  const rows = period.year === 'all' && !period.month ? snapshot.evaluations : snapshot.evaluations.filter((evaluation) => activityIds.has(evaluation.activityId))
+  const rows = (period.year === 'all' && !period.month ? snapshot.evaluations : snapshot.evaluations.filter((evaluation) => activityIds.has(evaluation.activityId)))
+    .map(row => ({ ...row, rating: evaluationScore(row) ?? row.rating }))
   const totalResponses = rows.length
   const evalResult = { rows, stats: {
     totalResponses,
     averageRating: totalResponses ? Math.round(rows.reduce((sum, row) => sum + row.rating, 0) / totalResponses * 10) / 10 : 0,
-    recommendRate: totalResponses ? Math.round(rows.filter((row) => row.wouldRecommend).length / totalResponses * 100) : 0,
+    ...recommendationStats(rows),
   } }
   const activeRegistrations = all.filter((p) => p.status !== 'inactive')
   const totalReg = activeRegistrations.length

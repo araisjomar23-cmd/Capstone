@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { EvaluationRow } from './evaluationService'
 import EvaluationAnalysisDetails from './EvaluationAnalysisDetails'
+import { ASSESSMENT_QUESTIONS, FACILITATOR_LABEL, EDITABLE_FEEDBACK_FORMAT, isOrganizationAssessment, assessmentAverage, recordedAssessmentSuggestions } from './organizationEvaluation'
+import FeedbackSuggestionNote from './FeedbackSuggestionNote'
 
 const SECTIONS = [
   {
@@ -36,7 +38,17 @@ export default function EvaluationResponseDetails({ evaluation }: { evaluation: 
   const dialogRef = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const responses = evaluation.responses
-  const additionalAnswers = Object.entries(responses).filter(([key]) => !KNOWN_KEYS.has(key))
+  const organizationForm = isOrganizationAssessment(responses)
+  const sections = organizationForm ? [
+    { title: 'Facilitator / Trainer / Speaker', questions: [['facilitator_name', FACILITATOR_LABEL]] },
+    { title: 'Training Assessment', questions: ASSESSMENT_QUESTIONS.map(question => [question.key, question.label]) },
+  ] : SECTIONS
+  const knownKeys = organizationForm ? new Set(['form_version', 'feedback_format', 'selected_suggestions', 'written_comment', ...sections.flatMap(section => section.questions.map(([key]) => key))]) : KNOWN_KEYS
+  const additionalAnswers = Object.entries(responses).filter(([key]) => !knownKeys.has(key))
+  const average = organizationForm ? assessmentAverage(responses) : null
+  const suggestions = recordedAssessmentSuggestions(responses, evaluation.feedback)
+  const editableComment = responses.feedback_format === EDITABLE_FEEDBACK_FORMAT
+  const writtenComment = organizationForm && !editableComment && Object.hasOwn(responses, 'written_comment') ? responses.written_comment : evaluation.feedback
 
   useEffect(() => {
     if (!open) return
@@ -88,7 +100,7 @@ export default function EvaluationResponseDetails({ evaluation }: { evaluation: 
         {Object.keys(responses).length === 0 && (
           <p className="text-sm text-gray-500">Detailed form answers were not saved for this evaluation. The overall rating and any comments are shown below.</p>
         )}
-        {SECTIONS.map((section) => (
+        {sections.map((section) => (
           <section key={section.title}>
             <h3 className="mb-3 text-sm font-bold text-gray-900">{section.title}</h3>
             <dl className="space-y-3">
@@ -107,12 +119,13 @@ export default function EvaluationResponseDetails({ evaluation }: { evaluation: 
           </section>
         ))}
         <section>
-          <h3 className="text-sm font-bold text-gray-900">Overall Rating</h3>
-          <p className="mt-1 text-sm text-gray-700">{responses.overall_star || evaluation.rating} / 5 stars</p>
+          <h3 className="text-sm font-bold text-gray-900">{organizationForm ? 'Assessment Average' : 'Overall Rating'}</h3>
+          <p className="mt-1 text-sm text-gray-700">{organizationForm ? average === null ? 'Unavailable — incomplete ratings' : `${average.toFixed(1)} / 5 · calculated from seven ratings` : `${responses.overall_star || evaluation.rating} / 5 stars`}</p>
         </section>
         <section>
-          <h3 className="text-sm font-bold text-gray-900">Comments &amp; Suggestions</h3>
-          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{evaluation.feedback || 'No comments provided.'}</p>
+          <h3 className="text-sm font-bold text-gray-900">Comments / Suggestions</h3>
+          {editableComment ? <FeedbackSuggestionNote count={suggestions.length} /> : suggestions.length > 0 && <div className="mt-3"><h4 className="text-xs font-semibold text-gray-500">Selected suggestions</h4><ul className="mt-2 space-y-1 text-sm text-gray-700">{suggestions.map(suggestion => <li key={suggestion.id}>{suggestion.text}</li>)}</ul></div>}
+          <p className="mt-3 whitespace-pre-wrap break-words text-sm text-gray-700">{writtenComment || (suggestions.length ? 'No additional written comment.' : 'No comments provided.')}</p>
         </section>
         {additionalAnswers.length > 0 && (
           <section>

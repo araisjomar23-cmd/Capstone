@@ -1,3 +1,5 @@
+import { isOrganizationAssessment, recommendationStats, recordedAssessmentSuggestions } from '../../features/evaluations/organizationEvaluation'
+import FeedbackSuggestionNote from '../../features/evaluations/FeedbackSuggestionNote'
 import ActivityDateFilter from '../../components/ActivityDateFilter'
 import { currentMonthPeriod, matchesDatePeriod, activityDateLabel } from '../../lib/activityDatePeriod'
 import { useEffect, useState } from 'react'
@@ -59,7 +61,7 @@ function AdminEvaluations() {
   const stats = {
     totalResponses: filtered.length,
     averageRating: filtered.length ? filtered.reduce((sum, r) => sum + r.rating, 0) / filtered.length : 0,
-    recommendRate: filtered.length ? Math.round(filtered.filter((r) => r.wouldRecommend).length / filtered.length * 100) : 0,
+    ...recommendationStats(filtered),
   }
   const activityStats = useMemo(() => {
     const grouped = new Map<string, { title: string; date: string; count: number; ratingTotal: number }>()
@@ -94,11 +96,12 @@ function AdminEvaluations() {
           <div className="text-2xl font-bold text-gray-900 mt-1">
             {stats.averageRating.toFixed(1)}
           </div>
-          <div className="text-xs text-gray-400 mt-1">Out of 5.0 stars</div>
+          <div className="text-xs text-gray-400 mt-1">Out of 5 · assessment averages or historical overall ratings</div>
         </div>
         <div className="bg-white rounded-xl shadow p-4 sm:p-5 border border-gray-100">
           <div className="text-sm text-gray-500">Would Recommend</div>
-          <div className="text-2xl font-bold text-gray-900 mt-1">{`${stats.recommendRate}%`}</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{stats.recommendResponses ? `${stats.recommendRate}%` : 'Not asked'}</div>
+          <p className="mt-1 text-xs text-gray-400">Based on {stats.recommendResponses} responses that include this question.</p>
         </div>
         </>}
       </div>
@@ -149,9 +152,10 @@ function AdminEvaluations() {
                     <div className="text-xs text-gray-400 truncate">{r.activityTitle}</div>
                     <div className="text-xs text-gray-400">{activityDateLabel(r.activityStartDate, r.activityEndDate)}</div>
                   </div>
-                  <Stars rating={r.rating} />
+                  {isOrganizationAssessment(r.responses) ? <span className="shrink-0 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-primary">Assessment {r.rating.toFixed(1)}/5</span> : <Stars rating={r.rating} />}
                 </div>
-                {r.feedback && <p className="text-sm text-gray-600 mt-2 break-words">{r.feedback}</p>}
+                {r.feedback && <p className="text-sm text-gray-600 mt-2 whitespace-pre-wrap break-words">{r.feedback}</p>}
+                <FeedbackSuggestionNote count={recordedAssessmentSuggestions(r.responses, r.feedback).length} />
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
                   <span className={`inline-flex items-center gap-1 text-xs font-medium ${recommendation.tone === 'positive' ? 'text-green-600' : 'text-gray-500'}`}>
                     {recommendation.tone === 'positive' ? <ThumbsUp size={12} /> : recommendation.tone === 'negative' ? <ThumbsDown size={12} /> : <Minus size={12} />}{recommendation.label}

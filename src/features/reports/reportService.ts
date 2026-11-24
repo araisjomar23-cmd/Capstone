@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase'
 import { analyzeFeedbackHybrid, type SuggestedSentiment, type FeedbackTheme, type MatchedSentimentTerm, type FeedbackContext } from '../evaluations/feedbackAnalyzer'
 import { buildFeedbackInsights } from './feedbackInsights'
 import { analyzeOverallEvaluation, type OverallEvaluationAnalysis } from '../evaluations/evaluationAnalysis'
+import { evaluationScore, recommendationStats, recordedAssessmentSuggestions } from '../evaluations/organizationEvaluation'
 
 export interface ReportData {
   period: string
@@ -48,6 +49,7 @@ export interface ReportData {
       text: string
       sentiment: SuggestedSentiment
       isSuggestion?: boolean
+      quickSuggestionCount?: number
       context?: FeedbackContext
       overallEvaluation?: OverallEvaluationAnalysis
       themes: string[]
@@ -99,7 +101,7 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
 
   if (budgetError) throw new Error(`Unable to load report budgets: ${budgetError.message}`)
 
-  const { data: evals, error: evaluationsError } = activityIds.length
+  const { data: savedEvaluations, error: evaluationsError } = activityIds.length
     ? await supabase
       .from('evaluations')
       .select('id, activity_id, rating, would_recommend, feedback, responses, submitted_at')
@@ -108,6 +110,7 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
     : { data: null, error: null }
 
   if (evaluationsError) throw new Error(`Unable to load report evaluations: ${evaluationsError.message}`)
+  const evals = savedEvaluations?.map((evaluation: any) => ({ ...evaluation, rating: evaluationScore(evaluation) ?? evaluation.rating }))
 
   const regsByActivity: Record<string, typeof regs> = {}
   ;(regs || []).forEach((r: any) => {
@@ -196,12 +199,12 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
       const activityEvals = evalsByActivity[a.id] || []
       if (activityEvals.length === 0) return null
       const avg = activityEvals.reduce((s: number, e: any) => s + (e.rating || 0), 0) / activityEvals.length
-      const recCount = activityEvals.filter((e: any) => e.would_recommend).length
+      const recommendations = recommendationStats(activityEvals.map((e: any) => ({ responses: e.responses, wouldRecommend: e.would_recommend })))
       return {
         title: a.title,
         responses: activityEvals.length,
         avgRating: avg.toFixed(1),
-        recommendPct: `${Math.round((recCount / activityEvals.length) * 100)}%`,
+        recommendPct: recommendations.recommendResponses ? `${recommendations.recommendRate}%` : 'Not asked',
       }
     })
     .filter(Boolean) as ReportData['evalRows']
@@ -240,6 +243,7 @@ export async function generateReport(dateFrom: string, dateTo: string): Promise<
       activityTitle: (activities || []).find((activity: any) => activity.id === evaluation.activity_id)?.title || 'Unknown activity',
       submittedAt: evaluation.submitted_at,
       text: comments[index],
+      quickSuggestionCount: recordedAssessmentSuggestions(evaluation.responses, comments[index]).length,
       sentiment: hybridResults.analyses[index].label,
       isSuggestion: Boolean(hybridResults.analyses[index].isSuggestion),
       context: hybridResults.analyses[index].context,

@@ -1,4 +1,5 @@
 import { analyzeFeedback, type FeedbackAnalysis, type SuggestedSentiment } from './feedbackAnalyzer.ts'
+import { ASSESSMENT_QUESTIONS, FACILITATOR_LABEL, assessmentScore, assessmentAverage, isOrganizationAssessment } from './organizationEvaluation.ts'
 
 export interface EvaluationAnalysisInput {
   rating?: unknown
@@ -10,7 +11,8 @@ export interface EvaluationReviewFlag { id: string; title: string; detail: strin
 export interface OverallEvaluationAnalysis {
   rating: number | null
   ratingLabel: string
-  ratingSource: 'rating' | 'overall_star' | 'missing'
+  ratingSource: 'rating' | 'overall_star' | 'assessment_average' | 'missing'
+  ratingScale?: 'assessment' | 'agreement'
   criteria: { key: string; label: string; rating: number | null }[]
   answers: { key: string; label: string; answer: string | null }[]
   recommendation: { label: string; tone: 'positive' | 'neutral' | 'negative' | 'unknown' }
@@ -43,6 +45,7 @@ function score(value: unknown): number | null {
 }
 
 export function evaluationRecommendation(input: EvaluationAnalysisInput): OverallEvaluationAnalysis['recommendation'] {
+  if (isOrganizationAssessment(input.responses)) return { label: 'Recommendation not asked in this form', tone: 'unknown' }
   const rating = score(recordedEvaluationResponses(input.responses).q4)
   if (rating === 3) return { label: 'Neutral recommendation (3/5)', tone: 'neutral' }
   if (rating !== null) return rating > 3 ? { label: 'Would recommend', tone: 'positive' } : { label: 'Would not recommend', tone: 'negative' }
@@ -54,6 +57,7 @@ export function evaluationRecommendation(input: EvaluationAnalysisInput): Overal
 export function analyzeOverallEvaluation(input: EvaluationAnalysisInput, commentAnalysis?: FeedbackAnalysis): OverallEvaluationAnalysis {
   const responses = recordedEvaluationResponses(input.responses)
   const comment = commentAnalysis ?? analyzeFeedback(input.feedback || '')
+  if (isOrganizationAssessment(responses)) return analyzeOrganizationAssessment(input, responses, comment)
   const storedRating = score(input.rating), formRating = score(responses.overall_star)
   const rating = storedRating ?? formRating
   const criteria = CRITERIA.map(([key, label]) => ({ key, label, rating: score(responses[key]) }))
@@ -99,5 +103,34 @@ export function analyzeOverallEvaluation(input: EvaluationAnalysisInput, comment
     reviewRecommended: reviewFlags.length > 0, recordedAnswers, totalAnswers: 10,
     commentSentiment: hasComment ? comment.label : null,
     ...(hasComment && comment.context?.requestType === 'personal-preference' ? { commentContextNote: 'The written comment expresses a personal preference. It is not evidence that this preference caused any rating or future-participation answer.' } : {}),
+  }
+}
+
+function analyzeOrganizationAssessment(input: EvaluationAnalysisInput, responses: Record<string, string>, comment: FeedbackAnalysis): OverallEvaluationAnalysis {
+  const criteria = ASSESSMENT_QUESTIONS.map(question => ({ key: question.key, label: question.shortLabel, rating: assessmentScore(responses[question.key]) }))
+  const rating = assessmentAverage(responses)
+  const facilitator = responses.facilitator_name?.trim() || null
+  const answers = [{ key: 'facilitator_name', label: FACILITATOR_LABEL, answer: facilitator }]
+  const recordedAnswers = Number(Boolean(facilitator)) + criteria.filter(item => item.rating !== null).length
+  const narrative: string[] = []
+  if (facilitator) narrative.push(`The facilitator/trainer/speaker was recorded as “${facilitator}”.`)
+  if (rating !== null) narrative.push(`The average of the seven assessment ratings is ${rating.toFixed(1)}/5, using Poor (1), Average (2), Good (3), Very Good (4), and Excellent (5). This is a calculated assessment average, not a separate overall-rating answer or written-comment sentiment.`)
+  const lowerRatings = criteria.filter(item => item.rating !== null && item.rating <= 2)
+  const reviewFlags: EvaluationReviewFlag[] = []
+  if (lowerRatings.length) {
+    const detail = `Lower ratings were recorded for ${lowerRatings.map(item => item.label).join(', ')}. Review these answers alongside the participant’s own comments; they do not establish the cause of the ratings.`
+    reviewFlags.push({ id: 'assessment-priorities', title: 'Assessment areas to review', detail, responseKeys: lowerRatings.map(item => item.key) })
+    narrative.push(detail)
+  }
+  if (recordedAnswers < 8) narrative.push(`Structured assessment answers are incomplete (${recordedAnswers}/8 recorded). No missing answers or overall average have been inferred.`)
+  narrative.push('This form does not ask about future attendance, time management or recommendations. No conclusions about those answers have been inferred.')
+  const hasComment = Boolean(input.feedback?.trim())
+  return {
+    rating, ratingLabel: rating === null ? 'Assessment average unavailable' : 'Assessment Average',
+    ratingSource: rating === null ? 'missing' : 'assessment_average', ratingScale: 'assessment',
+    criteria, answers, recommendation: evaluationRecommendation(input), narrative, reviewFlags,
+    reviewRecommended: reviewFlags.length > 0, recordedAnswers, totalAnswers: 8,
+    commentSentiment: hasComment ? comment.label : null,
+    ...(hasComment && comment.context?.requestType === 'personal-preference' ? { commentContextNote: 'The written comment expresses a personal preference. It is not evidence that this preference caused any assessment rating.' } : {}),
   }
 }

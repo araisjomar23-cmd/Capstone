@@ -21,6 +21,42 @@ function load(relative, mocks = {}) {
 const { analyzeFeedback } = load('src/features/evaluations/feedbackAnalyzer.ts')
 const FeedbackComment = load('src/features/reports/FeedbackComment.tsx').default
 const { analyzeOverallEvaluation } = load('src/features/evaluations/evaluationAnalysis.ts')
+const assessmentModel = load('src/features/evaluations/organizationEvaluation.ts')
+
+test('organization summary shows Good instead of Neutral for a score of three', () => {
+  const OverallEvaluationSummary = load('src/features/evaluations/OverallEvaluationSummary.tsx').default
+  const responses = {form_version: assessmentModel.ASSESSMENT_VERSION, facilitator_name: 'Example', ...Object.fromEntries(assessmentModel.ASSESSMENT_QUESTIONS.map(q => [q.key, 'Good']))}
+  const analysis = analyzeOverallEvaluation({rating: 3, responses, feedback: 'I want more pogi participants'})
+  const html = renderToStaticMarkup(React.createElement(OverallEvaluationSummary, {analysis}))
+  assert.match(html, /Assessment Average/)
+  assert.match(html, /3\/5 - Good/)
+  assert.match(html, /Written comment sentiment/)
+  assert.match(html, />Neutral</)
+  assert.doesNotMatch(html, /3\/5 — Neutral|Neutral Overall Rating/)
+})
+
+test('full organization response separates selected suggestions from the original typed comment', () => {
+  const Details = load('src/features/evaluations/EvaluationResponseDetails.tsx').default
+  const responses = {form_version: assessmentModel.ASSESSMENT_VERSION, facilitator_name: 'Example', selected_suggestions: '["hands-on","questions"]', written_comment: 'My own words', ...Object.fromEntries(assessmentModel.ASSESSMENT_QUESTIONS.map(q => [q.key, 'Good']))}
+  const html = renderToStaticMarkup(React.createElement(Details, {evaluation: {id:'preview',responses,rating:3,feedback:assessmentModel.assessmentFeedback(responses, responses.written_comment),participantName:'Example participant',activityTitle:'Example training',submittedAt:'2026-11-24T00:00:00Z'}}))
+  assert.match(html, /Selected suggestions/)
+  assert.match(html, /I suggest adding more hands-on activities/)
+  assert.match(html, /Please allow more time for questions and discussion/)
+  assert.equal((html.match(/My own words/g) || []).length, 1)
+  assert.doesNotMatch(html, /written_comment|selected_suggestions|Additional Answers/)
+})
+
+test('editable responses show the final comment once without restoring stale suggestion metadata', () => {
+  const Details = load('src/features/evaluations/EvaluationResponseDetails.tsx').default
+  const finalText = 'My edited comment.\nPlease allow more time for questions and discussion.'
+  const responses = {form_version: assessmentModel.ASSESSMENT_VERSION, feedback_format: assessmentModel.EDITABLE_FEEDBACK_FORMAT, facilitator_name: 'Example', selected_suggestions:'["hands-on","questions"]', written_comment:'Stale text that must not replace the final comment'}
+  const evaluation = {id:'preview',responses,rating:3,feedback:finalText,participantName:'Example participant',activityTitle:'Example training',submittedAt:'2026-11-24T00:00:00Z'}
+  const html = renderToStaticMarkup(React.createElement(Details, {evaluation}))
+  assert.equal((html.match(/My edited comment/g) || []).length, 1)
+  assert.equal((html.match(/Please allow more time for questions and discussion/g) || []).length, 1)
+  assert.match(html, /Includes 1 quick suggestion selected by the participant/)
+  assert.doesNotMatch(html, /Stale text|hands-on|feedback_format|written_comment|selected_suggestions/)
+})
 
 test('feedback card preserves original text and displays independent contextual classifications', () => {
   const text = '  I want more pogi participants  '
@@ -64,4 +100,25 @@ test('report fetch includes saved survey answers and attaches overall context wi
   assert.equal(report.evalRows[0].recommendPct, '0%')
   assert.equal(report.totalAttended, 1)
   assert.doesNotMatch(report.insights.join(' '), /appearance-based|participant is dissatisfied/)
+})
+
+test('Insights analyzes each final edited comment once without reinserting selected suggestions', async () => {
+  const responses = {form_version:assessmentModel.ASSESSMENT_VERSION,feedback_format:assessmentModel.EDITABLE_FEEDBACK_FORMAT,facilitator_name:'Example',selected_suggestions:'["hands-on","questions"]',...Object.fromEntries(assessmentModel.ASSESSMENT_QUESTIONS.map(q=>[q.key,'Good']))}
+  const texts = ['Nindot ang venue.\nPlease allow more time for questions and discussion.', 'I want more pogi participants']
+  const tables = {legacy_activities:[{id:'a',title:'Sample training',status:'completed',slots:2,start_date:'2026-11-24',programs:{name:'Education'}}],registration_details:[],budget_entries:[],evaluations:texts.map((feedback,index)=>({id:String(index),activity_id:'a',rating:3,would_recommend:false,feedback,responses:{...responses,written_comment:'Stale text'},submitted_at:'2026-11-24T01:00:00Z'}))}
+  let analyzed
+  const supabase={from(table){return {select(){return this},gte(){return this},lte(){return this},in(){return this},neq(){return this},order(){return this},then(resolve,reject){return Promise.resolve({data:tables[table],error:null}).then(resolve,reject)}}}}
+  const {generateReport}=load('src/features/reports/reportService.ts',{'../../lib/supabase':{supabase},'../evaluations/feedbackAnalyzer':{analyzeFeedbackHybrid:async comments=>{analyzed=comments;return {analyses:comments.map(analyzeFeedback),sentimentSources:comments.map(()=>'rules'),semanticAssistedComments:0,modelStatus:'unavailable'}}}})
+  const report=await generateReport('2026-11-01','2026-11-30')
+  assert.deepEqual(analyzed,texts)
+  assert.deepEqual(report.feedbackAnalysis.comments.map(comment=>comment.text),texts)
+  assert.deepEqual(report.feedbackAnalysis.comments.map(comment=>comment.quickSuggestionCount),[1,0])
+  assert.equal(report.feedbackAnalysis.analyzedComments,2)
+  assert.equal(report.feedbackAnalysis.comments[1].sentiment,'neutral')
+  assert.equal(Object.values(report.feedbackAnalysis.sentimentCounts).reduce((sum,count)=>sum+count,0),2)
+  assert.equal(report.avgSatisfaction,'3.0')
+  assert.equal(report.evalRows[0].recommendPct,'Not asked')
+  const html=renderToStaticMarkup(React.createElement(FeedbackComment,{comment:report.feedbackAnalysis.comments[0]}))
+  assert.match(html,/Includes 1 quick suggestion selected by the participant/)
+  assert.doesNotMatch(html,/hands-on|Stale text/)
 })
